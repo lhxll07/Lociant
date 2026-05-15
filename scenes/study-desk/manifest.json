@@ -1,0 +1,105 @@
+{
+  "id": "study-desk",
+  "name": "\u8bfe\u684c\u5b66\u4e60",
+  "version": "0.1.12",
+  "description": "A minimal focus-study scene pack.",
+  "entry": "web/index.html",
+  "permissions": [
+    "camera"
+  ],
+  "capabilities": [
+    "timer",
+    "camera-preview",
+    "vision-analysis",
+    "vision-settings",
+    "model-chat",
+    "focus-state-tracking"
+  ],
+  "models": [
+    {
+      "id": "yolov8n",
+      "runtime": "ncnn",
+      "required": true,
+      "purpose": "object-detection"
+    },
+    {
+      "id": "qwen3.5-2b-mnn",
+      "runtime": "mnn",
+      "required": false,
+      "purpose": "chat-image"
+    }
+  ],
+  "runtime": {
+    "type": "vision-rules",
+    "state": {
+      "initial": "focused",
+      "states": [
+        "focused",
+        "away",
+        "distracted"
+      ]
+    },
+    "rules": [
+      {
+        "id": "person-away",
+        "conditions": [
+          {
+            "missing": "person",
+            "classId": 0,
+            "confidenceGte": 0.45
+          }
+        ],
+        "forMs": 5000,
+        "setState": "away",
+        "emit": "person.away",
+        "fromStates": [
+          "focused",
+          "distracted"
+        ],
+        "cooldownKey": "study-presence",
+        "cooldownMs": 10000
+      },
+      {
+        "id": "person-back",
+        "conditions": [
+          {
+            "present": "person",
+            "classId": 0,
+            "confidenceGte": 0.45
+          }
+        ],
+        "forMs": 2000,
+        "setState": "focused",
+        "emit": "person.back",
+        "fromStates": [
+          "away"
+        ],
+        "cooldownKey": "study-presence",
+        "cooldownMs": 5000
+      },
+      {
+        "id": "phone-visible",
+        "conditions": [
+          {
+            "present": "person",
+            "classId": 0,
+            "confidenceGte": 0.45
+          },
+          {
+            "present": "cell phone",
+            "classId": 67,
+            "confidenceGte": 0.45
+          }
+        ],
+        "forMs": 1500,
+        "setState": "distracted",
+        "emit": "phone.visible",
+        "fromStates": [
+          "focused"
+        ],
+        "cooldownKey": "study-distraction",
+        "cooldownMs": 8000
+      }
+    ]
+  }
+}

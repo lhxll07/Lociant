@@ -1,0 +1,35 @@
+# Build artifacts
+.gradle/
+build/
+*/build/
+/local.properties
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large model files (too big for git)
+models/Qwen3.5-2B-MNN/
+models/Qwen3.5-2B-MNN.zip
+models/Qwen3.5-4B-MNN/
+models/Qwen3.5-4B-MNN.zip
+
+# Distribution builds (pre-built APKs and scene packs)
+dist/
+
+# Embedded git repos (NCNN source)
+tools/NCNN/ncnn/
+
+# Temporary files
+*.tmp
+*.log

@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Model Server</title>
+  <style>
+    :root {
+      --bg: #080808;
+      --panel: #111111;
+      --panel-soft: #151515;
+      --line: #242424;
+      --text: #f2f2f2;
+      --muted: #8a8a8a;
+      --blue: #69a8ff;
+      --blue-soft: rgba(17, 27, 41, .82);
+      --warn: #ffbd68;
+      --ease: cubic-bezier(.22, .8, .24, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: transparent;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    button {
+      border: 0;
+      padding: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .scene {
+      width: min(100%, 980px);
+      padding: 4px 0 34px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 10px;
+      color: #f0f0f0;
+      font-size: 42px;
+      line-height: 1.02;
+      font-weight: 820;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 620px;
+      margin: 0;
+      color: #9b9b9b;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      height: 40px;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 189, 104, .28);
+      border-radius: 999px;
+      background: rgba(42, 28, 13, .72);
+      color: var(--warn);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .status-pill.running {
+      border-color: rgba(105, 168, 255, .28);
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 16px currentColor;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .section {
+      border-top: 1px solid var(--line);
+      padding-top: 18px;
+    }
+
+    .section + .section { margin-top: 24px; }
+
+    .section-title {
+      margin: 0 0 14px;
+      color: #d8d8d8;
+      font-size: 16px;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .server-panel {
+      display: grid;
+      gap: 14px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 72px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .metric-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 8px;
+      color: #eeeeee;
+      font-size: 16px;
+      font-weight: 850;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .button {
+      height: 42px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #121212;
+      color: #e6e6e6;
+      font-size: 14px;
+      font-weight: 850;
+      transition: background 160ms ease, border-color 160ms ease, transform 160ms var(--ease), opacity 160ms ease;
+    }
+
+    .button:hover,
+    .button:active {
+      background: #181818;
+      border-color: #333333;
+    }
+
+    .button.primary {
+      border-color: rgba(105, 168, 255, .28);
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .button.danger {
+      color: #ff9f9f;
+    }
+
+    .button:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .field input {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f0f0f;
+      color: #eeeeee;
+      padding: 0 11px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      outline: none;
+    }
+
+    .field input:focus {
+      border-color: rgba(105, 168, 255, .42);
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      color: #d8d8d8;
+      font-size: 13px;
+      font-weight: 780;
+    }
+
+    .check-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--blue);
+    }
+
+    .endpoint-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .endpoint {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr);
+      align-items: center;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      gap: 12px;
+    }
+
+    .method {
+      height: 26px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #cfcfcf;
+      background: #1b1b1b;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    code {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #dedede;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
+    .example {
+      margin: 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0d0d0d;
+      color: #cfcfcf;
+      overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      user-select: text;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .request-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .session-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .session-current {
+      min-width: 0;
+      color: #eeeeee;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .session-current span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    .session-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .request-row {
+      min-height: 52px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .session-row {
+      text-align: left;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .session-row.active {
+      border-color: rgba(105, 168, 255, .35);
+      background: var(--blue-soft);
+    }
+
+    .request-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #eeeeee;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .request-sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .scene { padding-right: 14px; }
+      .hero,
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 34px; }
+      .metric-grid { grid-template-columns: 1fr; }
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="scene">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">LAN API Node</div>
+        <h1>Model Server</h1>
+        <p class="lead">Expose MNNode models to local clients with a small OpenAI/Ollama-style chat API. Text chat, image chat, streaming, and scene calls share the same native runtime path.</p>
+      </div>
+      <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Preview</span></div>
+    </header>
+
+    <div class="layout">
+      <div>
+        <section class="section server-panel">
+          <h2 class="section-title">Server</h2>
+          <div class="metric-grid">
+            <div class="metric">
+              <div class="metric-label">URL</div>
+              <div class="metric-value" id="serverUrl">http://0.0.0.0:11434</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Model</div>
+              <div class="metric-value" id="modelName">qwen3.5-2b-mnn</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Queue</div>
+              <div class="metric-value" id="queueState">Serial</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Requests</div>
+              <div class="metric-value" id="requestCount">0</div>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="button primary" id="startBtn" type="button">Start</button>
+            <button class="button" id="stopBtn" type="button">Stop</button>
+            <button class="button" id="refreshBtn" type="button">Refresh</button>
+          </div>
+          <div class="note" id="messageText">Start the server to expose chat endpoints on the local network.</div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Settings</h2>
+          <div class="settings-grid">
+            <div class="field">
+              <label for="portInput">Port</label>
+              <input id="portInput" type="number" min="1024" max="65535" value="11434">
+            </div>
+            <div class="field">
+              <label for="maxTokensInput">Max output tokens</label>
+              <input id="maxTokensInput" type="number" min="8" max="4096" value="512">
+            </div>
+          </div>
+          <label class="check-row">
+            <input id="autoStartInput" type="checkbox" disabled>
+            <span>Auto start on app launch</span>
+          </label>
+          <div class="note">Settings are saved locally. Auth will be added after the token model is hardened.</div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Endpoints</h2>
+          <div class="endpoint-list">
+            <div class="endpoint"><span class="method">GET</span><code>/health</code></div>
+            <div class="endpoint"><span class="method">GET</span><code>/v1/models</code></div>
+            <div class="endpoint"><span class="method">POST</span><code>/v1/chat/completions</code></div>
+            <div class="endpoint"><span class="method">POST</span><code>/api/chat</code></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="section">
+          <h2 class="section-title">Quick Test</h2>
+          <pre class="example" id="curlExample">curl http://0.0.0.0:11434/health</pre>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Sessions</h2>
+          <div class="session-head">
+            <div class="session-current">Current<span id="currentSession">model-server/chat/default</span></div>
+            <button class="button primary" id="newSessionBtn" type="button">New</button>
+          </div>
+          <div class="note">External clients can persist chats by sending <code>X-MNNode-Session-Id</code>.</div>
+          <div class="session-list" id="sessionList">
+            <div class="request-row">
+              <div class="request-main"><span>Default Chat</span><span>0</span></div>
+              <div class="request-sub">model-server/chat/default</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Recent Requests</h2>
+          <div class="request-list" id="requestList">
+            <div class="request-row">
+              <div class="request-main"><span>No requests yet</span><span>--</span></div>
+              <div class="request-sub">Requests will appear here after the native server is enabled.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const SCENE_ID = 'model-server'
+    const statusPill = document.getElementById('statusPill')
+    const statusText = document.getElementById('statusText')
+    const serverUrl = document.getElementById('serverUrl')
+    const modelName = document.getElementById('modelName')
+    const queueState = document.getElementById('queueState')
+    const requestCount = document.getElementById('requestCount')
+    const messageText = document.getElementById('messageText')
+    const curlExample = document.getElementById('curlExample')
+    const currentSession = document.getElementById('currentSession')
+    const sessionList = document.getElementById('sessionList')
+    const newSessionBtn = document.getElementById('newSessionBtn')
+    const requestList = document.getElementById('requestList')
+    const startBtn = document.getElementById('startBtn')
+    const stopBtn = document.getElementById('stopBtn')
+    const refreshBtn = document.getElementById('refreshBtn')
+    const portInput = document.getElementById('portInput')
+    const maxTokensInput = document.getElementById('maxTokensInput')
+    const autoStartInput = document.getElementById('autoStartInput')
+    let selectedSessionId = 'model-server/chat/default'
+
+    function postToShell(message) {
+      if (parent && parent !== window) parent.postMessage(message, '*')
+    }
+
+    function applyState(state) {
+      const running = !!(state && state.running)
+      const starting = !!(state && state.starting)
+      const url = state && (state.lanUrl || state.url) ? (state.lanUrl || state.url) : 'http://0.0.0.0:11434'
+      statusPill.classList.toggle('running', running)
+      statusText.textContent = starting ? 'Starting' : (running ? 'Running' : 'Preview')
+      serverUrl.textContent = url
+      modelName.textContent = (state && state.modelId) || 'qwen3.5-2b-mnn'
+      queueState.textContent = state && state.running ? 'Serial' : 'Idle'
+      requestCount.textContent = String((state && state.requestCount) || 0)
+      messageText.textContent = (state && state.message) || 'Start the server to expose chat endpoints on the local network.'
+      selectedSessionId = (state && state.currentSessionId) || selectedSessionId
+      currentSession.textContent = selectedSessionId
+      renderQuickTest(url, (state && state.modelId) || 'qwen3.5-2b-mnn')
+      if (!running && !starting) {
+        if (document.activeElement !== portInput) portInput.value = String((state && state.port) || 11434)
+        if (document.activeElement !== maxTokensInput) maxTokensInput.value = String((state && state.maxOutputTokens) || 512)
+        autoStartInput.checked = !!(state && state.autoStart)
+      }
+      startBtn.disabled = running || starting
+      stopBtn.disabled = !running || starting
+      portInput.disabled = running || starting
+      maxTokensInput.disabled = running || starting
+      renderSessions((state && state.sessions) || [])
+      renderRequests((state && state.recentRequests) || [])
+    }
+
+    function readSettings() {
+      const port = Math.max(1024, Math.min(65535, Number(portInput.value) || 11434))
+      const maxOutputTokens = Math.max(8, Math.min(4096, Number(maxTokensInput.value) || 512))
+      portInput.value = String(port)
+      maxTokensInput.value = String(maxOutputTokens)
+      return {
+        sceneId: SCENE_ID,
+        port,
+        maxOutputTokens,
+        autoStart: false
+      }
+    }
+
+    function saveSettings() {
+      postToShell(Object.assign({ type: 'api.server.settings' }, readSettings()))
+    }
+
+    function renderQuickTest(url, modelId) {
+      const body = {
+        model: modelId,
+        sessionId: selectedSessionId,
+        messages: [{ role: 'user', content: 'Say hello in one short sentence.' }],
+        stream: true
+      }
+      curlExample.textContent = [
+        'curl ' + url + '/v1/chat/completions \\',
+        '  -H "Content-Type: application/json" \\',
+        '  -H "X-MNNode-Session-Id: ' + selectedSessionId + '" \\',
+        "  -d '" + JSON.stringify(body) + "'"
+      ].join('\n')
+    }
+
+    function renderSessions(items) {
+      sessionList.innerHTML = ''
+      const sessions = items.length ? items : [{ id: selectedSessionId, title: 'Default Chat', messageCount: 0, lastText: '' }]
+      sessions.slice(0, 8).forEach(item => {
+        const row = document.createElement('div')
+        row.className = 'request-row session-row' + (item.id === selectedSessionId ? ' active' : '')
+        row.setAttribute('role', 'button')
+        row.tabIndex = 0
+        row.addEventListener('click', () => {
+          selectedSessionId = item.id
+          postToShell({ type: 'api.server.session.select', sceneId: SCENE_ID, sessionId: selectedSessionId })
+        })
+        row.addEventListener('keydown', event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          selectedSessionId = item.id
+          postToShell({ type: 'api.server.session.select', sceneId: SCENE_ID, sessionId: selectedSessionId })
+        })
+
+        const main = document.createElement('div')
+        main.className = 'request-main'
+        const title = document.createElement('span')
+        title.textContent = item.title || item.id || 'Chat'
+        const count = document.createElement('span')
+        count.textContent = String(item.messageCount || 0)
+        main.appendChild(title)
+        main.appendChild(count)
+
+        const sub = document.createElement('div')
+        sub.className = 'request-sub'
+        const time = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString('zh-CN', { hour12: false }) : ''
+        sub.textContent = [item.lastText || item.id, time].filter(Boolean).join(' · ')
+
+        const controls = document.createElement('div')
+        controls.className = 'controls'
+        const deleteBtn = document.createElement('button')
+        deleteBtn.type = 'button'
+        deleteBtn.className = 'button danger'
+        deleteBtn.textContent = 'Delete'
+        deleteBtn.addEventListener('click', event => {
+          event.stopPropagation()
+          postToShell({ type: 'api.server.session.delete', sceneId: SCENE_ID, sessionId: item.id })
+        })
+        controls.appendChild(deleteBtn)
+
+        row.appendChild(main)
+        row.appendChild(sub)
+        row.appendChild(controls)
+        sessionList.appendChild(row)
+      })
+    }
+
+    function renderRequests(items) {
+      requestList.innerHTML = ''
+      if (!items.length) {
+        requestList.innerHTML = '<div class="request-row"><div class="request-main"><span>No requests yet</span><span>--</span></div><div class="request-sub">Requests will appear here after the native server is enabled.</div></div>'
+        return
+      }
+      items.slice(0, 6).forEach(item => {
+        const row = document.createElement('div')
+        row.className = 'request-row'
+        const main = document.createElement('div')
+        main.className = 'request-main'
+        const name = document.createElement('span')
+        name.textContent = item.endpoint || 'request'
+        const status = document.createElement('span')
+        status.textContent = item.status || '--'
+        const sub = document.createElement('div')
+        sub.className = 'request-sub'
+        const time = item.time ? new Date(item.time).toLocaleTimeString('zh-CN', { hour12: false }) : ''
+        sub.textContent = [item.method, item.elapsedMs ? item.elapsedMs + ' ms' : '', time].filter(Boolean).join(' · ')
+        main.appendChild(name)
+        main.appendChild(status)
+        row.appendChild(main)
+        row.appendChild(sub)
+        requestList.appendChild(row)
+      })
+    }
+
+    function requestState() {
+      postToShell({ type: 'api.server.status', sceneId: SCENE_ID })
+    }
+
+    startBtn.addEventListener('click', () => {
+      applyState(Object.assign({ running: false, starting: true }, readSettings()))
+      postToShell(Object.assign({ type: 'api.server.start' }, readSettings()))
+    })
+
+    stopBtn.addEventListener('click', () => {
+      postToShell({ type: 'api.server.stop', sceneId: SCENE_ID })
+    })
+
+    refreshBtn.addEventListener('click', requestState)
+    newSessionBtn.addEventListener('click', () => {
+      postToShell({ type: 'api.server.session.create', sceneId: SCENE_ID })
+    })
+    portInput.addEventListener('change', saveSettings)
+    maxTokensInput.addEventListener('change', saveSettings)
+    portInput.addEventListener('blur', saveSettings)
+    maxTokensInput.addEventListener('blur', saveSettings)
+
+    window.addEventListener('message', event => {
+      if (!event.data || !event.data.type) return
+      if (event.data.type === 'api.server.state') applyState(event.data)
+      if (event.data.type === 'scene.dispose') saveSettings()
+    })
+
+    applyState({ running: false })
+    postToShell({ type: 'scene.ready', sceneId: SCENE_ID })
+    requestState()
+  </script>
+</body>
+</html>

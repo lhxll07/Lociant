@@ -1,0 +1,97 @@
+{
+  "id": "baby-guard",
+  "name": "Baby Guard",
+  "version": "0.1.0",
+  "description": "A minimal person-presence guard scene pack.",
+  "entry": "web/index.html",
+  "permissions": [
+    "camera"
+  ],
+  "capabilities": [
+    "camera-preview",
+    "vision-analysis",
+    "vision-settings",
+    "runtime-rules"
+  ],
+  "models": [
+    {
+      "id": "yolov8n",
+      "runtime": "ncnn",
+      "required": true,
+      "purpose": "object-detection"
+    }
+  ],
+  "runtime": {
+    "type": "vision-rules",
+    "state": {
+      "initial": "watch",
+      "states": [
+        "watch",
+        "safe",
+        "alert"
+      ]
+    },
+    "rules": [
+      {
+        "id": "person-visible",
+        "conditions": [
+          {
+            "present": "person",
+            "classId": 0,
+            "confidenceGte": 0.45
+          }
+        ],
+        "forMs": 1000,
+        "actions": [
+          {
+            "type": "setState",
+            "state": "safe"
+          },
+          {
+            "type": "emit",
+            "name": "guard.person.visible"
+          }
+        ],
+        "fromStates": [
+          "watch",
+          "alert"
+        ],
+        "cooldownKey": "guard-presence",
+        "cooldownMs": 5000
+      },
+      {
+        "id": "person-missing",
+        "conditions": [
+          {
+            "missing": "person",
+            "classId": 0,
+            "confidenceGte": 0.45
+          }
+        ],
+        "forMs": 5000,
+        "actions": [
+          {
+            "type": "setState",
+            "state": "alert"
+          },
+          {
+            "type": "alert",
+            "level": "critical",
+            "title": "Person missing",
+            "message": "No person has been detected for 5 seconds."
+          },
+          {
+            "type": "emit",
+            "name": "guard.person.missing"
+          }
+        ],
+        "fromStates": [
+          "watch",
+          "safe"
+        ],
+        "cooldownKey": "guard-alert",
+        "cooldownMs": 12000
+      }
+    ]
+  }
+}

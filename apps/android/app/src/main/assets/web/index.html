@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MNNode</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <button class="menu-button pressable" id="menuButton" aria-label="toggle sidebar">
+        <span class="hamburger"></span>
+      </button>
+
+      <nav class="nav">
+        <button class="nav-item pressable active" data-page="scenes">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M8 4h10a2 2 0 0 1 2 2v14H7a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2h2z"/><path d="M8 4v14"/><path d="M11 8h5"/><path d="M11 12h4"/></svg></span>
+          <span class="nav-label" data-i18n="nav.scenes">&#22330;&#26223;</span>
+        </button>
+
+        <button class="nav-item pressable" data-page="settings">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></span>
+          <span class="nav-label" data-i18n="nav.settings">&#35774;&#32622;</span>
+        </button>
+
+        <button class="nav-item pressable" data-page="models">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
+          <span class="nav-label" data-i18n="nav.models">&#27169;&#22411;</span>
+        </button>
+
+        <button class="nav-item pressable" data-page="nodes">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l2.1-2.1a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0L4.8 13.1a5 5 0 0 0 7.1 7.1L13 19.1"/></svg></span>
+          <span class="nav-label" data-i18n="nav.nodes">&#22810;&#33410;&#28857;</span>
+        </button>
+      </nav>
+
+      <div class="version">v0.3</div>
+    </aside>
+
+    <main class="main">
+      <section class="status-card">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="state">
+          <button class="back-button pressable" id="backButton" data-i18n="common.back">&#36820;&#22238;</button>
+          <button class="scene-settings-button pressable" id="sceneSettingsButton" data-i18n="nav.settings">&#35774;&#32622;</button>
+          <span class="state-dot"></span><span id="stateText" data-i18n="state.idle">&#24453;&#26426;</span>
+        </div>
+      </section>
+
+      <button class="runtime-strip pressable" id="runtimeStrip" type="button" aria-hidden="true">
+        <span class="runtime-strip-dot"></span>
+        <span class="runtime-strip-body">
+          <span class="runtime-strip-title" id="runtimeSceneName">Scene</span>
+          <span class="runtime-strip-event" id="runtimeEventText">No event</span>
+        </span>
+        <span class="runtime-strip-meta">
+          <span class="runtime-strip-state" id="runtimeStateText">Idle</span>
+          <span class="runtime-strip-time" id="runtimeElapsedText">00:00</span>
+        </span>
+      </button>
+
+      <div class="alert-banner" id="alertBanner" aria-hidden="true">
+        <div class="alert-mark"></div>
+        <div class="alert-body">
+          <div class="alert-kicker" id="alertSceneName">Scene Alert</div>
+          <div class="alert-title" id="alertTitle">Alert</div>
+          <div class="alert-message" id="alertMessage"></div>
+        </div>
+        <div class="alert-actions">
+          <button class="alert-open pressable" id="alertOpenButton" type="button" data-i18n="common.open">&#25171;&#24320;</button>
+          <button class="alert-close pressable" id="alertCloseButton" type="button" aria-label="dismiss alert">&times;</button>
+        </div>
+      </div>
+
+      <section class="panel active" id="page-scenes">
+        <div class="scene-head">
+          <h1 class="section-title" data-i18n="nav.scenes">&#22330;&#26223;</h1>
+          <div class="scene-actions-top">
+            <button class="reload-button pressable" id="reloadButton" data-i18n="common.refresh">&#21047;&#26032;</button>
+            <button class="install-button pressable" id="installButton" data-i18n="common.install">+ &#23433;&#35013;</button>
+          </div>
+        </div>
+        <div class="scene-list" id="sceneList"></div>
+      </section>
+
+      <section class="panel" id="page-settings">
+        <h1 class="section-title" data-i18n="nav.settings">&#35774;&#32622;</h1>
+        <div class="settings-list" id="settingsList">
+          <div class="settings-row static">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.language">Language</span>
+              <span class="settings-row-sub" data-i18n="settings.languageSub">Follow system or choose a display language.</span>
+            </span>
+            <span class="segmented-control" id="languageControl">
+              <button class="segmented-option pressable" data-lang-mode="system" type="button" data-i18n="settings.followSystem">System</button>
+              <button class="segmented-option pressable" data-lang-mode="zh" type="button">中文</button>
+              <button class="segmented-option pressable" data-lang-mode="en" type="button">English</button>
+            </span>
+          </div>
+          <button class="settings-row pressable" id="runtimeSettingsButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.runtimeTitle">Runtime 与后台运行</span>
+              <span class="settings-row-sub" data-i18n="settings.runtimeSub">前台服务、前台小窗和模型服务</span>
+            </span>
+            <span class="settings-row-state" id="runtimeSettingsState">Stopped</span>
+          </button>
+        </div>
+
+        <div class="settings-detail" id="runtimeSettingsPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="runtimeSettingsBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="settings.runtimeTitle">Runtime 与后台运行</h2>
+              <p data-i18n="settings.runtimeIntro">控制 MNNode 作为本地 AI 节点在后台运行。</p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.modelServer">Model Server</div>
+              <div class="settings-section-sub" id="runtimeServiceMessage" data-i18n="settings.runtimeDefaultMessage">Foreground service exposes the LAN API; foreground window keeps inference visible.</div>
+            </div>
+            <button class="settings-action pressable" id="runtimeServiceToggle" type="button">Start</button>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.pipTitle">Floating Window</div>
+              <div class="settings-section-sub" data-i18n="settings.pipSub">Show a small runtime window over other apps while the server runs.</div>
+            </div>
+            <div class="settings-actions">
+              <label class="switch-row">
+                <input id="runtimeWindowAutoInput" type="checkbox">
+                <span data-i18n="settings.windowAuto">Auto</span>
+              </label>
+              <button class="settings-action pressable" id="runtimeWindowButton" type="button" data-i18n="settings.windowShow">Show</button>
+              <button class="settings-action pressable" id="runtimeWindowPermissionButton" type="button" data-i18n="settings.windowPermission">Permission</button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.cpuThreads">CPU Threads</div>
+              <div class="settings-section-sub" data-i18n="settings.cpuThreadsSub">Override the model config thread_num for MNN inference.</div>
+            </div>
+            <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
+          </div>
+
+          <button class="settings-row pressable" id="runtimeModelButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.defaultModelTitle">Default Model</span>
+              <span class="settings-row-sub" data-i18n="settings.defaultModelSub">Choose the default model used by the model server.</span>
+            </span>
+            <span class="settings-row-state" id="runtimeModelState">--</span>
+          </button>
+
+          <div class="settings-diagnostics" id="runtimeDiagnostics">
+            <div class="diagnostic-row"><span>Service</span><strong id="diagService">--</strong></div>
+            <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
+            <div class="diagnostic-row"><span>URL</span><strong id="diagUrl">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">CPU Threads</span><strong id="diagCpuThreads">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">Default</span><strong id="diagDefaultTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">Model Cap</span><strong id="diagModelTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">Effective Cap</span><strong id="diagEffectiveTokens">--</strong></div>
+            <div class="diagnostic-row"><span>Last error</span><strong id="diagError">--</strong></div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.battery">Battery Optimization</div>
+              <div class="settings-section-sub" id="batteryOptimizationText" data-i18n="settings.checking">Checking status...</div>
+            </div>
+            <button class="settings-action pressable" id="batteryOptimizationButton" type="button">Allow</button>
+          </div>
+
+          <div class="settings-note" data-i18n="settings.runtimeScope">稳定推理建议在亮屏时使用前台小窗。锁屏继续运行仍取决于系统策略。</div>
+        </div>
+
+        <div class="settings-detail" id="runtimeModelPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="runtimeModelBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="settings.defaultModelTitle">Default Model</h2>
+              <p data-i18n="settings.defaultModelIntro">Pick the default model for OpenAI and Ollama requests that do not override model explicitly.</p>
+            </div>
+          </div>
+
+          <div class="settings-note" id="runtimeModelNote" data-i18n="settings.defaultModelNote">Only ready local models are shown here.</div>
+          <div class="model-choice-list" id="runtimeModelList"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="page-models">
+        <div class="scene-head">
+          <h1 class="section-title" data-i18n="nav.models">&#27169;&#22411;</h1>
+          <div class="scene-actions-top">
+            <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">&#37325;&#26032;&#25195;&#25551;</button>
+            <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">&#23548;&#20837;</button>
+            <button class="install-button pressable" id="modelMarketButton" data-i18n="models.market">&#27169;&#22411;&#24066;&#22330; &middot; Soon</button>
+          </div>
+        </div>
+        <div class="model-progress" id="modelProgress">
+          <div class="model-progress-row">
+            <span id="modelProgressText">妯″瀷姝ｅ湪瀵煎叆</span>
+            <span class="model-progress-percent" id="modelProgressPercent"></span>
+          </div>
+          <div class="model-progress-track">
+            <div class="model-progress-fill" id="modelProgressFill"></div>
+          </div>
+        </div>
+        <div class="model-list" id="modelList"></div>
+      </section>
+
+      <section class="panel" id="page-nodes">
+        <h1 class="section-title" data-i18n="nav.nodes">&#22810;&#33410;&#28857;</h1>
+        <div class="simple-card" data-i18n="nodes.placeholder">&#22810;&#33410;&#28857;&#21457;&#29616;&#12289;&#36830;&#25509;&#29366;&#24577;&#21644;&#21327;&#21516;&#20219;&#21153;&#20250;&#25918;&#22312;&#36825;&#37324;&#12290;&#24403;&#21069;&#29256;&#26412;&#20165;&#20445;&#30041;&#30028;&#38754;&#21344;&#20301;&#12290;</div>
+      </section>
+
+      <section class="scene-host" id="sceneHost">
+        <iframe class="scene-frame" id="sceneFrame" title="Scene Pack" allow="camera; microphone"></iframe>
+      </section>
+
+      <div class="toast" id="toast"></div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
