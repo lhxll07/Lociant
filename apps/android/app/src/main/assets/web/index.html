@@ -125,6 +125,74 @@
             <button class="settings-action pressable" id="runtimeServiceToggle" type="button">Start</button>
           </div>
 
+          <button class="settings-row pressable" id="runtimeServerButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.serverTitle">Server</span>
+              <span class="settings-row-sub" data-i18n="settings.serverSub">Port, output tokens, URL, and visible window.</span>
+            </span>
+            <span class="settings-row-state" id="runtimeServerState">--</span>
+          </button>
+
+          <button class="settings-row pressable" id="runtimeModelButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.defaultModelTitle">Default Model</span>
+              <span class="settings-row-sub" data-i18n="settings.defaultModelSub">Choose the default model used by the model server.</span>
+            </span>
+            <span class="settings-row-state" id="runtimeModelState">--</span>
+          </button>
+
+          <button class="settings-row pressable" id="runtimeSessionsButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.sessionsTitle">Sessions</span>
+              <span class="settings-row-sub" data-i18n="settings.sessionsSub">Current API chat session and recent sessions.</span>
+            </span>
+            <span class="settings-row-state" id="runtimeSessionsState">--</span>
+          </button>
+
+          <button class="settings-row pressable" id="runtimeDiagnosticsButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.diagnosticsTitle">Diagnostics</span>
+              <span class="settings-row-sub" data-i18n="settings.diagnosticsSub">Queue, requests, token caps, and recent errors.</span>
+            </span>
+            <span class="settings-row-state" id="runtimeDiagnosticsState">--</span>
+          </button>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.battery">Battery Optimization</div>
+              <div class="settings-section-sub" id="batteryOptimizationText" data-i18n="settings.checking">Checking status...</div>
+            </div>
+            <button class="settings-action pressable" id="batteryOptimizationButton" type="button">Allow</button>
+          </div>
+
+          <div class="settings-note" data-i18n="settings.runtimeScope">稳定推理建议在亮屏时使用前台小窗。锁屏继续运行仍取决于系统策略。</div>
+        </div>
+
+        <div class="settings-detail" id="runtimeServerPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="runtimeServerBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="settings.serverTitle">Server</h2>
+              <p data-i18n="settings.serverIntro">Configure the local OpenAI/Ollama-compatible API server.</p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.port">Port</div>
+              <div class="settings-section-sub" data-i18n="settings.portSub">Changing the port requires restarting the server.</div>
+            </div>
+            <input class="settings-number-input" id="runtimePortInput" type="number" min="1024" max="65535" step="1" inputmode="numeric">
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.outputTokens">Output Tokens</div>
+              <div class="settings-section-sub" data-i18n="settings.outputTokensSub">Default cap for requests that do not specify max_tokens.</div>
+            </div>
+            <input class="settings-number-input" id="runtimeMaxTokensInput" type="number" min="1" max="32768" step="1" inputmode="numeric">
+          </div>
+
           <div class="settings-section">
             <div class="settings-section-main">
               <div class="settings-section-title" data-i18n="settings.pipTitle">Floating Window</div>
@@ -140,42 +208,10 @@
             </div>
           </div>
 
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.cpuThreads">CPU Threads</div>
-              <div class="settings-section-sub" data-i18n="settings.cpuThreadsSub">Override the model config thread_num for MNN inference.</div>
-            </div>
-            <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
-          </div>
-
-          <button class="settings-row pressable" id="runtimeModelButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.defaultModelTitle">Default Model</span>
-              <span class="settings-row-sub" data-i18n="settings.defaultModelSub">Choose the default model used by the model server.</span>
-            </span>
-            <span class="settings-row-state" id="runtimeModelState">--</span>
-          </button>
-
-          <div class="settings-diagnostics" id="runtimeDiagnostics">
-            <div class="diagnostic-row"><span>Service</span><strong id="diagService">--</strong></div>
-            <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
+          <div class="settings-diagnostics">
             <div class="diagnostic-row"><span>URL</span><strong id="diagUrl">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">CPU Threads</span><strong id="diagCpuThreads">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">Default</span><strong id="diagDefaultTokens">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">Model Cap</span><strong id="diagModelTokens">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">Effective Cap</span><strong id="diagEffectiveTokens">--</strong></div>
-            <div class="diagnostic-row"><span>Last error</span><strong id="diagError">--</strong></div>
+            <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
           </div>
-
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.battery">Battery Optimization</div>
-              <div class="settings-section-sub" id="batteryOptimizationText" data-i18n="settings.checking">Checking status...</div>
-            </div>
-            <button class="settings-action pressable" id="batteryOptimizationButton" type="button">Allow</button>
-          </div>
-
-          <div class="settings-note" data-i18n="settings.runtimeScope">稳定推理建议在亮屏时使用前台小窗。锁屏继续运行仍取决于系统策略。</div>
         </div>
 
         <div class="settings-detail" id="runtimeModelPanel" aria-hidden="true">
@@ -187,28 +223,91 @@
             </div>
           </div>
 
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.cpuThreads">CPU Threads</div>
+              <div class="settings-section-sub" data-i18n="settings.cpuThreadsSub">Override the model config thread_num for MNN inference.</div>
+            </div>
+            <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
+          </div>
+
           <div class="settings-note" id="runtimeModelNote" data-i18n="settings.defaultModelNote">Only ready local models are shown here.</div>
           <div class="model-choice-list" id="runtimeModelList"></div>
+        </div>
+
+        <div class="settings-detail" id="runtimeSessionsPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="runtimeSessionsBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="settings.sessionsTitle">Sessions</h2>
+              <p data-i18n="settings.sessionsIntro">Choose which durable API chat session receives new turns.</p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.currentSession">Current Session</div>
+              <div class="settings-section-sub" id="runtimeCurrentSession">--</div>
+            </div>
+            <button class="settings-action pressable" id="runtimeSessionNewButton" type="button" data-i18n="settings.newSession">New</button>
+          </div>
+
+          <div class="model-choice-list" id="runtimeSessionList"></div>
+        </div>
+
+        <div class="settings-detail" id="runtimeDiagnosticsPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="runtimeDiagnosticsBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="settings.diagnosticsTitle">Diagnostics</h2>
+              <p data-i18n="settings.diagnosticsIntro">Runtime state and recent API request history.</p>
+            </div>
+          </div>
+
+          <div class="settings-diagnostics" id="runtimeDiagnostics">
+            <div class="diagnostic-row"><span>Service</span><strong id="diagService">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">CPU Threads</span><strong id="diagCpuThreads">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">Default</span><strong id="diagDefaultTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">Model Cap</span><strong id="diagModelTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">Effective Cap</span><strong id="diagEffectiveTokens">--</strong></div>
+            <div class="diagnostic-row"><span>Requests</span><strong id="diagRequestCount">--</strong></div>
+            <div class="diagnostic-row"><span>Last error</span><strong id="diagError">--</strong></div>
+          </div>
+
+          <div class="model-choice-list" id="runtimeRequestList"></div>
         </div>
       </section>
 
       <section class="panel" id="page-models">
         <div class="scene-head">
-          <h1 class="section-title" data-i18n="nav.models">&#27169;&#22411;</h1>
+          <h1 class="section-title" data-i18n="nav.models">模型</h1>
           <div class="scene-actions-top">
-            <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">&#37325;&#26032;&#25195;&#25551;</button>
-            <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">&#23548;&#20837;</button>
-            <button class="install-button pressable" id="modelMarketButton" data-i18n="models.market">&#27169;&#22411;&#24066;&#22330; &middot; Soon</button>
+            <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">重新扫描</button>
+            <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">导入</button>
+            <button class="install-button pressable" id="modelMarketButton" data-i18n="models.market">模型市场</button>
           </div>
         </div>
-        <div class="model-progress" id="modelProgress">
-          <div class="model-progress-row">
-            <span id="modelProgressText">妯″瀷姝ｅ湪瀵煎叆</span>
-            <span class="model-progress-percent" id="modelProgressPercent"></span>
+        <div class="market-panel" id="modelMarketPanel" aria-hidden="true">
+          <div class="market-panel-head">
+            <div>
+              <h2 class="market-title" data-i18n="models.marketTitle">模型市场</h2>
+              <div class="market-sub" data-i18n="models.marketSub">ModelScope MNN 模型目录。</div>
+            </div>
+            <div class="market-search">
+              <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="搜索模型">
+              <button class="reload-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">刷新</button>
+            </div>
           </div>
-          <div class="model-progress-track">
-            <div class="model-progress-fill" id="modelProgressFill"></div>
+          <div class="model-progress" id="modelProgress">
+            <div class="model-progress-row">
+              <span id="modelProgressText">模型正在导入</span>
+              <span class="model-progress-percent" id="modelProgressPercent"></span>
+            </div>
+            <div class="model-progress-track">
+              <div class="model-progress-fill" id="modelProgressFill"></div>
+            </div>
           </div>
+          <div class="market-list" id="modelMarketList"></div>
         </div>
         <div class="model-list" id="modelList"></div>
       </section>

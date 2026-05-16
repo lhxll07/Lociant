@@ -47,8 +47,6 @@ class ModelManager(context: Context) {
 
     fun defaultVisionModel(): ModelSpec = knownSpecs.getValue(YOLO_ID)
 
-    fun knownSpec(id: String): ModelSpec? = knownSpecs[normalizeId(id)]
-
     fun getSpec(id: String): ModelSpec? {
         return knownSpecs[normalizeId(id)] ?: scanExternalSpecs().firstOrNull { it.id == normalizeId(id) }
     }
@@ -96,7 +94,7 @@ class ModelManager(context: Context) {
                 .put("id", spec.id)
         }
 
-        val dirs = externalDirs(spec).filter { it.exists() }
+        val dirs = listOfNotNull(findInstalledDir(spec)).ifEmpty { externalDirs(spec).filter { it.exists() } }
         if (dirs.isEmpty()) {
             return JSONObject()
                 .put("ok", false)
@@ -114,7 +112,7 @@ class ModelManager(context: Context) {
 
     fun installHint(id: String): String {
         val spec = getSpec(id) ?: unknownSpec(normalizeId(id))
-        return "Place model files under app external files: Android/data/${appContext.packageName}/files/models/${dirName(spec)}/"
+        return "Place model files under app external files: Android/data/${appContext.packageName}/files/models/${modelDirName(spec)}/"
     }
 
     fun maxNewTokens(id: String): Int? {
@@ -125,10 +123,25 @@ class ModelManager(context: Context) {
         return value.takeIf { it > 0 }
     }
 
+    fun contextWindowTokens(id: String): Int? {
+        val dir = resolveDir(id) ?: return null
+        val config = runCatching { JSONObject(File(dir, "config.json").readText(Charsets.UTF_8)) }.getOrNull() ?: return null
+        return listOf(
+            "max_context_tokens",
+            "context_window",
+            "max_context_length",
+            "max_position_embeddings",
+            "seq_len",
+            "max_seq_len",
+        ).firstNotNullOfOrNull { key ->
+            config.optInt(key, 0).takeIf { it > 0 }
+        }
+    }
+
 
     fun externalModelDir(spec: ModelSpec): File {
         val root = appContext.getExternalFilesDir(null) ?: appContext.filesDir
-        return File(root, "models/${dirName(spec)}")
+        return File(root, "models/${modelDirName(spec)}")
     }
 
     private fun missingFiles(spec: ModelSpec, externalDir: File?): List<String> {
@@ -140,13 +153,16 @@ class ModelManager(context: Context) {
     }
 
     private fun findInstalledDir(spec: ModelSpec): File? {
+        if (spec.source != SOURCE_ASSET) {
+            findExternalModelDirById(spec.id)?.let { return it }
+        }
         val dirs = externalDirs(spec).filter { it.isDirectory }
         return dirs.firstOrNull { dir -> missingFiles(spec, dir).isEmpty() }
             ?: dirs.firstOrNull()
     }
 
     private fun externalDirs(spec: ModelSpec): List<File> {
-        val dir = dirName(spec)
+        val dir = modelDirName(spec)
         return listOfNotNull(
             File(appContext.filesDir, "models/$dir"),
             appContext.getExternalFilesDir(null)?.let { File(it, "models/$dir") },
@@ -155,8 +171,8 @@ class ModelManager(context: Context) {
 
     private fun scanExternalSpecs(): List<ModelSpec> {
         return modelRoots()
-            .flatMap { root -> root.listFiles()?.filter { it.isDirectory }.orEmpty() }
-            .mapNotNull { readModelJson(it) }
+            .flatMap { root -> findMnnModelDirs(root) }
+            .mapNotNull { inferMnnSpec(it) }
             .distinctBy { it.id }
     }
 
@@ -167,29 +183,109 @@ class ModelManager(context: Context) {
         )
     }
 
-    private fun readModelJson(dir: File): ModelSpec? {
-        val json = runCatching { JSONObject(File(dir, "model.json").readText()) }.getOrNull() ?: return null
-        val id = normalizeId(json.optString("id"))
-        if (id.isBlank()) return null
-        val required = json.optJSONArray("requiredFiles")?.let { array ->
-            List(array.length()) { array.optString(it) }.filter { it.isNotBlank() }
-        }.orEmpty()
+    fun inferMnnSpec(dir: File): ModelSpec? {
+        val configFile = File(dir, "config.json")
+        if (!configFile.isFile) return null
+        val config = runCatching { JSONObject(configFile.readText(Charsets.UTF_8)) }.getOrNull() ?: return null
+        if (!looksLikeMnnConfig(dir, config)) return null
+        val required = inferMnnRequiredFiles(dir, config)
+        if (!required.any { it.endsWith(".mnn") && !it.contains("visual") } ||
+            !required.any { it.endsWith(".weight") && !it.contains("visual") }) return null
+        val baseName = cleanModelName(config.optString("model_name")
+            .ifBlank { config.optString("model") }
+            .ifBlank { config.optString("name") }
+            .ifBlank { dir.name })
+        val hasVisual = required.any { it.startsWith("visual") || it.contains("/visual") }
         return ModelSpec(
-            id = id,
-            name = json.optString("name", id),
-            runtime = json.optString("runtime", "unknown"),
-            type = json.optString("type", "unknown"),
+            id = normalizeId(baseName),
+            name = baseName.ifBlank { normalizeId(dir.name) },
+            runtime = "mnn",
+            type = if (hasVisual) "vlm" else "llm",
             source = SOURCE_EXTERNAL,
-            entry = json.optString("entry", required.firstOrNull().orEmpty()),
+            entry = "config.json",
             requiredFiles = required,
         )
+    }
+
+    private fun inferMnnRequiredFiles(dir: File, config: JSONObject): List<String> {
+        val files = linkedSetOf("config.json")
+        addConfiguredOrFallback(files, dir, config.optString("llm_model"), "llm.mnn", required = true)
+        addConfiguredOrFallback(files, dir, config.optString("llm_weight"), "llm.mnn.weight", required = true)
+        if (files.none { it.endsWith(".mnn") && !it.contains("visual") }) {
+            dir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(".mnn") && !it.name.contains("visual", ignoreCase = true) }
+                ?.let { files += it.name }
+        }
+        if (files.none { it.endsWith(".weight") && !it.contains("visual") }) {
+            dir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(".weight") && !it.name.contains("visual", ignoreCase = true) }
+                ?.let { files += it.name }
+        }
+        addConfiguredOrFallback(files, dir, config.optString("tokenizer_file").ifBlank { config.optString("tokenizer") }, "tokenizer.txt", required = true)
+        if (File(dir, "llm_config.json").isFile) files += "llm_config.json"
+        val visual = config.optString("visual_model").trim().replace('\\', '/').trimStart('/')
+        if (visual.isNotBlank() && File(dir, visual).isFile) {
+            files += visual
+            val visualWeight = "$visual.weight"
+            if (File(dir, visualWeight).isFile) files += visualWeight
+        } else if (File(dir, "visual.mnn").isFile) {
+            files += "visual.mnn"
+            if (File(dir, "visual.mnn.weight").isFile) files += "visual.mnn.weight"
+        }
+        return files.toList()
+    }
+
+    private fun looksLikeMnnConfig(dir: File, config: JSONObject): Boolean {
+        return listOf("llm_model", "llm_weight", "tokenizer_file", "tokenizer").any { config.optString(it).isNotBlank() } ||
+            File(dir, "llm.mnn").isFile ||
+            File(dir, "llm.mnn.weight").isFile ||
+            File(dir, "llm_config.json").isFile
+    }
+
+    private fun addConfiguredOrFallback(files: MutableSet<String>, dir: File, configured: String, fallback: String, required: Boolean) {
+        val value = configured.trim().replace('\\', '/').trimStart('/')
+        when {
+            value.isNotBlank() -> files += value
+            File(dir, fallback).isFile -> files += fallback
+            required -> files += fallback
+        }
+    }
+
+    private fun cleanModelName(value: String): String {
+        return value.trim()
+            .replace("___", ".")
+            .replace('_', '-')
+            .replace(Regex("-+"), "-")
+            .trim('-', '.', ' ')
     }
 
     private fun assetExists(path: String): Boolean {
         return runCatching { appContext.assets.open(path).close() }.isSuccess
     }
 
-    private fun dirName(spec: ModelSpec): String {
+    fun findMnnModelDirs(root: File): List<File> {
+        if (!root.isDirectory) return emptyList()
+        val result = mutableListOf<File>()
+        fun visit(dir: File, depth: Int) {
+            if (depth > MAX_MODEL_SCAN_DEPTH) return
+            if (inferMnnSpec(dir) != null) {
+                result += dir
+                return
+            }
+            dir.listFiles()
+                ?.filter { it.isDirectory && !it.name.startsWith(".") }
+                ?.forEach { visit(it, depth + 1) }
+        }
+        visit(root, 0)
+        return result
+    }
+
+    private fun findExternalModelDirById(id: String): File? {
+        val modelId = normalizeId(id)
+        return modelRoots()
+            .flatMap { findMnnModelDirs(it) }
+            .firstOrNull { inferMnnSpec(it)?.id == modelId }
+    }
+
+    private fun modelDirName(spec: ModelSpec): String {
         return knownDirs[spec.id] ?: spec.id
     }
 
@@ -207,13 +303,12 @@ class ModelManager(context: Context) {
 
     companion object {
         private const val YOLO_ID = "yolov8n"
-        private const val QWEN_ID = "qwen3.5-2b-mnn"
         private const val SOURCE_ASSET = "asset"
         private const val SOURCE_EXTERNAL = "external"
+        private const val MAX_MODEL_SCAN_DEPTH = 3
 
         private val knownDirs = mapOf(
             YOLO_ID to "yolov8n",
-            QWEN_ID to "Qwen3.5-2B-MNN",
         )
 
         private val knownSpecs = mapOf(
@@ -231,27 +326,15 @@ class ModelManager(context: Context) {
                 paramAsset = "models/yolov8n/yolov8n.ncnn.param",
                 binAsset = "models/yolov8n/yolov8n.ncnn.bin",
             ),
-            QWEN_ID to ModelSpec(
-                id = QWEN_ID,
-                name = "Qwen 3.5 2B MNN",
-                runtime = "mnn",
-                type = "vlm",
-                source = SOURCE_EXTERNAL,
-                entry = "config.json",
-                requiredFiles = listOf(
-                    "config.json",
-                    "llm.mnn",
-                    "llm.mnn.weight",
-                    "llm_config.json",
-                    "tokenizer.txt",
-                    "visual.mnn",
-                    "visual.mnn.weight",
-                ),
-            ),
         )
 
         fun normalizeId(value: String): String {
-            return value.trim().lowercase().replace('_', '-')
+            return value.trim()
+                .lowercase()
+                .replace(Regex("[\\s_]+"), "-")
+                .replace(Regex("[^a-z0-9.\\-]+"), "-")
+                .replace(Regex("-+"), "-")
+                .trim('-', '.')
         }
     }
 }

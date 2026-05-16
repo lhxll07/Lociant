@@ -34,8 +34,7 @@ private:
     bool loaded_ = false;
     std::string config_path_;
     std::string last_error_;
-    std::string active_session_id_;
     std::string active_runtime_config_;
-    std::vector<std::pair<std::string, std::string>> active_history_;
+    std::string active_cache_session_id_;
     std::atomic_bool cancel_requested_{false};
 };

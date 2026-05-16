@@ -23,6 +23,8 @@ models/Qwen3.5-2B-MNN/
 models/Qwen3.5-2B-MNN.zip
 models/Qwen3.5-4B-MNN/
 models/Qwen3.5-4B-MNN.zip
+models/Qwen3___5-4B-Claude-4___6-Opus-Reasoning-Distilled-MNN/
+models/Qwen3___5-4B-Claude-4___6-Opus-Reasoning-Distilled-MNN.zip
 
 # Distribution builds (pre-built APKs and scene packs)
 dist/

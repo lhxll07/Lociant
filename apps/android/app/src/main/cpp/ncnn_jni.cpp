@@ -110,6 +110,9 @@ Java_com_mnnode_app_model_NcnnRuntime_nativeDetectYuv420(
     auto* y = static_cast<unsigned char*>(env->GetDirectBufferAddress(y_buffer));
     auto* u = static_cast<unsigned char*>(env->GetDirectBufferAddress(u_buffer));
     auto* v = static_cast<unsigned char*>(env->GetDirectBufferAddress(v_buffer));
+    if (!y || !u || !v) {
+        return to_jstring(env, "{\"ok\":false,\"message\":\"invalid yuv buffer\",\"detections\":[]}");
+    }
 
     const std::string result = runtime->detect_yuv420(
         width,

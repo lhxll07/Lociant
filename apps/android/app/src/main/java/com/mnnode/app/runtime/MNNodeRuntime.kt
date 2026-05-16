@@ -1,11 +1,11 @@
 package com.mnnode.app.runtime
 
 import android.content.Context
+import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.model.MnnRuntime
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.scene.ScenePackInstaller
-import com.mnnode.app.scene.SceneRuntimeManager
 import com.mnnode.app.server.ApiServerController
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
@@ -24,7 +24,7 @@ object MNNodeRuntime {
 
     fun scenePackInstaller(context: Context): ScenePackInstaller = get(context).scenePackInstaller
 
-    fun sceneRuntimeManager(context: Context): SceneRuntimeManager = get(context).sceneRuntimeManager
+    fun triggerEngine(context: Context): TriggerEngine = get(context).triggerEngine
 
     fun sessionStore(context: Context): SessionStore = get(context).sessionStore
 
@@ -46,17 +46,28 @@ object MNNodeRuntime {
             val sessionStore = SessionStore(appContext)
             val sceneManager = SceneManager(appContext)
             val scenePackInstaller = ScenePackInstaller(appContext)
-            val sceneRuntimeManager = SceneRuntimeManager()
             val mnnRuntime = MnnRuntime(appContext)
-            val apiServer = ApiServerController(appContext, modelManager, mnnRuntime, localStore, sessionStore)
+            val chatCapability = ChatCapability(modelManager, mnnRuntime)
+            val triggerEngine = TriggerEngine()
+            val apiServer = ApiServerController(
+                appContext,
+                modelManager,
+                sceneManager,
+                chatCapability,
+                localStore,
+                sessionStore,
+                triggerEngine,
+            )
+            triggerEngine.setCallTool { name, args -> apiServer.callTool(name, args) }
             return Holder(
                 modelManager = modelManager,
                 localStore = localStore,
                 sessionStore = sessionStore,
                 sceneManager = sceneManager,
                 scenePackInstaller = scenePackInstaller,
-                sceneRuntimeManager = sceneRuntimeManager,
+                triggerEngine = triggerEngine,
                 mnnRuntime = mnnRuntime,
+                chatCapability = chatCapability,
                 apiServer = apiServer,
             ).also { holder = it }
         }
@@ -68,8 +79,9 @@ object MNNodeRuntime {
         val sessionStore: SessionStore,
         val sceneManager: SceneManager,
         val scenePackInstaller: ScenePackInstaller,
-        val sceneRuntimeManager: SceneRuntimeManager,
+        val triggerEngine: TriggerEngine,
         val mnnRuntime: MnnRuntime,
+        val chatCapability: ChatCapability,
         val apiServer: ApiServerController,
     ) {
         fun close() { apiServer.close(); mnnRuntime.close() }

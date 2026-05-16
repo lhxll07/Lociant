@@ -3,6 +3,7 @@ package com.mnnode.app.model
 import android.content.Context
 import androidx.camera.core.ImageProxy
 import org.json.JSONObject
+import java.nio.ByteBuffer
 
 class NcnnRuntime(context: Context) : AutoCloseable {
     private val appContext = context.applicationContext
@@ -24,6 +25,27 @@ class NcnnRuntime(context: Context) : AutoCloseable {
             numThreads.coerceIn(1, 8),
         )
         return JSONObject(raw)
+    }
+
+    @Synchronized
+    fun detectBytes(
+        width: Int, height: Int, rotation: Int,
+        y: ByteArray, u: ByteArray, v: ByteArray,
+        yRowStride: Int, uRowStride: Int, vRowStride: Int,
+        yPixelStride: Int, uPixelStride: Int, vPixelStride: Int,
+        model: ModelSpec, confidenceThreshold: Float = 0.50f,
+    ): JSONObject {
+        check(handle != 0L) { "NCNN runtime is closed" }
+        return JSONObject(
+            nativeDetectYuv420(
+                handle, width, height, rotation,
+                y.toDirectBuffer(), u.toDirectBuffer(), v.toDirectBuffer(),
+                yRowStride, uRowStride, vRowStride,
+                yPixelStride, uPixelStride, vPixelStride,
+                model.inputName, model.outputName, model.inputSize,
+                confidenceThreshold.coerceIn(0.05f, 0.95f),
+            )
+        )
     }
 
     @Synchronized
@@ -111,3 +133,9 @@ class NcnnRuntime(context: Context) : AutoCloseable {
     }
 }
 
+private fun ByteArray.toDirectBuffer(): ByteBuffer {
+    return ByteBuffer.allocateDirect(size).apply {
+        put(this@toDirectBuffer)
+        rewind()
+    }
+}

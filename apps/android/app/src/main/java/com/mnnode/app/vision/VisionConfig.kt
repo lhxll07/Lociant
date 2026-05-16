@@ -12,8 +12,8 @@ data class VisionConfig(
 ) {
     fun normalized(): VisionConfig {
         return copy(
-            inferenceIntervalMs = inferenceIntervalMs.coerceIn(150L, 2000L),
-            previewIntervalMs = previewIntervalMs.coerceIn(150L, 2000L),
+            inferenceIntervalMs = inferenceIntervalMs.coerceIn(50L, 2000L),
+            previewIntervalMs = previewIntervalMs.coerceIn(33L, 2000L),
             confidenceThreshold = confidenceThreshold.coerceIn(0.05f, 0.95f),
         )
     }

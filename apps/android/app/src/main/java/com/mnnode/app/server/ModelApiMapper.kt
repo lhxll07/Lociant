@@ -4,10 +4,12 @@ import com.mnnode.app.model.ModelChatMessage
 import com.mnnode.app.model.ModelChatPart
 import com.mnnode.app.model.ModelChatRequest
 import com.mnnode.app.model.ModelChatResult
+import com.mnnode.app.model.ModelToolCall
+import com.mnnode.app.model.ModelToolChoice
 import com.mnnode.app.model.DEFAULT_MODEL_ID
-import com.mnnode.app.model.DEFAULT_OUTPUT_TOKENS
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 object ModelApiMapper {
     fun parseOpenAiChat(raw: String): ModelChatRequest {
@@ -15,12 +17,19 @@ object ModelApiMapper {
         return ModelChatRequest(
             modelId = json.optString("model", DEFAULT_MODEL_ID),
             messages = parseOpenAiMessages(json.optJSONArray("messages") ?: JSONArray()),
-            maxTokens = json.optInt("max_tokens", json.optInt("maxTokens", DEFAULT_OUTPUT_TOKENS)),
+            maxTokens = optionalInt(json, "max_tokens") ?: optionalInt(json, "maxTokens"),
             stream = json.optBoolean("stream", false),
             source = "openai.chat",
             sessionId = parseSessionId(json),
+            tools = json.optJSONArray("tools"),
+            toolChoice = parseToolChoice(json.opt("tool_choice")),
+            executeTools = json.optBoolean("execute_tools", json.optJSONObject("mnnode")?.optBoolean("execute_tools", false) ?: false),
         )
     }
+
+    fun openAiStreamIncludesUsage(raw: String): Boolean =
+        runCatching { JSONObject(raw).optJSONObject("stream_options")?.optBoolean("include_usage", false) == true }
+            .getOrDefault(false)
 
     fun parseOllamaChat(raw: String): ModelChatRequest {
         val json = JSONObject(raw)
@@ -28,8 +37,7 @@ object ModelApiMapper {
         return ModelChatRequest(
             modelId = json.optString("model", DEFAULT_MODEL_ID),
             messages = messages,
-            maxTokens = json.optJSONObject("options")?.optInt("num_predict", DEFAULT_OUTPUT_TOKENS)
-                ?: DEFAULT_OUTPUT_TOKENS,
+            maxTokens = json.optJSONObject("options")?.let { optionalInt(it, "num_predict") },
             stream = json.optBoolean("stream", true),
             source = "ollama.chat",
             sessionId = parseSessionId(json),
@@ -40,7 +48,7 @@ object ModelApiMapper {
         return ModelChatRequest(
             modelId = json.optString("model", json.optString("modelId", DEFAULT_MODEL_ID)),
             messages = parseSceneMessages(json),
-            maxTokens = json.optInt("max_tokens", json.optInt("maxTokens", DEFAULT_OUTPUT_TOKENS)),
+            maxTokens = optionalInt(json, "max_tokens") ?: optionalInt(json, "maxTokens"),
             stream = false,
             source = "scene.model-chat",
             sessionId = parseSessionId(json),
@@ -64,10 +72,8 @@ object ModelApiMapper {
                         .put("finish_reason", if (result.ok) "stop" else "error")
                 )
             )
-            .put("usage", JSONObject()
-                .put("prompt_tokens", result.promptTokens)
-                .put("completion_tokens", result.generatedTokens)
-                .put("total_tokens", result.promptTokens + result.generatedTokens))
+            .put("usage", openAiUsage(result))
+            .put("mnnode", runtimeMetrics(result))
     }
 
     fun ollamaResponse(result: ModelChatResult): JSONObject {
@@ -79,6 +85,12 @@ object ModelApiMapper {
                 .put("content", result.text))
             .put("done", true)
             .put("total_duration", result.elapsedMs * 1_000_000L)
+            .put("load_duration", 0L)
+            .put("prompt_eval_count", result.promptTokens)
+            .put("prompt_eval_duration", 0L)
+            .put("eval_count", result.generatedTokens)
+            .put("eval_duration", result.elapsedMs * 1_000_000L)
+            .put("mnnode", runtimeMetrics(result))
     }
 
     fun error(code: String, message: String): JSONObject {
@@ -92,6 +104,26 @@ object ModelApiMapper {
             )
     }
 
+    fun openAiToolCallResponse(modelId: String, toolCall: ModelToolCall): JSONObject {
+        return openAiBase(modelId)
+            .put(
+                "choices",
+                JSONArray().put(
+                    JSONObject()
+                        .put("index", 0)
+                        .put("message", JSONObject()
+                            .put("role", "assistant")
+                            .put("content", JSONObject.NULL)
+                            .put("tool_calls", JSONArray().put(openAiToolCallJson(toolCall))))
+                        .put("finish_reason", "tool_calls")
+                )
+            )
+            .put("usage", JSONObject()
+                .put("prompt_tokens", 0)
+                .put("completion_tokens", 0)
+                .put("total_tokens", 0))
+    }
+
     private fun parseOpenAiMessages(array: JSONArray): List<ModelChatMessage> {
         return List(array.length()) { index -> array.optJSONObject(index) }
             .filterNotNull()
@@ -99,6 +131,9 @@ object ModelApiMapper {
                 ModelChatMessage(
                     role = message.optString("role", "user"),
                     parts = parseOpenAiContent(message.opt("content")),
+                    name = message.optString("name"),
+                    toolCallId = message.optString("tool_call_id"),
+                    toolCalls = parseToolCalls(message.optJSONArray("tool_calls")),
                 )
             }
     }
@@ -156,5 +191,85 @@ object ModelApiMapper {
             .ifBlank { json.optJSONObject("metadata")?.optString("sessionId").orEmpty() }
             .ifBlank { json.optJSONObject("metadata")?.optString("session_id").orEmpty() }
             .trim()
+    }
+
+    private fun optionalInt(json: JSONObject, key: String): Int? {
+        if (!json.has(key) || json.isNull(key)) return null
+        return json.optInt(key).takeIf { it > 0 }
+    }
+
+    private fun parseToolChoice(value: Any?): ModelToolChoice {
+        return when (value) {
+            null, JSONObject.NULL -> ModelToolChoice.Auto
+            is String -> when (value.lowercase()) {
+                "none" -> ModelToolChoice.None
+                "required" -> ModelToolChoice.Required
+                else -> ModelToolChoice.Auto
+            }
+            is JSONObject -> {
+                val fn = value.optJSONObject("function")
+                val name = fn?.optString("name").orEmpty().ifBlank { value.optString("name") }
+                if (name.isBlank()) ModelToolChoice.Auto else ModelToolChoice.Function(
+                    name = name,
+                    arguments = fn?.optString("arguments", "{}") ?: value.optString("arguments", "{}"),
+                )
+            }
+            else -> ModelToolChoice.Auto
+        }
+    }
+
+    private fun parseToolCalls(array: JSONArray?): List<ModelToolCall> {
+        if (array == null) return emptyList()
+        return List(array.length()) { index -> array.optJSONObject(index) }
+            .filterNotNull()
+            .mapNotNull { item ->
+                val function = item.optJSONObject("function") ?: return@mapNotNull null
+                ModelToolCall(
+                    id = item.optString("id").ifBlank { "call_${UUID.randomUUID().toString().take(8)}" },
+                    name = function.optString("name"),
+                    arguments = function.optString("arguments", "{}"),
+                )
+            }
+            .filter { it.name.isNotBlank() }
+    }
+
+    fun openAiToolCallJson(toolCall: ModelToolCall): JSONObject {
+        return JSONObject()
+            .put("id", toolCall.id)
+            .put("type", "function")
+            .put("function", JSONObject()
+                .put("name", toolCall.name)
+                .put("arguments", toolCall.arguments.ifBlank { "{}" }))
+    }
+
+    fun openAiUsage(result: ModelChatResult): JSONObject {
+        return JSONObject()
+            .put("prompt_tokens", result.promptTokens)
+            .put("completion_tokens", result.generatedTokens)
+            .put("total_tokens", result.totalTokens)
+            .put("prompt_tokens_details", JSONObject()
+                .put("cached_tokens", result.cachedTokens))
+    }
+
+    fun runtimeMetrics(result: ModelChatResult): JSONObject {
+        return JSONObject()
+            .put("elapsed_ms", result.elapsedMs)
+            .put("first_token_ms", result.firstTokenMs)
+            .put("wall_tokens_per_second", result.wallTokensPerSecond)
+            .put("tokens_per_second", result.tokensPerSecond)
+            .put("prefill_us", result.prefillUs)
+            .put("decode_us", result.decodeUs)
+            .put("decode_tokens_per_second", result.tokensPerSecond)
+            .put("cache", JSONObject()
+                .put("enabled", result.cacheEnabled)
+                .put("hit", result.cacheHit))
+    }
+
+    private fun openAiBase(modelId: String): JSONObject {
+        return JSONObject()
+            .put("id", "chatcmpl_mnnode_${System.currentTimeMillis()}")
+            .put("object", "chat.completion")
+            .put("created", System.currentTimeMillis() / 1000)
+            .put("model", modelId)
     }
 }

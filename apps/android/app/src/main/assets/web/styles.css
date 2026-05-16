@@ -585,6 +585,109 @@
       gap: 10px;
     }
 
+    .market-panel {
+      display: none;
+      width: min(100%, 760px);
+      margin-bottom: 14px;
+    }
+
+    .market-panel.active {
+      display: grid;
+      gap: 12px;
+    }
+
+    .market-panel-head {
+      display: grid;
+      gap: 10px;
+    }
+
+    .market-search {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .market-search input {
+      min-width: 0;
+      height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #101010;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .market-search input:focus {
+      border-color: #355f9a;
+    }
+
+    .market-list {
+      display: grid;
+      width: min(100%, 760px);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .market-head {
+      display: grid;
+      gap: 4px;
+      padding: 0 2px;
+    }
+
+    .market-title {
+      color: #eaeaea;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .market-sub {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .market-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 78px;
+      padding: 14px 18px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+
+    .market-body {
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+    }
+
+    .market-name {
+      color: #eeeeee;
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .market-meta,
+    .market-desc {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .market-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
     #page-models .scene-head {
       width: min(100%, 760px);
     }

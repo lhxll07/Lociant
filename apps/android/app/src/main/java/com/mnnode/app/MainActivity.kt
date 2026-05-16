@@ -16,6 +16,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.webkit.PermissionRequest
+import android.webkit.WebSettings
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -23,7 +24,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -31,29 +31,23 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.WebViewAssetLoader
 import com.mnnode.app.model.ModelInstaller
 import com.mnnode.app.model.ModelManager
-import com.mnnode.app.camera.CameraController
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.scene.ScenePackInstaller
-import com.mnnode.app.scene.SceneRuntimeManager
+import com.mnnode.app.runtime.TriggerEngine
+import com.mnnode.app.runtime.SensorSample
 import com.mnnode.app.server.ApiServerController
-import com.mnnode.app.server.ModelApiMapper
 import com.mnnode.app.runtime.MNNodeRuntime
 import com.mnnode.app.runtime.MNNodeRuntimeService
-import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
 import com.mnnode.app.vision.VisionAnalysisController
-import com.mnnode.app.vision.VisionConfig
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
-class MainActivity : ComponentActivity(), MNNodeBridge.Host {
+class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private lateinit var root: FrameLayout
-    private lateinit var previewView: PreviewView
     private lateinit var webView: WebView
-    private lateinit var cameraController: CameraController
     private lateinit var visionController: VisionAnalysisController
-    private lateinit var visionRuntime: VisionRuntime
     private lateinit var modelManager: ModelManager
     private lateinit var modelInstaller: ModelInstaller
     private lateinit var sceneManager: SceneManager
@@ -61,12 +55,9 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
     private lateinit var apiServerController: ApiServerController
     private lateinit var localStore: LocalStore
     private lateinit var sessionStore: SessionStore
-    private lateinit var sceneRuntimeManager: SceneRuntimeManager
-    private val aiExecutor = Executors.newSingleThreadExecutor()
+    private lateinit var triggerEngine: TriggerEngine
     private val modelInstallExecutor = Executors.newSingleThreadExecutor()
 
-    private var startCameraAfterPermission = false
-    private var startVisionAfterPermission = false
     private var pendingWebPermissionRequest: PermissionRequest? = null
     private var startRuntimeAfterNotificationPermission = false
     private var pendingRuntimePayload = JSONObject()
@@ -76,23 +67,8 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
         val webPermissionRequest = pendingWebPermissionRequest
         if (webPermissionRequest != null) {
             pendingWebPermissionRequest = null
-            if (granted) {
-                webPermissionRequest.grant(webPermissionRequest.resources)
-            } else {
-                webPermissionRequest.deny()
-            }
-            return@registerForActivityResult
-        }
-
-        val cameraPending = startCameraAfterPermission
-        val visionPending = startVisionAfterPermission
-        startCameraAfterPermission = false
-        startVisionAfterPermission = false
-        when {
-            granted && visionPending -> startVisionInternal()
-            granted && cameraPending -> startCameraInternal()
-            cameraPending -> notifyCameraState(errorJson("permission denied").put("state", "error"))
-            visionPending -> notifyVisionState(JSONObject().put("state", "error").put("message", "permission denied"))
+            if (granted) webPermissionRequest.grant(webPermissionRequest.resources)
+            else webPermissionRequest.deny()
         }
     }
 
@@ -116,28 +92,20 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
         modelManager = MNNodeRuntime.modelManager(this)
         modelInstaller = ModelInstaller(this, modelManager)
         apiServerController = MNNodeRuntime.apiServer(this)
-        sceneRuntimeManager = MNNodeRuntime.sceneRuntimeManager(this)
+        apiServerController.startForService(JSONObject().put("source", "activity"))
+        triggerEngine = MNNodeRuntime.triggerEngine(this)
         windowSettings = loadWindowSettings()
 
-        previewView = PreviewView(this).apply {
-            visibility = View.GONE
-            scaleType = PreviewView.ScaleType.FIT_CENTER
-            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-            setBackgroundColor(Color.BLACK)
-            layoutParams = FrameLayout.LayoutParams(1, 1)
+        visionController = VisionAnalysisController(this, this).also {
+            it.setCallbacks(
+                onState = { state -> notifyVisionState(state) },
+                onFrame = { frame -> notifyVisionFrame(frame) },
+            )
         }
-
-        cameraController = CameraController(this, this, previewView)
-        visionController = VisionAnalysisController(this, this)
-        visionRuntime = VisionRuntime(
-            cameraController = cameraController,
-            visionController = visionController,
-            onCameraState = { state -> notifyCameraState(state) },
-            onVisionState = { state -> notifyVisionState(state) },
-            onVisionFrame = { frame -> notifyVisionFrame(frame) },
-        )
+        apiServerController.visionController = visionController
 
         val assetLoader = WebViewAssetLoader.Builder()
+            .setHttpAllowed(true)
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .addPathHandler("/installed-scenes/", WebViewAssetLoader.InternalStoragePathHandler(this, sceneManager.scenesDir()))
             .build()
@@ -178,23 +146,17 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
             settings.defaultTextEncodingName = "utf-8"
             settings.allowFileAccess = true
             settings.allowContentAccess = true
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
             addJavascriptInterface(
-                MNNodeBridge(
-                    host = this@MainActivity,
-                    sceneManager = sceneManager,
-                    sceneRuntimeManager = sceneRuntimeManager,
-                    modelManager = modelManager,
-                    localStore = localStore,
-                ),
-                "MNNode",
+                MNNodeShellBridge(host = this@MainActivity),
+                "MNNodeShell",
             )
             loadUrl("${SceneManager.LOCAL_ORIGIN}/assets/web/index.html")
         }
 
         root = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
-            addView(previewView)
             addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
 
@@ -227,8 +189,7 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
     }
 
     override fun onDestroy() {
-        visionRuntime.close()
-        aiExecutor.shutdown()
+        visionController.close()
         modelInstallExecutor.shutdown()
         webView.destroy()
         super.onDestroy()
@@ -274,136 +235,46 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
         }
     }
 
-    override fun setCameraPreviewRect(x: Int, y: Int, width: Int, height: Int) {
-        runOnUiThread { visionRuntime.setPreviewRect(x, y, width, height) }
-    }
-
-    override fun viewportMetrics(): JSONObject {
-        return JSONObject()
-            .put("width", root.width)
-            .put("height", root.height)
-    }
-
-    override fun startCamera(): String {
-        runOnUiThread {
-            if (hasPermission(Manifest.permission.CAMERA)) {
-                startCameraInternal()
-            } else {
-                startCameraAfterPermission = true
-                requestCameraPermission.launch(Manifest.permission.CAMERA)
-            }
-        }
-        return okState("starting")
-    }
-
-    private fun startCameraInternal() {
-        visionRuntime.startCamera()
-    }
-
-    override fun stopCamera(): String {
-        runOnUiThread { visionRuntime.stopCamera() }
-        return okState("idle")
-    }
-
-    override fun cameraState(): String = visionRuntime.cameraState()
-
-    override fun startVision(configRaw: String?): String {
-        val config = VisionConfig.fromJson(configRaw)
-        runOnUiThread {
-            if (hasPermission(Manifest.permission.CAMERA)) {
-                startVisionInternal(config)
-            } else {
-                startVisionAfterPermission = true
-                pendingVisionConfig = config
-                requestCameraPermission.launch(Manifest.permission.CAMERA)
-            }
-        }
-        return okState("starting")
-    }
-
-    private var pendingVisionConfig: VisionConfig? = null
-
-    private fun startVisionInternal(config: VisionConfig = pendingVisionConfig ?: VisionConfig()) {
-        pendingVisionConfig = null
-        visionRuntime.startVision(config)
-    }
-
-    override fun stopVision(): String {
-        runOnUiThread { visionRuntime.stopVision() }
-        return okState("idle")
-    }
-
-    override fun visionState(): String = visionRuntime.visionState().toString()
-
-    override fun modelChat(requestRaw: String?): String {
-        aiExecutor.execute {
-            val result = runCatching { handleModelChat(requestRaw) }
-                .getOrElse { error ->
-                    errorJson(error.message ?: "Model chat failed")
-                }
-            notifyModelChatResult(result)
-        }
-        return okState("queued")
-    }
-
-    private fun handleModelChat(requestRaw: String?): JSONObject {
-        val json = parseObject(requestRaw)
-        val requestId = json.optString("requestId", "")
-        val sceneId = json.optString("sceneId", "")
-        val chatController = MNNodeRuntime.apiServer(this).chatController()
-        val request = chatController.sessionRequest(ModelApiMapper.parseSceneChat(json))
-        val result = chatController.submitSync(request, com.mnnode.app.server.ChatController.CHAT_TIMEOUT_MS)
-        return result.toJson()
-            .put("requestId", requestId)
-            .put("sceneId", sceneId)
-            .put("result", parseJsonObject(result.text) ?: JSONObject().put("text", result.text))
-    }
-
-    override fun runtimeServiceCommand(command: String, payloadJson: String?): String {
-        return runtimeCommand(command, payloadJson).toString()
-    }
-
-    private fun runtimeCommand(command: String, payloadRaw: String?): JSONObject {
-        val payload = parseObject(payloadRaw)
+    override fun runtimeShellCommand(command: String, payloadJson: String?): String {
+        val payload = parseObject(payloadJson)
         return when (command) {
             "start" -> {
                 runCatching { startRuntimeService(payload) }
                     .fold(
-                        onSuccess = { runtimeServiceState().put("starting", true) },
-                        onFailure = { error -> runtimeServiceState().put("lastError", error.message ?: "Runtime service start failed") },
+                        onSuccess = { apiServerController.state().withRuntimeState().put("starting", true) },
+                        onFailure = { error -> apiServerController.state().withRuntimeState().put("lastError", error.message ?: "Runtime service start failed") },
                     )
             }
             "stop" -> {
                 MNNodeRuntimeService.stopRuntime(this)
-                runtimeServiceState()
+                apiServerController.state().withRuntimeState()
             }
             "battery.requestExemption" -> {
                 requestBatteryOptimizationExemption()
-                runtimeServiceState()
+                apiServerController.state().withRuntimeState()
             }
             "window.show" -> {
                 runOnUiThread { showRuntimeWindow() }
-                runtimeServiceState()
+                apiServerController.state().withRuntimeState()
             }
             "window.hide" -> {
                 MNNodeRuntimeService.hideFloatingWindow(this)
-                runtimeServiceState()
+                apiServerController.state().withRuntimeState()
             }
             "window.settings" -> {
                 updateWindowSettings(payload)
                 if (shouldShowRuntimeWindow()) runOnUiThread { showRuntimeWindow() }
-                runtimeServiceState()
+                apiServerController.state().withRuntimeState()
             }
             "window.permission" -> {
                 requestOverlayPermission()
-                runtimeServiceState()
+                apiServerController.state().withRuntimeState()
             }
-            else -> apiServerController.command(command, payload).withRuntimeState()
-        }
-    }
-
-    private fun runtimeServiceState(): JSONObject {
-        return apiServerController.state().withRuntimeState()
+            "settings", "session.create", "session.select", "session.delete" ->
+                apiServerController.command(command, payload).withRuntimeState()
+            "status" -> apiServerController.state().withRuntimeState()
+            else -> JSONObject().put("ok", false).put("message", "Unknown shell command: $command")
+        }.toString()
     }
 
     private fun startRuntimeService(payload: JSONObject = JSONObject()) {
@@ -426,21 +297,13 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
         return runCatching { JSONObject(raw ?: "{}") }.getOrDefault(JSONObject())
     }
 
-    private fun okState(state: String): String {
-        return JSONObject().put("ok", true).put("state", state).toString()
-    }
-
-    private fun errorJson(message: String): JSONObject {
-        return JSONObject().put("ok", false).put("message", message)
-    }
-
     private fun JSONObject.withRuntimeState(): JSONObject {
         return put("runtimeService", true)
             .put("mode", "foreground-service")
             .put("runtimeModes", org.json.JSONArray(listOf("interactive", "service", "headless")))
             .put("headlessCapable", true)
-            .put("vision", visionRuntime.visionState())
-            .put("sceneRuntime", sceneRuntimeManager.snapshot())
+            .put("vision", visionController.stateJson())
+            .put("triggers", triggerEngine.snapshot())
             .put("windowSupported", isFloatingWindowSupported())
             .put("windowAutoShow", windowSettings.optBoolean("autoShow", false))
             .put("windowAllowed", canDrawOverlays())
@@ -535,10 +398,6 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
             .put("scene", scene ?: JSONObject.NULL))
     }
 
-    private fun notifyCameraState(state: JSONObject) {
-        emitJs("onCameraResult", state)
-    }
-
     private fun notifyModelInstallResult(
         ok: Boolean,
         message: String,
@@ -559,63 +418,29 @@ class MainActivity : ComponentActivity(), MNNodeBridge.Host {
     }
 
     private fun notifyVisionFrame(frame: JSONObject) {
-        sceneRuntimeManager.onVisionFrame(frame).forEach { event ->
-            recordRuntimeMessage(event)
-            notifyRuntimeMessage(event)
-        }
+        feedVisionToTriggers(frame)
         emitJs("onVisionFrame", frame)
     }
 
-    private fun recordRuntimeMessage(message: JSONObject) {
-        val sceneId = message.optString("sceneId", "runtime")
-        val type = message.optString("type", "runtime.event")
-        val level = message.optJSONObject("event")
-            ?.optJSONObject("alert")
-            ?.optString("level", "info")
-            ?: "info"
-        runCatching { sessionStore.recordRuntimeEvent(sceneId, type, level, message) }
-    }
-
-    private fun notifyRuntimeMessage(message: JSONObject) {
-        emitJs("onRuntimeMessage", message)
-    }
-
-    private fun notifyModelChatResult(result: JSONObject) {
-        emitJs("onModelChatResult", result)
+    private fun feedVisionToTriggers(frame: JSONObject) {
+        val detections = frame.optJSONArray("detections") ?: return
+        val confs = mutableMapOf<Int, Double>()
+        for (i in 0 until detections.length()) {
+            val det = detections.optJSONObject(i) ?: continue
+            val cid = det.optInt("classId", -1)
+            val score = det.optDouble("score", 0.0)
+            if (cid >= 0) confs[cid] = maxOf(confs[cid] ?: 0.0, score)
+        }
+        triggerEngine.feed(SensorSample(
+            source = "camera:yolov8n",
+            timestamp = frame.optLong("timestamp", System.currentTimeMillis()),
+            confidenceByClass = confs,
+        ))
     }
 
     private fun emitJs(event: String, payload: JSONObject) {
         val script = "window.MNNodeEvents && window.MNNodeEvents.$event(JSON.parse(${JSONObject.quote(payload.toString())}));"
         webView.post { webView.evaluateJavascript(script, null) }
-    }
-
-    private fun parseJsonObject(text: String): JSONObject? {
-        val range = lastJsonObjectRange(text) ?: return null
-        return runCatching { JSONObject(text.substring(range.first, range.last + 1)) }.getOrNull()
-            ?.put("raw", text)
-    }
-
-    private fun lastJsonObjectRange(text: String): IntRange? {
-        var best: IntRange? = null
-        var depth = 0
-        var start = -1
-        var inString = false
-        var escaped = false
-
-        text.forEachIndexed { index, char ->
-            if (escaped) { escaped = false; return@forEachIndexed }
-            if (char == '\\' && inString) { escaped = true; return@forEachIndexed }
-            if (char == '"') { inString = !inString; return@forEachIndexed }
-            if (inString) return@forEachIndexed
-
-            when (char) {
-                '{' -> { if (depth++ == 0) start = index }
-                '}' -> {
-                    if (depth > 0 && --depth == 0) best = start..index
-                }
-            }
-        }
-        return best
     }
 
     companion object {

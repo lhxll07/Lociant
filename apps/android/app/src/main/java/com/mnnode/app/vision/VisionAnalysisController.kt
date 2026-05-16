@@ -2,6 +2,8 @@ package com.mnnode.app.vision
 
 import android.content.Context
 import android.os.SystemClock
+import android.util.Base64
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -15,12 +17,19 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class VisionAnalysisController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
 ) {
     private val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val inferenceExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "mnnode-inference").apply { isDaemon = true }
+    }
+    private val inferenceFrame = AtomicReference<InferenceFrame?>(null)
     private val modelManager = ModelManager(context)
     private val ncnnRuntime: NcnnRuntime = NcnnRuntime(context)
     private var cameraProvider: ProcessCameraProvider? = null
@@ -37,12 +46,58 @@ class VisionAnalysisController(
     private var lastInferMs = 0L
     private var lastPreviewMs = 0L
     private var lastPreviewBase64: String? = null
+    private var lastPreviewBytes: ByteArray? = null
+    private var onState: (JSONObject) -> Unit = {}
+    private var onFrame: (JSONObject) -> Unit = {}
 
-    fun start(
-        config: VisionConfig = VisionConfig(),
-        onState: (JSONObject) -> Unit = {},
-        onFrame: (JSONObject) -> Unit = {},
-    ) {
+    fun setCallbacks(onState: (JSONObject) -> Unit, onFrame: (JSONObject) -> Unit) {
+        this.onState = onState; this.onFrame = onFrame
+    }
+
+    private fun copyInferenceFrame(image: ImageProxy) {
+        if (!modelState.optBoolean("ok", false)) return
+        val model = modelSpec
+        val threshold = config.confidenceThreshold
+        val yPlane = image.planes[0]; val uPlane = image.planes[1]; val vPlane = image.planes[2]
+        inferenceFrame.set(InferenceFrame(
+            width = image.width, height = image.height, rotation = image.imageInfo.rotationDegrees,
+            y = ByteArray(yPlane.buffer.remaining()).also { yPlane.buffer.duplicate().get(it) },
+            u = ByteArray(uPlane.buffer.remaining()).also { uPlane.buffer.duplicate().get(it) },
+            v = ByteArray(vPlane.buffer.remaining()).also { vPlane.buffer.duplicate().get(it) },
+            yRowStride = yPlane.rowStride, uRowStride = uPlane.rowStride, vRowStride = vPlane.rowStride,
+            yPixelStride = yPlane.pixelStride, uPixelStride = uPlane.pixelStride, vPixelStride = vPlane.pixelStride,
+            model = model, threshold = threshold,
+        ))
+    }
+
+    private var inferenceFuture: java.util.concurrent.Future<*>? = null
+
+    private fun startInferenceLoop() {
+        inferenceFuture?.cancel(false)
+        inferenceFuture = inferenceExecutor.scheduleAtFixedRate({
+            val frame = inferenceFrame.getAndSet(null)
+            if (frame != null) {
+                val nowMs = SystemClock.elapsedRealtime()
+                if (nowMs - lastInferMs >= config.inferenceIntervalMs) {
+                    lastInferMs = nowMs
+                    val result = runCatching {
+                        ncnnRuntime.detectBytes(frame.width, frame.height, frame.rotation,
+                            frame.y, frame.u, frame.v,
+                            frame.yRowStride, frame.uRowStride, frame.vRowStride,
+                            frame.yPixelStride, frame.uPixelStride, frame.vPixelStride,
+                            frame.model, frame.threshold)
+                    }.getOrElse { error ->
+                        JSONObject().put("ok", false).put("message", error.message ?: "detect failed").put("detections", JSONArray())
+                    }
+                    lastDetection = result
+                }
+            }
+        }, 0, config.inferenceIntervalMs, TimeUnit.MILLISECONDS)
+    }
+
+    fun previewBytes(): ByteArray? = lastPreviewBytes
+
+    fun start(config: VisionConfig = VisionConfig()) {
         if (state == VisionState.Running || state == VisionState.Starting) {
             onState(stateJson())
             return
@@ -63,6 +118,7 @@ class VisionAnalysisController(
 
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setTargetResolution(Size(640, 480))
                     .build()
                     .apply {
                         setAnalyzer(analyzerExecutor) { image ->
@@ -79,6 +135,7 @@ class VisionAnalysisController(
 
                 state = VisionState.Running
                 onState(stateJson())
+                startInferenceLoop()
             }.onFailure { error ->
                 state = VisionState.Error
                 onState(stateJson(error.message ?: "vision start failed"))
@@ -87,7 +144,9 @@ class VisionAnalysisController(
     }
 
     fun stop() {
-        cameraProvider?.unbindAll()
+        runCatching { cameraProvider?.unbindAll() }
+        inferenceFuture?.cancel(false)
+        inferenceFuture = null
         state = VisionState.Idle
         resetStats()
     }
@@ -95,6 +154,7 @@ class VisionAnalysisController(
     fun close() {
         stop()
         analyzerExecutor.shutdown()
+        inferenceExecutor.shutdown()
         ncnnRuntime.close()
     }
 
@@ -110,7 +170,9 @@ class VisionAnalysisController(
             .put("previewIntervalMs", config.previewIntervalMs)
             .put("confidenceThreshold", config.confidenceThreshold)
             .put("model", modelState)
+            .put("lastDetection", lastDetection)
             .apply {
+                if (lastPreviewBase64 != null) put("preview", "data:image/jpeg;base64,$lastPreviewBase64")
                 if (!message.isNullOrBlank()) put("message", message)
             }
     }
@@ -130,6 +192,7 @@ class VisionAnalysisController(
         try {
             val nowMs = SystemClock.elapsedRealtime()
             frameCount += 1
+            copyInferenceFrame(image)
 
             val elapsedMs = nowMs - lastSampleMs
             if (elapsedMs >= FPS_SAMPLE_INTERVAL_MS) {
@@ -144,18 +207,8 @@ class VisionAnalysisController(
 
                 if (nowMs - lastPreviewMs >= config.previewIntervalMs) {
                     lastPreviewMs = nowMs
-                    lastPreviewBase64 = runCatching { YuvPreviewEncoder.encodeJpegBase64(image) }.getOrNull()
-                }
-
-                if (modelState.optBoolean("ok", false) && nowMs - lastInferMs >= config.inferenceIntervalMs) {
-                    lastInferMs = nowMs
-                    lastDetection = runCatching { ncnnRuntime.detect(image, modelSpec, config.confidenceThreshold) }
-                        .getOrElse { error ->
-                            JSONObject()
-                                .put("ok", false)
-                                .put("message", error.message ?: "detect failed")
-                                .put("detections", JSONArray())
-                        }
+                    lastPreviewBytes = runCatching { YuvPreviewEncoder.encodeJpegBytes(image) }.getOrNull()
+                    lastPreviewBase64 = lastPreviewBytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
                 }
 
                 onFrame(
@@ -191,21 +244,29 @@ class VisionAnalysisController(
         fps = 0.0
         lastSampleFrame = 0L
         lastSampleMs = nowMs
-        lastPublishMs = 0L
-        lastInferMs = 0L
-        lastPreviewMs = 0L
+        lastPublishMs = nowMs
+        lastInferMs = nowMs
+        lastPreviewMs = nowMs
         lastPreviewBase64 = null
         lastDetection = JSONObject().put("ok", false).put("detections", JSONArray())
     }
 
     private fun publishIntervalMs(): Long {
-        return minOf(config.inferenceIntervalMs, config.previewIntervalMs).coerceIn(100L, 2000L)
+        return minOf(config.inferenceIntervalMs, config.previewIntervalMs).coerceIn(16L, 2000L)
     }
 
     companion object {
         private const val FPS_SAMPLE_INTERVAL_MS = 1000L
     }
 }
+
+private data class InferenceFrame(
+    val width: Int, val height: Int, val rotation: Int,
+    val y: ByteArray, val u: ByteArray, val v: ByteArray,
+    val yRowStride: Int, val uRowStride: Int, val vRowStride: Int,
+    val yPixelStride: Int, val uPixelStride: Int, val vPixelStride: Int,
+    val model: com.mnnode.app.model.ModelSpec, val threshold: Float,
+)
 
 enum class VisionState(val value: String) {
     Idle("idle"),

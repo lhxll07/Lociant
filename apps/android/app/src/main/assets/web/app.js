@@ -7,6 +7,10 @@ const app = document.getElementById('app')
     const sceneFrame = document.getElementById('sceneFrame')
     const sceneList = document.getElementById('sceneList')
     const modelList = document.getElementById('modelList')
+    const modelMarketPanel = document.getElementById('modelMarketPanel')
+    const modelMarketList = document.getElementById('modelMarketList')
+    const modelMarketSearch = document.getElementById('modelMarketSearch')
+    const modelMarketRefreshButton = document.getElementById('modelMarketRefreshButton')
     const modelProgress = document.getElementById('modelProgress')
     const modelProgressText = document.getElementById('modelProgressText')
     const modelProgressPercent = document.getElementById('modelProgressPercent')
@@ -39,6 +43,12 @@ const app = document.getElementById('app')
     const runtimeWindowAutoInput = document.getElementById('runtimeWindowAutoInput')
     const runtimeWindowButton = document.getElementById('runtimeWindowButton')
     const runtimeWindowPermissionButton = document.getElementById('runtimeWindowPermissionButton')
+    const runtimeServerButton = document.getElementById('runtimeServerButton')
+    const runtimeServerState = document.getElementById('runtimeServerState')
+    const runtimeServerPanel = document.getElementById('runtimeServerPanel')
+    const runtimeServerBack = document.getElementById('runtimeServerBack')
+    const runtimePortInput = document.getElementById('runtimePortInput')
+    const runtimeMaxTokensInput = document.getElementById('runtimeMaxTokensInput')
     const runtimeCpuThreadsInput = document.getElementById('runtimeCpuThreadsInput')
     const runtimeModelButton = document.getElementById('runtimeModelButton')
     const runtimeModelState = document.getElementById('runtimeModelState')
@@ -46,6 +56,18 @@ const app = document.getElementById('app')
     const runtimeModelBack = document.getElementById('runtimeModelBack')
     const runtimeModelList = document.getElementById('runtimeModelList')
     const runtimeModelNote = document.getElementById('runtimeModelNote')
+    const runtimeSessionsButton = document.getElementById('runtimeSessionsButton')
+    const runtimeSessionsState = document.getElementById('runtimeSessionsState')
+    const runtimeSessionsPanel = document.getElementById('runtimeSessionsPanel')
+    const runtimeSessionsBack = document.getElementById('runtimeSessionsBack')
+    const runtimeCurrentSession = document.getElementById('runtimeCurrentSession')
+    const runtimeSessionNewButton = document.getElementById('runtimeSessionNewButton')
+    const runtimeSessionList = document.getElementById('runtimeSessionList')
+    const runtimeDiagnosticsButton = document.getElementById('runtimeDiagnosticsButton')
+    const runtimeDiagnosticsState = document.getElementById('runtimeDiagnosticsState')
+    const runtimeDiagnosticsPanel = document.getElementById('runtimeDiagnosticsPanel')
+    const runtimeDiagnosticsBack = document.getElementById('runtimeDiagnosticsBack')
+    const runtimeRequestList = document.getElementById('runtimeRequestList')
     const batteryOptimizationText = document.getElementById('batteryOptimizationText')
     const batteryOptimizationButton = document.getElementById('batteryOptimizationButton')
     const languageControl = document.getElementById('languageControl')
@@ -56,6 +78,7 @@ const app = document.getElementById('app')
     const diagDefaultTokens = document.getElementById('diagDefaultTokens')
     const diagModelTokens = document.getElementById('diagModelTokens')
     const diagEffectiveTokens = document.getElementById('diagEffectiveTokens')
+    const diagRequestCount = document.getElementById('diagRequestCount')
     const diagError = document.getElementById('diagError')
     const toast = document.getElementById('toast')
     let scenes = []
@@ -63,14 +86,20 @@ const app = document.getElementById('app')
     let runtimeSnapshot = null
     let runtimeServiceState = null
     let runtimeModels = []
+    let marketVisible = false
+    let marketModels = []
+    let marketQuery = ''
+    let marketInstallTimer = null
+    let marketInstallingModelId = ''
+    let marketSearchTimer = null
     let localeSetting = { mode: 'system' }
     let currentLocale = 'en'
     let activeAlert = null
-    let apiServerPollTimer = null
+    const localeStorePath = '/v1/store/runtime-settings/locale'
 
     function native(method, ...args) {
       try {
-        const bridge = window.MNNode
+        const bridge = window.MNNodeShell
         if (bridge && typeof bridge[method] === 'function') return bridge[method](...args)
       } catch (error) {}
       return null
@@ -82,6 +111,50 @@ const app = document.getElementById('app')
       try { return JSON.parse(raw) } catch (error) { return fallback }
     }
 
+    function localApiBaseUrl() {
+      const state = runtimeServiceState || {}
+      const raw = state.url || 'http://127.0.0.1:11434'
+      return String(raw).replace('0.0.0.0', '127.0.0.1').replace(/\/$/, '')
+    }
+
+    function apiUrl(path) {
+      return localApiBaseUrl() + path
+    }
+
+    async function apiGet(path) {
+      return apiRequest('GET', path)
+    }
+
+    async function apiPost(path, body) {
+      return apiRequest('POST', path, body)
+    }
+
+    async function apiRequest(method, path, body) {
+      const response = await fetch(apiUrl(path), {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: method === 'GET' ? undefined : JSON.stringify(body || {})
+      })
+      const json = await response.json()
+      if (!response.ok) throw new Error(path + ': ' + ((json.error && json.error.message) || json.message || 'API request failed'))
+      return json
+    }
+
+    function retryApi(task, fallback, attempts = 8) {
+      let index = 0
+      const run = () => task().catch(error => {
+        index += 1
+        if (index >= attempts) return fallback(error)
+        return new Promise(resolve => window.setTimeout(resolve, 250 * index)).then(run)
+      })
+      return run()
+    }
+
+    function shellCommand(command, payload) {
+      const raw = native('runtimeShellCommand', command, JSON.stringify(payload || {}))
+      return raw ? JSON.parse(raw) : { running: false, message: 'Runtime shell unavailable' }
+    }
+
     function el(tag, className, text) {
       const node = document.createElement(tag)
       if (className) node.className = className
@@ -91,6 +164,10 @@ const app = document.getElementById('app')
 
     function emptyCard(text) {
       return el('div', 'empty-card', text)
+    }
+
+    function runtimeDetails() {
+      return [runtimeSettingsPanel, runtimeServerPanel, runtimeModelPanel, runtimeSessionsPanel, runtimeDiagnosticsPanel].filter(Boolean)
     }
 
     const i18n = {
@@ -114,6 +191,11 @@ const app = document.getElementById('app')
         'settings.runtimeIntro': 'Control MNNode as a local AI node in the background.',
         'settings.modelServer': 'Model Server',
         'settings.runtimeDefaultMessage': 'Foreground service exposes the LAN API; foreground window keeps inference visible.',
+        'settings.serverTitle': 'Server',
+        'settings.serverSub': 'Port, output tokens, URL, and visible window.',
+        'settings.serverIntro': 'Configure the local OpenAI/Ollama-compatible API server.',
+        'settings.port': 'Port',
+        'settings.portSub': 'Changing the port requires restarting the server.',
         'settings.pipTitle': 'Runtime Window',
         'settings.pipSub': 'Show a small runtime window over other apps while the server runs.',
         'settings.windowAuto': 'Auto',
@@ -131,9 +213,20 @@ const app = document.getElementById('app')
         'settings.cpuThreadsSub': 'Override the model config thread_num for MNN inference. Changing this reloads the model.',
         'settings.cpuThreadsShort': 'CPU Threads',
         'settings.outputTokens': 'Output Tokens',
+        'settings.outputTokensSub': 'Default cap for requests that do not specify max_tokens.',
         'settings.defaultTokens': 'Default',
         'settings.modelTokens': 'Model Cap',
         'settings.effectiveTokens': 'Effective Cap',
+        'settings.sessionsTitle': 'Sessions',
+        'settings.sessionsSub': 'Current API chat session and recent sessions.',
+        'settings.sessionsIntro': 'Choose which durable API chat session receives new turns.',
+        'settings.currentSession': 'Current Session',
+        'settings.newSession': 'New',
+        'settings.diagnosticsTitle': 'Diagnostics',
+        'settings.diagnosticsSub': 'Queue, requests, token caps, and recent errors.',
+        'settings.diagnosticsIntro': 'Runtime state and recent API request history.',
+        'settings.noSessions': 'No sessions yet',
+        'settings.noRequests': 'No recent requests',
         'settings.battery': 'Battery Optimization',
         'settings.checking': 'Checking status...',
         'settings.runtimeScope': 'For stable inference, use the floating window while the screen is on. Locked-screen execution still depends on system policy.',
@@ -148,10 +241,17 @@ const app = document.getElementById('app')
         'status.stopped': 'Stopped',
         'models.rescan': 'Rescan',
         'models.import': 'Import',
-        'models.market': 'Model Market · Soon',
+        'models.market': 'Market',
+        'models.marketTitle': 'Model Market',
+        'models.marketSub': 'ModelScope MNN catalog.',
+        'models.marketSearch': 'Search models',
+        'models.install': 'Install',
+        'models.installed': 'Installed',
+        'models.installing': 'Installing model',
         'nodes.placeholder': 'Multi-node discovery, connection status, and collaborative tasks will appear here. This version keeps the page as a placeholder.',
         'toast.modelsReloaded': 'Model list refreshed',
-        'toast.modelMarketSoon': 'Model Market will be available in a later version',
+        'toast.modelMarketLoaded': 'Model market loaded',
+        'toast.modelMarketFailed': 'Model market failed',
         'toast.scenesReloaded': 'Scene list refreshed',
         'toast.sceneInstalled': 'Scene pack installed',
         'toast.installFailed': 'Install failed',
@@ -189,6 +289,11 @@ const app = document.getElementById('app')
         'settings.runtimeIntro': '控制 MNNode 作为本地 AI 节点在后台运行。',
         'settings.modelServer': 'Model Server',
         'settings.runtimeDefaultMessage': '前台服务暴露局域网 API；前台小窗用于保持推理可见运行。',
+        'settings.serverTitle': '服务',
+        'settings.serverSub': '端口、输出 tokens、URL 和可见小窗。',
+        'settings.serverIntro': '配置本地 OpenAI/Ollama-compatible API 服务。',
+        'settings.port': '端口',
+        'settings.portSub': '修改端口后需要重启服务。',
         'settings.pipTitle': 'Runtime 小窗',
         'settings.pipSub': '运行服务时在其他 App 上方显示 runtime 小窗。',
         'settings.windowAuto': '自动',
@@ -198,7 +303,7 @@ const app = document.getElementById('app')
         'settings.windowAllowed': '已允许',
         'settings.windowPermissionRequired': '需要悬浮窗权限',
         'settings.defaultModelTitle': '默认模型',
-        'settings.defaultModelSub': '选择 model-server 默认使用的模型。',
+        'settings.defaultModelSub': '选择 Runtime API 默认使用的模型。',
         'settings.defaultModelIntro': '这里设置的是 OpenAI 和 Ollama 请求在未显式指定 model 时所使用的默认模型。',
         'settings.defaultModelNote': '这里只显示已就绪的本地模型。',
         'settings.selected': '当前',
@@ -206,9 +311,20 @@ const app = document.getElementById('app')
         'settings.cpuThreadsSub': '覆盖模型 config.json 的 thread_num。修改后会重新加载模型。',
         'settings.cpuThreadsShort': 'CPU 线程',
         'settings.outputTokens': '输出 Tokens',
+        'settings.outputTokensSub': '请求未指定 max_tokens 时使用的默认上限。',
         'settings.defaultTokens': '默认值',
         'settings.modelTokens': '模型上限',
         'settings.effectiveTokens': '生效上限',
+        'settings.sessionsTitle': 'Sessions',
+        'settings.sessionsSub': '当前 API 对话 session 和最近 sessions。',
+        'settings.sessionsIntro': '选择新的 API 对话轮次写入哪个持久 session。',
+        'settings.currentSession': '当前 Session',
+        'settings.newSession': '新建',
+        'settings.diagnosticsTitle': '诊断',
+        'settings.diagnosticsSub': '队列、请求、token 上限和最近错误。',
+        'settings.diagnosticsIntro': 'Runtime 状态和最近 API 请求历史。',
+        'settings.noSessions': '暂无 sessions',
+        'settings.noRequests': '暂无请求记录',
         'settings.battery': '电池优化',
         'settings.checking': '正在检查状态...',
         'settings.runtimeScope': '稳定推理建议在亮屏时使用悬浮小窗。锁屏继续运行仍取决于系统策略。',
@@ -223,10 +339,16 @@ const app = document.getElementById('app')
         'status.stopped': '已停止',
         'models.rescan': '重新扫描',
         'models.import': '导入',
-        'models.market': '模型市场 · Soon',
+        'models.market': '模型市场',
+        'models.marketTitle': '魔塔模型市场',
+        'models.marketSub': '精选 ModelScope MNN 模型。',
+        'models.install': '安装',
+        'models.installed': '已安装',
+        'models.installing': '正在安装模型',
         'nodes.placeholder': '多节点发现、连接状态和协同任务会放在这里。当前版本仅保留界面占位。',
         'toast.modelsReloaded': '模型列表已刷新',
-        'toast.modelMarketSoon': '模型市场会在后续版本开放',
+        'toast.modelMarketLoaded': '模型市场已加载',
+        'toast.modelMarketFailed': '模型市场加载失败',
         'toast.scenesReloaded': '场景列表已刷新',
         'toast.sceneInstalled': '场景包已安装',
         'toast.installFailed': '安装失败',
@@ -288,29 +410,28 @@ const app = document.getElementById('app')
       const y = Math.round(cssY * scale.y)
       const width = Math.max(1, Math.round(cameraPreviewRect.width * scale.x))
       const height = Math.max(1, Math.round(cameraPreviewRect.height * scale.y))
-      native('setCameraPreviewRect', x, y, width, height)
+      void { x, y, width, height }
     }
 
     function nativeViewportScale() {
       const cssWidth = Math.max(1, document.documentElement.clientWidth || window.innerWidth || 1)
       const cssHeight = Math.max(1, document.documentElement.clientHeight || window.innerHeight || 1)
-      const metrics = nativeJson('getViewportMetrics', null)
-      if (metrics && metrics.width > 0 && metrics.height > 0) {
-        return { x: metrics.width / cssWidth, y: metrics.height / cssHeight }
-      }
       const ratio = window.devicePixelRatio || 1
       return { x: ratio, y: ratio }
     }
 
     function loadLocaleSetting() {
-      const result = nativeJson('storeGet', null, 'runtime/settings', 'locale')
-      localeSetting = result && result.ok && result.value ? result.value : { mode: 'system' }
-      applyLocale()
+      apiGet(localeStorePath)
+        .then(result => {
+          localeSetting = result && result.ok && result.value ? result.value : { mode: 'system' }
+          applyLocale()
+        })
+        .catch(() => applyLocale())
     }
 
     function saveLocaleSetting(mode) {
       localeSetting = { mode: mode || 'system' }
-      native('storeSet', 'runtime/settings', 'locale', JSON.stringify(localeSetting))
+      apiPost(localeStorePath, { value: localeSetting }).catch(() => {})
       applyLocale()
     }
 
@@ -336,31 +457,56 @@ const app = document.getElementById('app')
       })
     }
 
-    function startCameraFromScene(rect) {
-      syncCameraPreviewRect(rect)
-      if (!native('startCamera')) showToast('Camera start failed')
+    function sceneEntryUrl(scene) {
+      return scene && scene.entryUrl
     }
 
-    function stopCamera() {
-      native('stopCamera')
-      postToScene({ type: 'camera.stop' })
-    }
-
-    function startVisionFromScene(config) {
-      stopCamera()
-      try {
-        const payload = JSON.stringify(config || { modelId: 'yolov8n', backend: 'auto' })
-        native('startVision', payload)
-      } catch (error) {
-        showToast('Vision start failed')
+    function sceneApiClient() {
+      const baseUrl = localApiBaseUrl()
+      const request = (path, body) => fetch(baseUrl + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      }).then(response => response.json().then(json => {
+        if (!response.ok || !json.ok) throw new Error((json.error && json.error.message) || json.message || 'API request failed')
+        return json.result || json
+      }))
+      return {
+        baseUrl,
+        get(path) {
+          return fetch(baseUrl + path).then(response => response.json())
+        },
+        post(path, body) {
+          return request(path, body)
+        },
+        tool(name, args) {
+          return request('/v1/tools/' + encodeURIComponent(name) + '/call', { arguments: args || {} })
+        },
+        chat(requestBody) {
+          return fetch(baseUrl + '/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody || {})
+          }).then(response => response.json())
+        }
       }
     }
 
-    function stopVision(options) {
-      const notifyScene = !(options && options.notifyScene === false)
-      native('stopVision')
-      if (notifyScene) {
-        postToScene({ type: 'vision.state', state: 'idle' })
+    function publishSceneApiClient() {
+      const api = sceneApiClient()
+      window.MNNodeAPI = api
+      return api
+    }
+
+    function installSceneApiClient() {
+      const api = publishSceneApiClient()
+      try {
+        if (sceneFrame.contentWindow) {
+          sceneFrame.contentWindow.MNNodeAPI = api
+          postToScene({ type: 'api.ready', baseUrl: api.baseUrl, sameOrigin: true })
+        }
+      } catch (error) {
+        postToScene({ type: 'api.ready', baseUrl: api.baseUrl, sameOrigin: false })
       }
     }
 
@@ -484,36 +630,8 @@ const app = document.getElementById('app')
       postToScene({ type: 'scene.settings.toggle', sceneId: activeScene.id })
     }
 
-    function modelChatFromScene(request) {
-      try {
-        const payload = Object.assign({}, request || {}, {
-          sceneId: (request && request.sceneId) || (activeScene && activeScene.id) || ''
-        })
-        native('modelChat', JSON.stringify(payload))
-      } catch (error) {
-        postToScene({
-          type: 'model.chat.result',
-          ok: false,
-          requestId: request && request.requestId,
-          message: 'Model chat request failed'
-        })
-      }
-    }
-
-    function postApiServerState(state, reliable = true) {
-      const message = Object.assign({ type: 'api.server.state' }, state || {})
-      if (reliable) postToSceneReliable(message, 3, 'api.server.state')
-      else postToScene(message)
-      scheduleApiServerPoll(message)
-    }
-
-    function scheduleApiServerPoll(state) {
-      window.clearTimeout(apiServerPollTimer)
-      if (!activeScene || activeScene.id !== 'model-server') return
-      const delay = state && state.starting ? 350 : (state && state.running ? 1200 : 0)
-      if (delay > 0) {
-        apiServerPollTimer = window.setTimeout(() => runtimeApiCommand('status', { sceneId: 'model-server' }), delay)
-      }
+    function stopCamera() {
+      apiPost('/v1/tools/stop_vision_rules/call', { arguments: {} }).catch(() => {})
     }
 
     function runtimeApiCommand(command, payload) {
@@ -521,19 +639,23 @@ const app = document.getElementById('app')
         const body = Object.assign({}, payload || {}, {
           sceneId: (payload && payload.sceneId) || (activeScene && activeScene.id) || ''
         })
-        const raw = native('runtimeServiceCommand', command, JSON.stringify(body))
-        const state = raw ? JSON.parse(raw) : { running: false, message: 'API server bridge unavailable' }
-        postApiServerState(state, command !== 'settings')
-        if (raw) updateRuntimeServiceState(state)
+        const runShell = ['start', 'stop', 'status', 'battery.requestExemption', 'window.show', 'window.hide', 'window.settings', 'window.permission'].includes(command)
+        if (runShell) {
+          updateRuntimeServiceState(shellCommand(command, body))
+          return
+        }
+        const promise = apiPost('/v1/runtime/' + encodeURIComponent(command), body)
+        promise.then(state => {
+          updateRuntimeServiceState(state)
+        }).catch(() => updateRuntimeServiceState({ running: false, message: 'API server command failed' }))
       } catch (error) {
-        postApiServerState({ running: false, message: 'API server command failed' })
+        updateRuntimeServiceState({ running: false, message: 'API server command failed' })
       }
     }
 
     function runtimeServiceCommand(command, payload) {
       try {
-        const raw = native('runtimeServiceCommand', command, JSON.stringify(payload || {}))
-        updateRuntimeServiceState(raw ? JSON.parse(raw) : { running: false, message: 'Runtime service bridge unavailable' })
+        updateRuntimeServiceState(shellCommand(command, payload))
       } catch (error) {
         updateRuntimeServiceState({ running: false, message: 'Runtime service command failed' })
       }
@@ -541,24 +663,32 @@ const app = document.getElementById('app')
 
     function updateRuntimeServiceState(state) {
       runtimeServiceState = state || runtimeServiceState || {}
+      publishSceneApiClient()
       const running = !!runtimeServiceState.running
       const starting = !!runtimeServiceState.starting
       runtimeSettingsState.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
       runtimeSettingsState.classList.toggle('running', running || starting)
       runtimeServiceToggle.textContent = running || starting ? t('common.stop') : t('common.start')
       runtimeServiceMessage.textContent = runtimeServiceState.message || t('settings.runtimeDefaultMessage')
+      runtimeServerState.textContent = runtimeServiceState.port ? String(runtimeServiceState.port) : '--'
       runtimeWindowAutoInput.checked = !!runtimeServiceState.windowAutoShow
       runtimeWindowAutoInput.disabled = !runtimeServiceState.windowSupported
       runtimeWindowButton.disabled = !runtimeServiceState.windowSupported
       runtimeWindowButton.textContent = runtimeServiceState.windowVisible ? t('settings.windowHide') : t('settings.windowShow')
       runtimeWindowPermissionButton.disabled = !runtimeServiceState.windowSupported || !!runtimeServiceState.windowAllowed
       runtimeWindowPermissionButton.textContent = runtimeServiceState.windowAllowed ? t('settings.windowAllowed') : t('settings.windowPermission')
+      if (document.activeElement !== runtimePortInput) runtimePortInput.value = String(runtimeServiceState.port || 11434)
+      if (document.activeElement !== runtimeMaxTokensInput) runtimeMaxTokensInput.value = String(runtimeServiceState.maxOutputTokens || runtimeServiceState.defaultOutputTokens || 512)
       const maxCpuThreads = Number(runtimeServiceState.maxCpuThreads) || 16
       const cpuThreads = Number(runtimeServiceState.cpuThreads) || 4
       runtimeCpuThreadsInput.max = String(maxCpuThreads)
       if (document.activeElement !== runtimeCpuThreadsInput) runtimeCpuThreadsInput.value = String(cpuThreads)
       const modelSuffix = runtimeServiceState.modelLoading ? ' · loading' : (runtimeServiceState.modelLoaded ? ' · loaded' : '')
       runtimeModelState.textContent = (runtimeServiceState.modelId || runtimeModelState.textContent || '--') + modelSuffix
+      const sessions = Array.isArray(runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
+      runtimeSessionsState.textContent = sessions.length ? String(sessions.length) : '--'
+      runtimeCurrentSession.textContent = runtimeServiceState.currentSessionId || '--'
+      runtimeDiagnosticsState.textContent = String(runtimeServiceState.requestCount || 0)
       diagService.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
       diagApi.textContent = running ? t('status.running') : t('status.stopped')
       diagUrl.textContent = runtimeServiceState.lanUrl || runtimeServiceState.url || '--'
@@ -572,6 +702,7 @@ const app = document.getElementById('app')
       diagEffectiveTokens.textContent = runtimeServiceState.effectiveMaxOutputTokens !== undefined && runtimeServiceState.effectiveMaxOutputTokens !== null
         ? String(runtimeServiceState.effectiveMaxOutputTokens)
         : String(runtimeServiceState.maxOutputTokens || '--')
+      diagRequestCount.textContent = String(runtimeServiceState.requestCount || 0)
       const overlayHint = runtimeServiceState.windowSupported && !runtimeServiceState.windowAllowed
         ? t('settings.windowPermissionRequired')
         : ''
@@ -583,44 +714,60 @@ const app = document.getElementById('app')
       batteryOptimizationButton.textContent = batteryAllowed ? t('settings.allowed') : t('settings.allow')
       batteryOptimizationButton.disabled = batteryAllowed
       renderRuntimeModelChoices(runtimeModels)
+      renderRuntimeSessions()
+      renderRuntimeRequests()
     }
 
     function refreshRuntimeServiceState() {
-      runtimeServiceCommand('status', {})
+      runtimeApiCommand('status', {})
+    }
+
+    function showRuntimePanel(panel) {
+      settingsList.classList.add('hidden')
+      runtimeDetails().forEach(item => {
+        const active = item === panel
+        item.classList.toggle('active', active)
+        item.setAttribute('aria-hidden', active ? 'false' : 'true')
+      })
     }
 
     function openRuntimeSettings() {
-      settingsList.classList.add('hidden')
-      runtimeSettingsPanel.classList.add('active')
-      runtimeSettingsPanel.setAttribute('aria-hidden', 'false')
-      runtimeModelPanel.classList.remove('active')
-      runtimeModelPanel.setAttribute('aria-hidden', 'true')
+      showRuntimePanel(runtimeSettingsPanel)
       refreshRuntimeServiceState()
       loadModels()
     }
 
     function closeRuntimeSettings() {
       settingsList.classList.remove('hidden')
-      runtimeSettingsPanel.classList.remove('active')
-      runtimeSettingsPanel.setAttribute('aria-hidden', 'true')
+      runtimeDetails().forEach(item => {
+        item.classList.remove('active')
+        item.setAttribute('aria-hidden', 'true')
+      })
+    }
+
+    function openRuntimeServerSettings() {
+      showRuntimePanel(runtimeServerPanel)
+      refreshRuntimeServiceState()
     }
 
     function openRuntimeModelSettings() {
-      settingsList.classList.add('hidden')
-      runtimeSettingsPanel.classList.remove('active')
-      runtimeSettingsPanel.setAttribute('aria-hidden', 'true')
-      runtimeModelPanel.classList.add('active')
-      runtimeModelPanel.setAttribute('aria-hidden', 'false')
+      showRuntimePanel(runtimeModelPanel)
       loadModels()
       refreshRuntimeServiceState()
     }
 
-    function closeRuntimeModelSettings() {
-      settingsList.classList.add('hidden')
-      runtimeModelPanel.classList.remove('active')
-      runtimeModelPanel.setAttribute('aria-hidden', 'true')
-      runtimeSettingsPanel.classList.add('active')
-      runtimeSettingsPanel.setAttribute('aria-hidden', 'false')
+    function openRuntimeSessionsSettings() {
+      showRuntimePanel(runtimeSessionsPanel)
+      refreshRuntimeServiceState()
+    }
+
+    function openRuntimeDiagnosticsSettings() {
+      showRuntimePanel(runtimeDiagnosticsPanel)
+      refreshRuntimeServiceState()
+    }
+
+    function backToRuntimeSettings() {
+      showRuntimePanel(runtimeSettingsPanel)
     }
 
     function activateRuntime(scene) {
@@ -631,21 +778,28 @@ const app = document.getElementById('app')
         return
       }
       try {
-        runtimeSnapshot = nativeJson('activateSceneRuntime', null, scene.id)
-        updateRuntimeStrip()
-        if (runtimeSnapshot && runtimeSnapshot.active) {
-          postToSceneReliable(runtimeSnapshot)
-        }
+        apiPost('/v1/scenes/' + encodeURIComponent(scene.id) + '/load', {})
+          .then(result => {
+            runtimeSnapshot = {
+              type: 'runtime.snapshot',
+              active: !!(result && result.ok),
+              running: !!(result && result.ok),
+              sceneId: scene.id,
+              state: 'loaded',
+              elapsedMs: 0,
+              events: [],
+              triggersLoaded: result && result.triggersLoaded
+            }
+            updateRuntimeStrip()
+            if (runtimeSnapshot.active) postToSceneReliable(runtimeSnapshot)
+          })
       } catch (error) {}
     }
 
     function syncRuntimeSnapshot(options) {
       const notifyScene = !(options && options.notifyScene === false)
-      try {
-        runtimeSnapshot = nativeJson('getRuntimeSnapshot', runtimeSnapshot)
-        updateRuntimeStrip()
-        if (notifyScene && runtimeSnapshot && runtimeSnapshot.active) postToSceneReliable(runtimeSnapshot)
-      } catch (error) {}
+      updateRuntimeStrip()
+      if (notifyScene && runtimeSnapshot && runtimeSnapshot.active) postToSceneReliable(runtimeSnapshot)
     }
 
     function handleRuntimeMessage(message) {
@@ -659,32 +813,37 @@ const app = document.getElementById('app')
         runtimeSnapshot.elapsedMs = message.elapsedMs || runtimeSnapshot.elapsedMs
         runtimeSnapshot.durations = message.durations || runtimeSnapshot.durations
       }
-      if (message.type === 'runtime.event' && runtimeSnapshot && message.event) {
-        const events = Array.isArray(runtimeSnapshot.events) ? runtimeSnapshot.events : []
-        runtimeSnapshot.events = [message.event].concat(events).slice(0, 50)
+      if (message.type === 'runtime.event' && runtimeSnapshot) {
+        const events = Array.isArray(runtimeSnapshot.events) ? runtimeSnapshot.events.slice() : []
+        events.unshift(message.event || message)
+        runtimeSnapshot.events = events.slice(0, 20)
+        if (message.event && message.event.alert) showAlert(message)
       }
       updateRuntimeStrip()
-
-      if (message.type === 'runtime.state' && activeScene) {
-        stateText.textContent = activeScene.name + ' · ' + message.state
-      }
-      if (message.type === 'runtime.event' && message.event) {
-        showAlert(message.event)
-        showToast((activeScene ? activeScene.name + ' · ' : '') + message.event.name)
-      }
-      postToScene(message)
+      postToSceneReliable(message)
     }
 
     function sendRuntimeCommand(sceneId, command, payload) {
       try {
-        const snapshot = nativeJson('runtimeCommand', null, sceneId, command, JSON.stringify(payload || {}))
-        if (snapshot) handleRuntimeMessage(snapshot)
+        if (command === 'stop') {
+          runtimeSnapshot = null
+          stopCamera()
+          updateRuntimeStrip()
+          return
+        }
+        if (command === 'start' || command === 'sync' || command === 'reset') {
+          const scene = sceneById(sceneId)
+          if (scene) activateRuntime(scene)
+          return
+        }
+        showToast('Runtime command not supported')
       } catch (error) {
         showToast('Runtime command failed')
       }
     }
 
     sceneFrame.addEventListener('load', () => {
+      installSceneApiClient()
       resizeSceneFrame()
       window.setTimeout(resizeSceneFrame, 80)
       window.setTimeout(resizeSceneFrame, 300)
@@ -751,7 +910,11 @@ const app = document.getElementById('app')
         panels.forEach(panel => panel.classList.toggle('active', panel.id === 'page-' + page))
         const activePanel = document.getElementById('page-' + page)
         if (activePanel) activePanel.scrollTop = 0
-        if (page === 'models') loadModels()
+        if (page === 'models') {
+          modelMarketPanel.classList.toggle('active', marketVisible)
+          loadModels()
+          if (marketVisible) loadModelMarket()
+        }
         stateText.textContent = t('state.idle')
         updateRuntimeStrip()
       })
@@ -769,8 +932,14 @@ const app = document.getElementById('app')
     }
 
     function loadScenes() {
-      scenes = nativeJson('getScenes', [])
-      renderScenes()
+      retryApi(() => apiGet('/v1/scenes'), () => {
+        scenes = []
+        renderScenes()
+      })
+        .then(result => {
+          scenes = Array.isArray(result) ? result : []
+          renderScenes()
+        })
     }
 
     function renderScenes() {
@@ -830,9 +999,36 @@ const app = document.getElementById('app')
     }
 
     function loadModels() {
-      let models = nativeJson('getModels', [])
-      runtimeModels = Array.isArray(models) ? models.slice() : []
-      renderModels(models)
+      retryApi(() => apiGet('/v1/models/full'), () => {
+        runtimeModels = []
+        renderModels([])
+      })
+        .then(models => {
+          runtimeModels = Array.isArray(models) ? models.slice() : []
+          renderModels(runtimeModels)
+          if (marketVisible) loadModelMarket()
+        })
+    }
+
+    function loadModelMarket(refresh) {
+      if (!modelMarketList) return Promise.resolve()
+      marketVisible = true
+      modelMarketPanel.classList.add('active')
+      modelMarketButton.classList.add('active')
+      return retryApi(() => apiGet('/v1/models/market?q=' + encodeURIComponent(marketQuery || '') + (refresh ? '&refresh=true' : '')), () => {
+        marketModels = []
+        renderModelMarket([])
+      })
+        .then(payload => {
+          marketModels = Array.isArray(payload && payload.models) ? payload.models.slice() : []
+          renderModelMarket(marketModels)
+          showToast(t('toast.modelMarketLoaded'))
+        })
+        .catch(() => {
+          marketModels = []
+          renderModelMarket([])
+          showToast(t('toast.modelMarketFailed'))
+        })
     }
 
     function renderModels(models) {
@@ -890,6 +1086,71 @@ const app = document.getElementById('app')
       renderRuntimeModelChoices(runtimeModels)
     }
 
+    function renderModelMarket(models) {
+      if (!modelMarketList) return
+      modelMarketList.innerHTML = ''
+      if (!marketVisible) return
+
+      if (!models.length) {
+        modelMarketList.appendChild(emptyCard(t('empty.models')))
+        return
+      }
+
+      models.forEach(model => {
+        const row = document.createElement('div')
+        row.className = 'market-row'
+
+        const body = document.createElement('div')
+        body.className = 'market-body'
+        body.appendChild(el('div', 'market-name', model.name || model.id))
+        body.appendChild(el('div', 'market-meta', [model.repo, model.runtime, model.source].filter(Boolean).join(' · ')))
+        body.appendChild(el('div', 'market-desc', model.description || ''))
+
+        const actions = document.createElement('div')
+        actions.className = 'market-actions'
+        const status = el('span', 'settings-row-state', isMarketModelInstalled(model) ? t('models.installed') : (marketInstallingModelId === model.id ? t('models.installing') : t('models.install')))
+        actions.appendChild(status)
+
+        const install = document.createElement('button')
+        install.className = 'install-button pressable'
+        install.type = 'button'
+        install.textContent = isMarketModelInstalled(model) ? t('models.installed') : (marketInstallingModelId === model.id ? t('models.installing') : t('models.install'))
+        install.disabled = isMarketModelInstalled(model) || marketInstallingModelId === model.id
+        install.addEventListener('click', () => installMarketModel(model))
+        actions.appendChild(install)
+
+        row.appendChild(body)
+        row.appendChild(actions)
+        modelMarketList.appendChild(row)
+      })
+    }
+
+    function isMarketModelInstalled(model) {
+      return runtimeModels.some(item => item && item.id === model.id && item.ready)
+    }
+
+    function installMarketModel(model) {
+      if (!model || !model.id || isMarketModelInstalled(model)) return
+      marketInstallingModelId = model.id
+      setModelProgress({ state: 'installing', message: t('models.installing') + ': ' + (model.name || model.id) })
+      apiPost('/v1/models/market/' + encodeURIComponent(model.id) + '/install', {})
+        .then(result => {
+          if (result && result.ok) {
+            pollMarketInstall(model.id)
+            loadModels()
+          } else {
+            marketInstallingModelId = ''
+            setModelProgress(Object.assign({ state: 'error' }, result || {}))
+            showToast((result && result.message) || t('toast.modelImportFailed'))
+          }
+        })
+        .catch(() => {
+          marketInstallingModelId = ''
+          setModelProgress({ state: 'error', message: t('toast.modelImportFailed') })
+          showToast(t('toast.modelImportFailed'))
+        })
+    }
+
     function renderRuntimeModelChoices(models) {
       if (!runtimeModelList) return
       runtimeModelList.innerHTML = ''
@@ -923,11 +1184,76 @@ const app = document.getElementById('app')
         row.appendChild(body)
         row.appendChild(state)
         row.addEventListener('click', () => {
-          runtimeApiCommand('settings', { sceneId: 'model-server', modelId: model.id })
+          runtimeApiCommand('settings', { modelId: model.id })
           runtimeModelState.textContent = model.id
           showToast(model.name || model.id)
         })
         runtimeModelList.appendChild(row)
+      })
+    }
+
+    function renderRuntimeSessions() {
+      if (!runtimeSessionList) return
+      runtimeSessionList.innerHTML = ''
+      const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
+      const currentId = runtimeServiceState && runtimeServiceState.currentSessionId
+      if (!sessions.length) {
+        runtimeSessionList.appendChild(emptyCard(t('settings.noSessions')))
+        return
+      }
+      sessions.forEach(session => {
+        const row = document.createElement('button')
+        row.type = 'button'
+        row.className = 'model-choice-row pressable'
+        row.classList.toggle('active', session.id === currentId)
+
+        const body = document.createElement('div')
+        body.className = 'model-choice-body'
+        const title = el('div', 'model-choice-title', session.title || session.id)
+        const meta = el('div', 'model-choice-sub', [session.id, session.messageCount ? session.messageCount + ' messages' : '0 messages'].filter(Boolean).join(' · '))
+        body.appendChild(title)
+        body.appendChild(meta)
+
+        const actions = document.createElement('div')
+        actions.className = 'settings-actions'
+        const state = el('span', 'settings-row-state', session.id === currentId ? t('settings.selected') : (session.modelId || ''))
+        actions.appendChild(state)
+        const remove = document.createElement('button')
+        remove.className = 'scene-mini-button pressable'
+        remove.type = 'button'
+        remove.textContent = t('models.delete')
+        remove.addEventListener('click', event => {
+          event.stopPropagation()
+          runtimeApiCommand('session.delete', { sessionId: session.id })
+        })
+        actions.appendChild(remove)
+
+        row.appendChild(body)
+        row.appendChild(actions)
+        row.addEventListener('click', () => runtimeApiCommand('session.select', { sessionId: session.id }))
+        runtimeSessionList.appendChild(row)
+      })
+    }
+
+    function renderRuntimeRequests() {
+      if (!runtimeRequestList) return
+      runtimeRequestList.innerHTML = ''
+      const requests = Array.isArray(runtimeServiceState && runtimeServiceState.recentRequests) ? runtimeServiceState.recentRequests : []
+      if (!requests.length) {
+        runtimeRequestList.appendChild(emptyCard(t('settings.noRequests')))
+        return
+      }
+      requests.slice(0, 8).forEach(request => {
+        const row = document.createElement('div')
+        row.className = 'model-choice-row'
+        const body = document.createElement('div')
+        body.className = 'model-choice-body'
+        const status = request.status || '--'
+        body.appendChild(el('div', 'model-choice-title', [request.method, request.endpoint, status].filter(Boolean).join(' · ')))
+        body.appendChild(el('div', 'model-choice-sub', [request.modelId, request.elapsedMs !== undefined ? request.elapsedMs + ' ms' : '', request.time ? new Date(request.time).toLocaleTimeString('zh-CN', { hour12: false }) : ''].filter(Boolean).join(' · ')))
+        row.appendChild(body)
+        row.appendChild(el('span', 'settings-row-state', String(status)))
+        runtimeRequestList.appendChild(row)
       })
     }
 
@@ -941,16 +1267,37 @@ const app = document.getElementById('app')
       if (!window.confirm('删除模型「' + name + '」？')) return
 
       try {
-        const result = nativeJson('deleteModel', { ok: false }, model.id)
-        if (result.ok) {
+        apiPost('/v1/models/' + encodeURIComponent(model.id) + '/delete', {})
+          .then(result => {
+            if (result.ok) {
           showToast(t('toast.modelDeleted'))
           loadModels()
         } else {
           showToast(result.message || t('toast.modelDeleteFailed'))
         }
+          })
+          .catch(() => showToast(t('toast.modelDeleteFailed')))
       } catch (error) {
         showToast(t('toast.modelDeleteFailed'))
       }
+    }
+
+    function pollMarketInstall(modelId) {
+      window.clearInterval(marketInstallTimer)
+      marketInstallTimer = window.setInterval(() => {
+        apiGet('/v1/models/market/' + encodeURIComponent(modelId) + '/progress')
+          .then(result => {
+            if (!result) return
+            setModelProgress(result)
+            if (result.active === false || result.progress >= 1) {
+              window.clearInterval(marketInstallTimer)
+              marketInstallTimer = null
+              marketInstallingModelId = ''
+              loadModels()
+            }
+          })
+          .catch(() => {})
+      }, 700)
     }
 
     function setModelProgress(result) {
@@ -978,13 +1325,12 @@ const app = document.getElementById('app')
         modelProgressPercent.textContent = ''
       }
 
-      if (result.state === 'done' || result.state === 'error') {
+      if (result.state === 'done' || result.state === 'error' || result.active === false || progress >= 1) {
         setModelProgress.timer = window.setTimeout(() => setModelProgress({ state: 'idle' }), 1800)
       }
     }
 
     function goHome() {
-      window.clearTimeout(apiServerPollTimer)
       stopCamera()
       unloadSceneFrame()
       sceneHost.classList.remove('active')
@@ -999,6 +1345,7 @@ const app = document.getElementById('app')
 
     function openScene(scene) {
       if (!scene || !scene.entryUrl) return
+      updateRuntimeServiceState(shellCommand('status', {}))
       panels.forEach(panel => panel.classList.remove('active'))
       backButton.classList.add('active')
       activeScene = scene
@@ -1008,12 +1355,8 @@ const app = document.getElementById('app')
       sceneHost.scrollTop = 0
       cameraPreviewRect = null
       sceneFrame.style.height = '100%'
-      sceneFrame.src = scene.entryUrl
+      sceneFrame.src = sceneEntryUrl(scene)
       activateRuntime(scene)
-      if (scene.id === 'model-server') {
-        window.clearTimeout(apiServerPollTimer)
-        apiServerPollTimer = window.setTimeout(() => runtimeApiCommand('status', { sceneId: scene.id }), 180)
-      }
       stateText.textContent = t('state.running')
       updateRuntimeStrip()
     }
@@ -1021,13 +1364,16 @@ const app = document.getElementById('app')
     function uninstallScene(scene) {
       if (!scene || scene.source !== 'installed') return
       try {
-        const result = nativeJson('uninstallScene', { ok: false }, scene.id)
-        if (result.ok) {
+        apiPost('/v1/scenes/' + encodeURIComponent(scene.id) + '/delete', {})
+          .then(result => {
+            if (result.ok) {
           showToast(t('toast.sceneUninstalled'))
           loadScenes()
         } else {
           showToast(result.message || t('toast.sceneUninstallFailed'))
         }
+          })
+          .catch(() => showToast(t('toast.sceneUninstallFailed')))
       } catch (error) {
         showToast(t('toast.sceneUninstallFailed'))
       }
@@ -1043,11 +1389,17 @@ const app = document.getElementById('app')
     })
     runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
     runtimeSettingsBack.addEventListener('click', closeRuntimeSettings)
+    runtimeServerButton.addEventListener('click', openRuntimeServerSettings)
+    runtimeServerBack.addEventListener('click', backToRuntimeSettings)
     runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
-    runtimeModelBack.addEventListener('click', closeRuntimeModelSettings)
+    runtimeModelBack.addEventListener('click', backToRuntimeSettings)
+    runtimeSessionsButton.addEventListener('click', openRuntimeSessionsSettings)
+    runtimeSessionsBack.addEventListener('click', backToRuntimeSettings)
+    runtimeDiagnosticsButton.addEventListener('click', openRuntimeDiagnosticsSettings)
+    runtimeDiagnosticsBack.addEventListener('click', backToRuntimeSettings)
     runtimeServiceToggle.addEventListener('click', () => {
       const running = runtimeServiceState && (runtimeServiceState.running || runtimeServiceState.starting)
-      runtimeServiceCommand(running ? 'stop' : 'start', {})
+      runtimeApiCommand(running ? 'stop' : 'start', {})
     })
     runtimeWindowAutoInput.addEventListener('change', () => {
       runtimeServiceCommand('window.settings', { autoShow: !!runtimeWindowAutoInput.checked })
@@ -1058,11 +1410,25 @@ const app = document.getElementById('app')
     runtimeWindowPermissionButton.addEventListener('click', () => {
       runtimeServiceCommand('window.permission', {})
     })
+    runtimePortInput.addEventListener('change', () => {
+      const value = Math.max(1024, Math.min(65535, Math.round(Number(runtimePortInput.value) || 11434)))
+      runtimePortInput.value = String(value)
+      runtimeApiCommand('settings', { port: value })
+    })
+    runtimeMaxTokensInput.addEventListener('change', () => {
+      const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+      const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeMaxTokensInput.value) || 512)))
+      runtimeMaxTokensInput.value = String(value)
+      runtimeApiCommand('settings', { maxOutputTokens: value })
+    })
     runtimeCpuThreadsInput.addEventListener('change', () => {
       const max = Number(runtimeServiceState && runtimeServiceState.maxCpuThreads) || 16
       const value = Math.max(1, Math.min(max, Math.round(Number(runtimeCpuThreadsInput.value) || 4)))
       runtimeCpuThreadsInput.value = String(value)
-      runtimeServiceCommand('settings', { cpuThreads: value })
+      runtimeApiCommand('settings', { cpuThreads: value })
+    })
+    runtimeSessionNewButton.addEventListener('click', () => {
+      runtimeApiCommand('session.create', {})
     })
     batteryOptimizationButton.addEventListener('click', () => {
       runtimeServiceCommand('battery.requestExemption', {})
@@ -1078,13 +1444,27 @@ const app = document.getElementById('app')
     modelImportButton.addEventListener('click', () => {
       native('installModelPackage')
     })
-    modelMarketButton.addEventListener('click', () => showToast(t('toast.modelMarketSoon')))
+    modelMarketButton.addEventListener('click', () => {
+      marketVisible = !marketVisible
+      modelMarketPanel.classList.toggle('active', marketVisible)
+      modelMarketButton.classList.toggle('active', marketVisible)
+      renderModelMarket(marketModels)
+      if (marketVisible && !marketModels.length) loadModelMarket()
+    })
+    modelMarketRefreshButton.addEventListener('click', () => loadModelMarket(true))
+    modelMarketSearch.addEventListener('input', () => {
+      window.clearTimeout(marketSearchTimer)
+      marketSearchTimer = window.setTimeout(() => {
+        marketQuery = modelMarketSearch.value.trim()
+        loadModelMarket()
+      }, 250)
+    })
     reloadButton.addEventListener('click', () => {
       loadScenes()
       showToast(t('toast.scenesReloaded'))
     })
 
-    window.MNNodeShell = { goHome }
+    window.MNNodeShellUi = { goHome }
 
     installButton.addEventListener('click', () => {
       native('installScenePack')
@@ -1131,10 +1511,6 @@ const app = document.getElementById('app')
       },
       onRuntimeMessage(message) {
         handleRuntimeMessage(message)
-      },
-      onModelChatResult(result) {
-        const message = Object.assign({ type: 'model.chat.result' }, result || {})
-        postToSceneReliable(message)
       }
     }
 
@@ -1150,31 +1526,6 @@ const app = document.getElementById('app')
       },
       'runtime.subscribe': () => syncRuntimeSnapshot(),
       'runtime.command': data => sendRuntimeCommand(data.sceneId || (activeScene && activeScene.id) || '', data.command || '', data.payload || {}),
-      'camera.preview.rect': data => syncCameraPreviewRect(data.rect),
-      'camera.start': data => {
-        showToast(t('toast.cameraRequested'))
-        startCameraFromScene(data.rect)
-      },
-      'camera.stop': () => stopCamera(),
-      'vision.start': data => {
-        showToast(t('toast.visionRequested'))
-        startVisionFromScene({
-          modelId: data.modelId || 'yolov8n',
-          backend: data.backend || 'auto',
-          inferenceIntervalMs: data.inferenceIntervalMs || 250,
-          previewIntervalMs: data.previewIntervalMs || 250,
-          confidenceThreshold: data.confidenceThreshold || 0.5
-        })
-      },
-      'vision.stop': () => stopVision(),
-      'model.chat': data => modelChatFromScene(data),
-      'api.server.status': data => runtimeApiCommand('status', data),
-      'api.server.settings': data => runtimeApiCommand('settings', data),
-      'api.server.start': data => runtimeApiCommand('start', data),
-      'api.server.stop': data => runtimeApiCommand('stop', data),
-      'api.server.session.create': data => runtimeApiCommand('session.create', data),
-      'api.server.session.select': data => runtimeApiCommand('session.select', data),
-      'api.server.session.delete': data => runtimeApiCommand('session.delete', data)
     }
 
     window.addEventListener('message', event => {
@@ -1189,9 +1540,9 @@ const app = document.getElementById('app')
       updateRuntimeStrip()
     }
 
+    refreshRuntimeServiceState()
     loadScenes()
     loadModels()
     loadLocaleSetting()
-    refreshRuntimeServiceState()
     tick()
     setInterval(tick, 1000)

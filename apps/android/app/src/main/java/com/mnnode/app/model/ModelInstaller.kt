@@ -3,7 +3,6 @@ package com.mnnode.app.model
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import org.json.JSONObject
 import java.io.File
 import java.io.FilterInputStream
 import java.io.InputStream
@@ -23,7 +22,7 @@ class ModelInstaller(
         return try {
             unzipSafely(uri, tempRoot, onProgress)
             val modelRoot = findModelRoot(tempRoot)
-            val spec = readSpec(modelRoot)
+            val spec = modelManager.inferMnnSpec(modelRoot) ?: error("unknown MNN model package")
             val missing = spec.requiredFiles.filterNot { File(modelRoot, it).isFile }
             require(missing.isEmpty()) { "Missing model files: ${missing.joinToString(", ")}" }
             targetDir = modelManager.externalModelDir(spec)
@@ -52,45 +51,8 @@ class ModelInstaller(
     }
 
     private fun findModelRoot(tempRoot: File): File {
-        if (File(tempRoot, "model.json").isFile) return tempRoot
-        knownIds.firstNotNullOfOrNull { id ->
-            modelManager.knownSpec(id)?.takeIf { hasRequiredFiles(tempRoot, it) }
-        }?.let { return tempRoot }
-
-        val dirs = tempRoot.listFiles()?.filter { it.isDirectory }.orEmpty()
-        return dirs.firstOrNull { File(it, "model.json").isFile }
-            ?: dirs.firstOrNull { dir -> knownIds.any { id -> modelManager.knownSpec(id)?.let { hasRequiredFiles(dir, it) } == true } }
-            ?: error("model.json not found")
-    }
-
-    private fun readSpec(modelRoot: File): ModelSpec {
-        val modelJson = File(modelRoot, "model.json")
-        if (modelJson.isFile) {
-            val json = JSONObject(modelJson.readText(Charsets.UTF_8))
-            val id = ModelManager.normalizeId(json.getString("id"))
-            val known = modelManager.knownSpec(id)
-            val required = json.optJSONArray("requiredFiles")?.let { array ->
-                List(array.length()) { array.optString(it) }.filter { it.isNotBlank() }
-            }.orEmpty()
-            return ModelSpec(
-                id = id,
-                name = json.optString("name", known?.name ?: id),
-                runtime = json.optString("runtime", known?.runtime ?: "unknown"),
-                type = json.optString("type", known?.type ?: "unknown"),
-                source = "external",
-                entry = json.optString("entry", known?.entry ?: required.firstOrNull().orEmpty()),
-                requiredFiles = if (required.isNotEmpty()) required else known?.requiredFiles.orEmpty(),
-            )
-        }
-
-        return knownIds
-            .mapNotNull { modelManager.knownSpec(it) }
-            .firstOrNull { hasRequiredFiles(modelRoot, it) }
-            ?: error("unknown model package")
-    }
-
-    private fun hasRequiredFiles(root: File, spec: ModelSpec): Boolean {
-        return spec.requiredFiles.all { File(root, it).isFile }
+        return modelManager.findMnnModelDirs(tempRoot).singleOrNull()
+            ?: error("model package must contain exactly one MNN config.json model root")
     }
 
     private fun unzipSafely(uri: Uri, destDir: File, onProgress: (Double?, String) -> Unit) {
@@ -163,7 +125,6 @@ class ModelInstaller(
 
     companion object {
         private const val PROGRESS_INTERVAL_MS = 200L
-        private val knownIds = listOf("qwen3.5-2b-mnn")
     }
 }
 

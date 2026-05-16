@@ -5,14 +5,15 @@ import com.mnnode.app.model.ModelChatMessage
 import com.mnnode.app.model.ModelChatPart
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 class SessionStore(context: Context) {
     private val dao = SessionDatabase.get(context).sessionDao()
 
     fun normalizeModelSessionId(raw: String?): String {
         val value = raw.orEmpty().trim()
-        val cleaned = value.replace(Regex("[^A-Za-z0-9._:/-]"), "_").take(96).trim('_')
-        return cleaned.ifBlank { DEFAULT_CHAT_SESSION_ID }
+        return value.takeIf { it.matches(SAFE_SESSION_ID) }
+            ?: "session-${UUID.randomUUID().toString().take(12)}"
     }
 
     fun createModelSession(modelId: String?, title: String? = null): String {
@@ -141,6 +142,22 @@ class SessionStore(context: Context) {
         )
     }
 
+    fun queryEvents(sceneId: String, type: String? = null, limit: Int = 20): JSONArray {
+        val result = JSONArray()
+        val events = if (type != null) dao.recentEventsBySceneAndType(sceneId, type, limit)
+                     else dao.recentEvents(sceneId, limit)
+        events.forEach { event ->
+            val payload = runCatching { JSONObject(event.payloadJson) }.getOrDefault(JSONObject())
+            result.put(JSONObject()
+                .put("id", event.id)
+                .put("type", event.type)
+                .put("level", event.level)
+                .put("payload", payload)
+                .put("createdAt", event.createdAt))
+        }
+        return result
+    }
+
     fun modelHistory(sessionId: String, limit: Int = 16): List<ModelChatMessage> {
         return dao.messages(sessionId)
             .filter { it.role == "user" || it.role == "assistant" || it.role == "system" }
@@ -203,6 +220,7 @@ class SessionStore(context: Context) {
     }
 
     companion object {
+        private val SAFE_SESSION_ID = Regex("^[\\w.:/@\\-]+$")
         private const val MODEL_SERVER_SCENE_ID = "model-server"
         private const val MODEL_SERVER_SESSION_ID = "model-server/default"
         private const val CHAT_SESSION_PREFIX = "model-server/chat/"

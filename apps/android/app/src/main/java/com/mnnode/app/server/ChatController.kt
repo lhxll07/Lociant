@@ -1,13 +1,10 @@
 package com.mnnode.app.server
 
 import android.util.Log
-import com.mnnode.app.model.MnnRuntime
+import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.model.DEFAULT_MODEL_ID
 import com.mnnode.app.model.HARD_MAX_OUTPUT_TOKENS
-import com.mnnode.app.model.MIN_OUTPUT_TOKENS
-import com.mnnode.app.model.ModelChatMessage
-import com.mnnode.app.model.ModelChatPart
 import com.mnnode.app.model.ModelChatRequest
 import com.mnnode.app.model.ModelChatResult
 import com.mnnode.app.session.SessionStore
@@ -20,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -31,12 +27,10 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.UUID
 
 class ChatController(
-    private val modelManager: ModelManager,
-    private val mnnRuntime: MnnRuntime,
+    private val chatCapability: ChatCapability,
     private val sessionStore: SessionStore,
 ) {
     private val modelLoading = AtomicBoolean(false)
-    private val loadedModelId = AtomicReference<String?>(null)
     @Volatile var lastError: String? = null
 
     private val requestQueue = ChatRequestQueue()
@@ -45,37 +39,19 @@ class ChatController(
     }
 
     val isLoading: Boolean get() = modelLoading.get()
-    fun isModelLoaded(modelId: String) = loadedModelId.get() == ModelManager.normalizeId(modelId)
-    fun resetLoadedModel() = loadedModelId.set(null)
-
-    // ---- Model resolution ----
-
-    private fun resolveModel(modelIdRaw: String): File? {
-        val id = ModelManager.normalizeId(modelIdRaw).ifBlank { DEFAULT_MODEL_ID }
-        val status = modelManager.resolve(id)
-        val dir = modelManager.resolveDir(id)
-        if (dir != null && status.spec.runtime == "mnn") return dir
-        Log.w(TAG, "model unavailable modelId=$id runtime=${status.spec.runtime}")
-        return null
-    }
-
-    private fun installHint(modelIdRaw: String) = modelManager.installHint(
-        ModelManager.normalizeId(modelIdRaw).ifBlank { DEFAULT_MODEL_ID })
+    fun isModelLoaded(modelId: String) = chatCapability.isLoaded(modelId)
+    fun resetLoadedModel() = chatCapability.resetLoadedModel()
 
     // ---- Token clamping ----
 
-    fun clampTokens(modelIdRaw: String, requested: Int, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int {
-        val modelCap = modelManager.maxNewTokens(ModelManager.normalizeId(modelIdRaw).ifBlank { DEFAULT_MODEL_ID })
-        val effective = minOf(serverCap, HARD_MAX_OUTPUT_TOKENS, modelCap ?: HARD_MAX_OUTPUT_TOKENS)
-            .coerceAtLeast(MIN_OUTPUT_TOKENS)
-        return requested.coerceIn(MIN_OUTPUT_TOKENS, effective)
-    }
+    fun clampTokens(modelIdRaw: String, requested: Int, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int =
+        chatCapability.clampTokens(modelIdRaw, requested, serverCap)
 
-    fun effectiveMaxTokens(modelIdRaw: String, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int {
-        val modelCap = modelManager.maxNewTokens(ModelManager.normalizeId(modelIdRaw).ifBlank { DEFAULT_MODEL_ID })
-        return minOf(serverCap, HARD_MAX_OUTPUT_TOKENS, modelCap ?: HARD_MAX_OUTPUT_TOKENS)
-            .coerceAtLeast(MIN_OUTPUT_TOKENS)
-    }
+    fun effectiveMaxTokens(modelIdRaw: String, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int =
+        chatCapability.maxTokens(modelIdRaw, serverCap)
+
+    fun contextWindowTokens(modelIdRaw: String): Int =
+        chatCapability.contextWindowTokens(modelIdRaw)
 
     // ---- Preload ----
 
@@ -87,15 +63,7 @@ class ChatController(
             }
             modelLoading.set(true)
             val result = runCatching {
-                val dir = resolveModel(modelId) ?: return@submitControl ModelChatResult(
-                    ok = false,
-                    modelId = normalized,
-                    message = "MNN chat model not installed",
-                )
-                val raw = mnnRuntime.preload(dir)
-                if (raw.ok) loadedModelId.set(normalized)
-                else lastError = raw.message
-                raw
+                chatCapability.preload(normalized).also { if (!it.ok) lastError = it.message }
             }.onFailure { e ->
                 lastError = e.message ?: "model preload failed"
                 Log.w(TAG, "preload failed modelId=$modelId", e)
@@ -112,111 +80,38 @@ class ChatController(
     // ---- Chat execution (non-streaming) ----
 
     private fun executeChat(request: ModelChatRequest): ModelChatResult {
-        val started = System.currentTimeMillis()
-        val modelId = ModelManager.normalizeId(request.modelId).ifBlank { DEFAULT_MODEL_ID }
-        val imageCount = request.messages.sumOf { m -> m.parts.count { it is ModelChatPart.Image } }
-        Log.i(TAG, "chat start source=${request.source} modelId=$modelId messages=${request.messages.size} images=$imageCount maxTokens=${request.maxTokens}")
-
-        val dir = resolveModel(modelId)
-            ?: return ModelChatResult(ok = false, modelId = modelId,
-                message = "MNN chat model not installed",
-                elapsedMs = System.currentTimeMillis() - started)
-
-        val images = request.messages.flatMap { m -> m.parts.filterIsInstance<ModelChatPart.Image>() }
-        if (images.size > 1) {
-            Log.w(TAG, "chat rejected multiple images modelId=$modelId images=${images.size}")
-            return ModelChatResult(ok = false, modelId = modelId,
-                message = "Only one image per request is supported in this version",
-                elapsedMs = System.currentTimeMillis() - started)
-        }
-
-        val maxTokens = clampTokens(modelId, request.maxTokens)
-        val raw = if (images.isEmpty()) {
-            mnnRuntime.chatText(dir, normalizeMessages(request.messages), maxTokens,
-                request.sessionId, request.useSessionCache)
-        } else {
-            mnnRuntime.chatImage(dir, images.first().bytes,
-                renderMultimodalPrompt(request.messages), maxTokens)
-        }
-
-        return ModelChatResult(
-            ok = raw.ok, modelId = modelId, text = raw.text,
-            message = raw.message.ifBlank { "chat finished" },
-            elapsedMs = System.currentTimeMillis() - started,
-            promptTokens = raw.promptTokens, generatedTokens = raw.generatedTokens,
-        ).also {
-            Log.i(TAG, "chat end modelId=$modelId ok=${it.ok} elapsed=${it.elapsedMs} textLen=${raw.text.length}")
-        }
+        return chatCapability.complete(request)
     }
 
     // ---- Chat execution (streaming) ----
 
     private fun executeChatStream(request: ModelChatRequest, onChunk: (text: String, done: Boolean) -> Unit): ModelChatResult {
-        val started = System.currentTimeMillis()
-        val modelId = ModelManager.normalizeId(request.modelId).ifBlank { DEFAULT_MODEL_ID }
-        val imageCount = request.messages.sumOf { m -> m.parts.count { it is ModelChatPart.Image } }
-        Log.i(TAG, "chatStream start source=${request.source} modelId=$modelId messages=${request.messages.size} images=$imageCount maxTokens=${request.maxTokens}")
-
-        val dir = resolveModel(modelId)
-            ?: return ModelChatResult(ok = false, modelId = modelId,
-                message = "MNN chat model not installed",
-                elapsedMs = System.currentTimeMillis() - started)
-
-        val images = request.messages.flatMap { m -> m.parts.filterIsInstance<ModelChatPart.Image>() }
-        if (images.size > 1) {
-            return ModelChatResult(ok = false, modelId = modelId,
-                message = "Only one image per request is supported in this version",
-                elapsedMs = System.currentTimeMillis() - started)
-        }
-
-        val maxTokens = clampTokens(modelId, request.maxTokens)
-        val responseText = StringBuilder()
-        val raw = if (images.isEmpty()) {
-            mnnRuntime.chatTextStream(dir, normalizeMessages(request.messages), maxTokens,
-                request.sessionId, request.useSessionCache,
-                onChunk = { text, done ->
-                    if (text.isNotEmpty()) responseText.append(text)
-                    onChunk(text, done)
-                })
-        } else {
-            mnnRuntime.chatImageStream(dir, images.first().bytes,
-                renderMultimodalPrompt(request.messages), maxTokens,
-                onChunk = { text, done ->
-                    if (text.isNotEmpty()) responseText.append(text)
-                    onChunk(text, done)
-                })
-        }
-
-        return ModelChatResult(
-            ok = raw.ok, modelId = modelId,
-            text = responseText.toString(),
-            message = raw.message.ifBlank { "chat stream finished" },
-            elapsedMs = System.currentTimeMillis() - started,
-            promptTokens = raw.promptTokens, generatedTokens = raw.generatedTokens,
-        ).also {
-            Log.i(TAG, "chatStream end modelId=$modelId ok=${it.ok} elapsed=${it.elapsedMs} textLen=${it.text.length}")
-        }
+        return chatCapability.stream(request, onChunk)
     }
 
     // ---- Request assembly ----
 
     fun boundRequest(request: ModelChatRequest, serverModelId: String, serverMaxOutputTokens: Int): ModelChatRequest {
         val normalized = ModelManager.normalizeId(request.modelId).ifBlank { serverModelId }
-        if (normalized != loadedModelId.get()) loadedModelId.set(null)
         return request.copy(
             modelId = normalized,
-            maxTokens = clampTokens(normalized, request.maxTokens, serverMaxOutputTokens),
+            maxTokens = clampTokens(normalized, request.maxTokens ?: serverMaxOutputTokens, serverMaxOutputTokens),
         )
     }
 
     fun sessionRequest(request: ModelChatRequest): ModelChatRequest {
         val explicitSession = request.sessionId.isNotBlank()
         val sessionId = sessionStore.normalizeModelSessionId(request.sessionId)
-        val history = if (explicitSession && request.messages.size <= 1) sessionStore.modelHistory(sessionId) else emptyList()
+        val history = if (explicitSession && request.messages.size <= 1) sessionStore.modelHistory(sessionId, MAX_HISTORY_MESSAGES) else emptyList()
+        val contextMessages = trimContextMessages(
+            messages = history + request.messages,
+            contextBudget = contextWindowTokens(request.modelId),
+            outputBudget = request.maxTokens ?: HARD_MAX_OUTPUT_TOKENS,
+        )
         return request.copy(
             sessionId = sessionId, persistSession = explicitSession,
-            useSessionCache = explicitSession && request.messages.size == 1 && request.messages.firstOrNull()?.role == "user",
-            messages = (history + request.messages).takeLast(MAX_HISTORY_MESSAGES),
+            useSessionCache = request.messages.lastOrNull()?.role == "user",
+            messages = contextMessages,
         )
     }
 
@@ -240,12 +135,12 @@ class ChatController(
         requestQueue.submitStream(request.modelId, request.source, onChunk) { executeChatStream(request, onChunk) }
 
     private fun cancelStream(job: StreamJob, reason: String): Boolean =
-        requestQueue.cancel(job.id, reason) { mnnRuntime.cancel() }
+        requestQueue.cancel(job.id, reason) { chatCapability.cancel() }
 
     fun requestStatus(requestId: String): JSONObject = requestQueue.statusOf(requestId)
     fun queueSnapshot(): JSONObject = requestQueue.snapshot()
 
-    fun cancelCurrent() = mnnRuntime.cancel()
+    fun cancelCurrent() = chatCapability.cancel()
 
     fun shutdown() {
         requestQueue.shutdown(); backgroundExecutor.shutdownNow()
@@ -260,21 +155,29 @@ class ChatController(
 
     // ---- Streaming HTTP ----
 
-    fun openAiStreamContent(requestId: String, request: ModelChatRequest, turnRequest: ModelChatRequest) =
-        streamContent(requestId, request, turnRequest, StreamFormat.OPENAI)
+    fun openAiStreamContent(requestId: String, request: ModelChatRequest, turnRequest: ModelChatRequest, includeUsage: Boolean) =
+        streamContent(requestId, request, turnRequest, StreamFormat.OPENAI, includeUsage)
 
     fun ollamaStreamContent(requestId: String, request: ModelChatRequest, turnRequest: ModelChatRequest) =
         streamContent(requestId, request, turnRequest, StreamFormat.OLLAMA)
 
-    private fun streamContent(requestId: String, request: ModelChatRequest, turnRequest: ModelChatRequest, format: StreamFormat) =
+    private fun streamContent(
+        requestId: String,
+        request: ModelChatRequest,
+        turnRequest: ModelChatRequest,
+        format: StreamFormat,
+        includeUsage: Boolean = false,
+    ) =
         object : OutgoingContent.WriteChannelContent() {
             override val contentType = if (format == StreamFormat.OPENAI) EventStreamContentType else NdjsonContentType
-            override suspend fun writeTo(channel: ByteWriteChannel) { writeChatStream(requestId, request, turnRequest, channel, format) }
+            override suspend fun writeTo(channel: ByteWriteChannel) {
+                writeChatStream(requestId, request, turnRequest, channel, format, includeUsage)
+            }
         }
 
     private suspend fun writeChatStream(
         requestId: String, request: ModelChatRequest, turnRequest: ModelChatRequest,
-        channel: ByteWriteChannel, format: StreamFormat,
+        channel: ByteWriteChannel, format: StreamFormat, includeUsage: Boolean,
     ) {
         val queue = LinkedBlockingQueue<StreamEvent>()
         val meta = StreamMeta("chatcmpl_mnnode_${System.currentTimeMillis()}", System.currentTimeMillis() / 1000, request.modelId)
@@ -317,7 +220,7 @@ class ChatController(
                 }.getOrNull()
                 if (result != null && !result.ok) channel.writeEvent(format.error(result.modelId, result.message))
                 if (result != null && result.ok) saveModelTurn(turnRequest, result)
-                channel.writeEvent(format.done(meta))
+                channel.writeEvent(format.done(meta, result, includeUsage))
             }
         } catch (e: CancellationException) {
             aborted = true
@@ -337,24 +240,6 @@ class ChatController(
     }
 
     private suspend fun ByteWriteChannel.writeEvent(text: String) { writeStringUtf8(text); flush() }
-
-    // ---- Helpers ----
-
-    private fun normalizeMessages(messages: List<ModelChatMessage>): List<Pair<String, String>> =
-        messages.map { it.role to it.text() }.filter { it.second.isNotBlank() }
-
-    private fun renderMultimodalPrompt(messages: List<ModelChatMessage>): String {
-        var imageInserted = false
-        return messages.joinToString("\n\n") { message ->
-            val text = message.text()
-            val hasImage = message.parts.any { it is ModelChatPart.Image }
-            val content = buildString {
-                if (hasImage && !imageInserted) { append("<img>image_0</img>"); imageInserted = true; if (text.isNotBlank()) append("\n") }
-                append(text)
-            }.trim()
-            "${message.role}: $content"
-        }.trim()
-    }
 
     // ---- Types ----
 
@@ -382,10 +267,13 @@ class ChatController(
             OLLAMA -> "${JSONObject().put("model", modelId).put("created_at", java.time.Instant.now().toString()).put("error", msg).put("done", true)}\n"
         }
 
-        fun done(meta: StreamMeta) = when (this) {
-            OPENAI -> "data: ${chunkJson(meta, null, "stop")}\n\ndata: [DONE]\n\n"
-            OLLAMA -> """{"model":"${meta.modelId}","created_at":"${java.time.Instant.now()}","done":true}
-"""
+        fun done(meta: StreamMeta, result: ModelChatResult?, includeUsage: Boolean) = when (this) {
+            OPENAI -> buildString {
+                append("data: ${chunkJson(meta, null, "stop")}\n\n")
+                if (includeUsage && result != null) append("data: ${usageChunkJson(meta, result)}\n\n")
+                append("data: [DONE]\n\n")
+            }
+            OLLAMA -> ollamaDoneLine(meta.modelId, result)
         }
     }
 
@@ -399,11 +287,48 @@ class ChatController(
         private const val TAG = "MNNodeChat"
         const val CHAT_TIMEOUT_MS = 300_000L
         private const val STREAM_HEARTBEAT_MS = 10_000L
-        const val MAX_HISTORY_MESSAGES = 16
+        const val MAX_HISTORY_MESSAGES = 64
         val EventStreamContentType = ContentType.Text.EventStream.withParameter("charset", "utf-8")
         val NdjsonContentType = ContentType.parse("application/x-ndjson").withParameter("charset", "utf-8")
     }
 }
+
+private fun trimContextMessages(
+    messages: List<ModelChatRequestMessageAlias>,
+    contextBudget: Int,
+    outputBudget: Int,
+): List<ModelChatRequestMessageAlias> {
+    if (messages.isEmpty()) return emptyList()
+    val inputBudget = (contextBudget - outputBudget.coerceAtLeast(0) - CONTEXT_SAFETY_MARGIN_TOKENS)
+        .coerceAtLeast(MIN_INPUT_BUDGET_TOKENS)
+    val system = messages.filter { it.role.equals("system", ignoreCase = true) }
+    val nonSystem = messages.filterNot { it.role.equals("system", ignoreCase = true) }
+    val selected = ArrayDeque<ModelChatRequestMessageAlias>()
+    var used = system.sumOf { estimateMessageTokens(it) }
+
+    for (message in nonSystem.asReversed()) {
+        val cost = estimateMessageTokens(message)
+        if (selected.isNotEmpty() && used + cost > inputBudget) break
+        selected.addFirst(message)
+        used += cost
+    }
+
+    return (system.takeLast(MAX_SYSTEM_MESSAGES) + selected).ifEmpty { messages.takeLast(1) }
+}
+
+private typealias ModelChatRequestMessageAlias = com.mnnode.app.model.ModelChatMessage
+
+private fun estimateMessageTokens(message: ModelChatRequestMessageAlias): Int {
+    val textTokens = (message.text().length + 3) / 4
+    val imageTokens = message.parts.count { it is com.mnnode.app.model.ModelChatPart.Image } * IMAGE_TOKEN_ESTIMATE
+    return MESSAGE_OVERHEAD_TOKENS + textTokens + imageTokens
+}
+
+private const val CONTEXT_SAFETY_MARGIN_TOKENS = 256
+private const val MIN_INPUT_BUDGET_TOKENS = 512
+private const val MESSAGE_OVERHEAD_TOKENS = 8
+private const val IMAGE_TOKEN_ESTIMATE = 512
+private const val MAX_SYSTEM_MESSAGES = 4
 
 private data class StreamMeta(val id: String, val created: Long, val modelId: String)
 private data class StreamJob(val id: String, val future: CompletableFuture<ModelChatResult>)
@@ -422,6 +347,34 @@ private fun chunkJson(meta: StreamMeta, key: String?, value: String): JSONObject
 private fun ollamaLine(modelId: String, content: String): String {
     return """{"model":"$modelId","created_at":"${java.time.Instant.now()}","message":{"role":"assistant","content":${JSONObject.quote(content)}},"done":false}
 """
+}
+
+private fun usageChunkJson(meta: StreamMeta, result: ModelChatResult): JSONObject {
+    return JSONObject()
+        .put("id", meta.id)
+        .put("object", "chat.completion.chunk")
+        .put("created", meta.created)
+        .put("model", meta.modelId)
+        .put("choices", JSONArray())
+        .put("usage", ModelApiMapper.openAiUsage(result))
+        .put("mnnode", ModelApiMapper.runtimeMetrics(result))
+}
+
+private fun ollamaDoneLine(modelId: String, result: ModelChatResult?): String {
+    val json = JSONObject()
+        .put("model", modelId)
+        .put("created_at", java.time.Instant.now().toString())
+        .put("done", true)
+    if (result != null) {
+        json.put("total_duration", result.elapsedMs * 1_000_000L)
+            .put("load_duration", 0L)
+            .put("prompt_eval_count", result.promptTokens)
+            .put("prompt_eval_duration", 0L)
+            .put("eval_count", result.generatedTokens)
+            .put("eval_duration", result.elapsedMs * 1_000_000L)
+            .put("mnnode", ModelApiMapper.runtimeMetrics(result))
+    }
+    return "$json\n"
 }
 
 private class ChatRequestQueue(

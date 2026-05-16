@@ -13,7 +13,7 @@
         android:allowBackup="true"
         android:label="MNNode"
         android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

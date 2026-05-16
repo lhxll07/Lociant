@@ -11,9 +11,8 @@ data class SceneManifest(
     val entry: String,
     val source: String,
     val entryUrl: String,
-    val capabilities: List<String> = emptyList(),
     val permissions: List<String> = emptyList(),
-    val runtime: JSONObject? = null,
+    val triggers: JSONArray = JSONArray(),
 ) {
     fun toJson(): JSONObject {
         return JSONObject()
@@ -24,11 +23,8 @@ data class SceneManifest(
             .put("entry", entry)
             .put("source", source)
             .put("entryUrl", entryUrl)
-            .put("capabilities", JSONArray(capabilities))
             .put("permissions", JSONArray(permissions))
-            .apply {
-                runtime?.let { put("runtime", JSONObject(it.toString())) }
-            }
+            .put("triggers", JSONArray(triggers.toString()))
     }
 
     companion object {
@@ -43,9 +39,8 @@ data class SceneManifest(
                 entry = entry,
                 source = source,
                 entryUrl = baseUrl.trimEnd('/') + "/" + entry.trimStart('/'),
-                capabilities = json.optJSONArray("capabilities").toStringList(),
                 permissions = json.optJSONArray("permissions").toStringList(),
-                runtime = json.optJSONObject("runtime")?.let { JSONObject(it.toString()) },
+                triggers = json.optJSONArray("triggers") ?: JSONArray(),
             )
         }
     }

@@ -19,6 +19,8 @@
 namespace {
 
 constexpr const char* LOG_TAG = "MNNodeMnnNative";
+constexpr int MIN_OUTPUT_TOKENS = 8;
+constexpr int MAX_OUTPUT_TOKENS = 32768;
 
 #define MNNODE_LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define MNNODE_LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
@@ -48,6 +50,10 @@ std::string bool_json(bool value) {
     return value ? "true" : "false";
 }
 
+int clamp_max_tokens(int value) {
+    return std::max(MIN_OUTPUT_TOKENS, std::min(MAX_OUTPUT_TOKENS, value));
+}
+
 std::string runtime_config_json(const std::string& config_json) {
     if (config_json.empty()) {
         return "{\"async\":false,\"prompt_cache\":true}";
@@ -55,31 +61,33 @@ std::string runtime_config_json(const std::string& config_json) {
     return config_json;
 }
 
-std::string trim_leading_whitespace(const std::string& value) {
-    const auto it = std::find_if(value.begin(), value.end(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    });
-    return std::string(it, value.end());
-}
-
-std::string strip_thinking_blocks(std::string text) {
+std::string sanitize_output_text(std::string text) {
+    std::string output;
     const std::string start_tag = "<think>";
     const std::string end_tag = "</think>";
-    while (true) {
-        const auto start = text.find(start_tag);
-        if (start == std::string::npos) break;
-        const auto end = text.find(end_tag, start + start_tag.size());
-        if (end == std::string::npos) {
-            text.erase(start);
+    size_t pos = 0;
+    while (pos < text.size()) {
+        const auto start = text.find(start_tag, pos);
+        if (start == std::string::npos) {
+            output += text.substr(pos);
             break;
         }
-        text.erase(start, end + end_tag.size() - start);
+        output += text.substr(pos, start - pos);
+        const auto body_start = start + start_tag.size();
+        const auto end = text.find(end_tag, body_start);
+        if (end == std::string::npos) {
+            break;
+        }
+        pos = end + end_tag.size();
     }
-    const auto dangling_end = text.find(end_tag);
+    const auto dangling_end = output.find(end_tag);
     if (dangling_end != std::string::npos) {
-        text.erase(0, dangling_end + end_tag.size());
+        output.erase(0, dangling_end + end_tag.size());
     }
-    return trim_leading_whitespace(text);
+    const auto it = std::find_if(output.begin(), output.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    });
+    return std::string(it, output.end());
 }
 
 std::string normalize_role(const std::string& role) {
@@ -88,16 +96,10 @@ std::string normalize_role(const std::string& role) {
 
 bool can_use_text_session_cache(
     const std::vector<std::pair<std::string, std::string>>& messages,
-    const std::string& session_id,
     bool use_session_cache) {
-    if (!use_session_cache || session_id.empty() || messages.empty()) return false;
+    if (!use_session_cache || messages.empty()) return false;
     const auto& message = messages.back();
     return normalize_role(message.first) == "user" && !message.second.empty();
-}
-
-std::string strip_eop(const std::string& text) {
-    const auto pos = text.find("<eop>");
-    return pos == std::string::npos ? text : text.substr(0, pos);
 }
 
 void boost_current_thread_for_inference() {
@@ -141,15 +143,22 @@ public:
     SteppingStreamState(
         std::ostringstream& response,
         std::function<void(const std::string&, bool)> on_chunk,
-        std::atomic_bool& cancel_requested)
+        std::atomic_bool& cancel_requested,
+        double started_ms,
+        double* first_token_ms)
         : response_(response),
           on_chunk_(std::move(on_chunk)),
-          cancel_requested_(cancel_requested) {}
+          cancel_requested_(cancel_requested),
+          started_ms_(started_ms),
+          first_token_ms_(first_token_ms) {}
 
     void process_chunk(const std::string& text) {
         const auto pos = text.find("<eop>");
         auto emit_visible = [this](const std::string& value) {
             if (value.empty()) return;
+            if (first_token_ms_ && *first_token_ms_ < 0.0) {
+                *first_token_ms_ = now_ms() - started_ms_;
+            }
             response_ << value;
             if (on_chunk_) on_chunk_(value, false);
         };
@@ -242,6 +251,8 @@ private:
     std::ostringstream& response_;
     std::function<void(const std::string&, bool)> on_chunk_;
     std::atomic_bool& cancel_requested_;
+    double started_ms_ = 0.0;
+    double* first_token_ms_ = nullptr;
     std::string think_buffer_;
     bool inside_think_ = false;
     bool pending_eop_ = false;
@@ -324,10 +335,13 @@ std::string run_text_generation(
     const MNN::Transformer::ChatMessages& messages,
     int max_tokens,
     std::atomic_bool& cancel_requested,
-    const std::function<void(const std::string&, bool)>& on_chunk) {
+    const std::function<void(const std::string&, bool)>& on_chunk,
+    double* first_token_ms) {
 
+    const double started_ms = now_ms();
+    if (first_token_ms) *first_token_ms = -1.0;
     std::ostringstream response_text;
-    SteppingStreamState stream_state(response_text, on_chunk, cancel_requested);
+    SteppingStreamState stream_state(response_text, on_chunk, cancel_requested, started_ms, first_token_ms);
     Utf8StreamProcessor processor([&stream_state](const std::string& text) {
         stream_state.process_chunk(text);
     });
@@ -360,7 +374,7 @@ std::string run_text_generation(
     if (on_chunk && !cancel_requested.load() && !stream_state.ended()) {
         on_chunk("", true);
     }
-    return response_text.str();
+    return sanitize_output_text(response_text.str());
 }
 
 std::string run_image_generation(
@@ -368,10 +382,13 @@ std::string run_image_generation(
     const MNN::Transformer::MultimodalPrompt& input,
     int max_tokens,
     std::atomic_bool& cancel_requested,
-    const std::function<void(const std::string&, bool)>& on_chunk) {
+    const std::function<void(const std::string&, bool)>& on_chunk,
+    double* first_token_ms) {
 
+    const double started_ms = now_ms();
+    if (first_token_ms) *first_token_ms = -1.0;
     std::ostringstream response_text;
-    SteppingStreamState stream_state(response_text, on_chunk, cancel_requested);
+    SteppingStreamState stream_state(response_text, on_chunk, cancel_requested, started_ms, first_token_ms);
     Utf8StreamProcessor processor([&stream_state](const std::string& text) {
         stream_state.process_chunk(text);
     });
@@ -404,7 +421,7 @@ std::string run_image_generation(
     if (on_chunk && !cancel_requested.load() && !stream_state.ended()) {
         on_chunk("", true);
     }
-    return response_text.str();
+    return sanitize_output_text(response_text.str());
 }
 
 } // namespace
@@ -493,7 +510,7 @@ std::string MnnRuntimeNative::chat_text(
         return "{\"ok\":false,\"message\":\"messages are required\"}";
     }
 
-    const int tokens = std::max(8, std::min(4096, max_tokens));
+    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
     MNN::Transformer::ChatMessages chat_messages;
     for (const auto& message : messages) {
@@ -504,44 +521,29 @@ std::string MnnRuntimeNative::chat_text(
     if (chat_messages.empty()) {
         return "{\"ok\":false,\"message\":\"message content is required\"}";
     }
-
     const bool config_changed = active_runtime_config_ != runtime_config;
-    const bool cache_capable = can_use_text_session_cache(messages, session_id, use_session_cache);
-    const bool cache_hit = cache_capable && active_session_id_ == session_id && !active_history_.empty() && !config_changed;
-    if (!cache_capable || active_session_id_ != session_id || config_changed) {
-        active_history_.clear();
-        active_session_id_ = cache_capable ? session_id : "";
+    const bool cache_capable = can_use_text_session_cache(messages, use_session_cache);
+    const bool session_changed = active_cache_session_id_ != session_id;
+    if (!cache_capable || config_changed || session_changed) {
         llm_->reset();
     }
     active_runtime_config_ = runtime_config;
-
-    MNN::Transformer::ChatMessages request_messages;
-    if (cache_hit) {
-        active_history_.emplace_back("user", messages.back().second);
-        request_messages = active_history_;
-    } else {
-        request_messages = chat_messages;
-        if (cache_capable) active_history_ = chat_messages;
-    }
+    active_cache_session_id_ = cache_capable ? session_id : "";
 
     MNNODE_LOGI(
-        "chat_text stepped enter messages=%zu maxTokens=%d session=%s cacheCapable=%d cacheHit=%d configChanged=%d",
-        request_messages.size(),
+        "chat_text stepped enter messages=%zu maxTokens=%d session=%s cacheCapable=%d configChanged=%d sessionChanged=%d",
+        chat_messages.size(),
         tokens,
         session_id.c_str(),
         cache_capable ? 1 : 0,
-        cache_hit ? 1 : 0,
-        config_changed ? 1 : 0);
-    if (!runtime_config.empty()) {
+        config_changed ? 1 : 0,
+        session_changed ? 1 : 0);
+    if (config_changed && !runtime_config.empty()) {
         llm_->set_config(runtime_config);
     }
-    const auto raw_text = run_text_generation(llm_, request_messages, tokens, cancel_requested_, nullptr);
-    const auto text = strip_thinking_blocks(raw_text);
+    double first_token_ms = -1.0;
+    const auto text = run_text_generation(llm_, chat_messages, tokens, cancel_requested_, nullptr, &first_token_ms);
     MNNODE_LOGI("chat_text stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
-    if (cache_capable) {
-        active_history_.emplace_back("assistant", strip_eop(text));
-        llm_->syncPromptCache(active_history_);
-    }
     const auto* context = llm_->getContext();
 
     std::ostringstream os;
@@ -550,13 +552,25 @@ std::string MnnRuntimeNative::chat_text(
        << "\"message\":\"chat completed\","
        << "\"cancelled\":" << bool_json(cancel_requested_.load()) << ","
        << "\"cache\":{\"enabled\":" << bool_json(cache_capable)
-       << ",\"hit\":" << bool_json(cache_hit)
-       << ",\"sessionId\":\"" << escape_json(active_session_id_) << "\"},"
+       << ",\"hit\":" << bool_json(cache_capable && !config_changed && !session_changed)
+       << ",\"sessionId\":\"" << escape_json(session_id) << "\"},"
        << "\"elapsedMs\":" << (now_ms() - start) << ","
        << "\"text\":\"" << escape_json(text) << "\"";
     if (context) {
-        os << ",\"tokens\":{\"prompt\":" << context->prompt_len
-           << ",\"generated\":" << context->gen_seq_len << "}";
+        const int evaluated_prompt_tokens = context->prompt_len;
+        const int full_prompt_tokens = cache_capable
+            ? static_cast<int>(llm_->tokenizer_encode(llm_->apply_chat_template(chat_messages)).size())
+            : 0;
+        const int prompt_tokens = full_prompt_tokens > 0 ? full_prompt_tokens : evaluated_prompt_tokens;
+        const int cached_tokens = std::max(0, prompt_tokens - evaluated_prompt_tokens);
+        const double visible_first_token_ms = std::max(first_token_ms, context->prefill_us / 1000.0);
+        os << ",\"tokens\":{\"prompt\":" << prompt_tokens
+           << ",\"generated\":" << context->gen_seq_len
+           << ",\"cached\":" << cached_tokens
+           << ",\"evaluatedPrompt\":" << evaluated_prompt_tokens << "}"
+           << ",\"firstTokenMs\":" << visible_first_token_ms
+           << ",\"prefillUs\":" << context->prefill_us
+           << ",\"decodeUs\":" << context->decode_us;
     }
     os << "}";
     return os.str();
@@ -580,7 +594,7 @@ std::string MnnRuntimeNative::chat_text_stream(
         return "{\"ok\":false,\"message\":\"messages are required\"}";
     }
 
-    const int tokens = std::max(8, std::min(4096, max_tokens));
+    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
     MNN::Transformer::ChatMessages chat_messages;
     for (const auto& message : messages) {
@@ -591,45 +605,29 @@ std::string MnnRuntimeNative::chat_text_stream(
     if (chat_messages.empty()) {
         return "{\"ok\":false,\"message\":\"message content is required\"}";
     }
-
     const bool config_changed = active_runtime_config_ != runtime_config;
-    const bool cache_capable = can_use_text_session_cache(messages, session_id, use_session_cache);
-    const bool cache_hit = cache_capable && active_session_id_ == session_id && !active_history_.empty() && !config_changed;
-    if (!cache_capable || active_session_id_ != session_id || config_changed) {
-        active_history_.clear();
-        active_session_id_ = cache_capable ? session_id : "";
+    const bool cache_capable = can_use_text_session_cache(messages, use_session_cache);
+    const bool session_changed = active_cache_session_id_ != session_id;
+    if (!cache_capable || config_changed || session_changed) {
         llm_->reset();
     }
     active_runtime_config_ = runtime_config;
-
-    MNN::Transformer::ChatMessages request_messages;
-    if (cache_hit) {
-        active_history_.emplace_back("user", messages.back().second);
-        request_messages = active_history_;
-    } else {
-        request_messages = chat_messages;
-        if (cache_capable) active_history_ = chat_messages;
-    }
+    active_cache_session_id_ = cache_capable ? session_id : "";
 
     MNNODE_LOGI(
-        "chat_text_stream stepped enter messages=%zu maxTokens=%d session=%s cacheCapable=%d cacheHit=%d configChanged=%d",
-        request_messages.size(),
+        "chat_text_stream stepped enter messages=%zu maxTokens=%d session=%s cacheCapable=%d configChanged=%d sessionChanged=%d",
+        chat_messages.size(),
         tokens,
         session_id.c_str(),
         cache_capable ? 1 : 0,
-        cache_hit ? 1 : 0,
-        config_changed ? 1 : 0);
-    if (!runtime_config.empty()) {
+        config_changed ? 1 : 0,
+        session_changed ? 1 : 0);
+    if (config_changed && !runtime_config.empty()) {
         llm_->set_config(runtime_config);
     }
-    const auto raw_response_text = run_text_generation(llm_, request_messages, tokens, cancel_requested_, on_chunk);
-    const auto response_text = strip_thinking_blocks(raw_response_text);
+    double first_token_ms = -1.0;
+    const auto text = run_text_generation(llm_, chat_messages, tokens, cancel_requested_, on_chunk, &first_token_ms);
     MNNODE_LOGI("chat_text_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
-
-    if (cache_capable) {
-        active_history_.emplace_back("assistant", strip_eop(response_text));
-        llm_->syncPromptCache(active_history_);
-    }
 
     const auto* context = llm_->getContext();
     std::ostringstream os;
@@ -638,12 +636,24 @@ std::string MnnRuntimeNative::chat_text_stream(
        << "\"message\":\"chat stream completed\","
        << "\"cancelled\":" << bool_json(cancel_requested_.load()) << ","
        << "\"cache\":{\"enabled\":" << bool_json(cache_capable)
-       << ",\"hit\":" << bool_json(cache_hit)
-       << ",\"sessionId\":\"" << escape_json(active_session_id_) << "\"},"
+       << ",\"hit\":" << bool_json(cache_capable && !config_changed && !session_changed)
+       << ",\"sessionId\":\"" << escape_json(session_id) << "\"},"
        << "\"elapsedMs\":" << (now_ms() - start);
     if (context) {
-        os << ",\"tokens\":{\"prompt\":" << context->prompt_len
-           << ",\"generated\":" << context->gen_seq_len << "}";
+        const int evaluated_prompt_tokens = context->prompt_len;
+        const int full_prompt_tokens = cache_capable
+            ? static_cast<int>(llm_->tokenizer_encode(llm_->apply_chat_template(chat_messages)).size())
+            : 0;
+        const int prompt_tokens = full_prompt_tokens > 0 ? full_prompt_tokens : evaluated_prompt_tokens;
+        const int cached_tokens = std::max(0, prompt_tokens - evaluated_prompt_tokens);
+        const double visible_first_token_ms = std::max(first_token_ms, context->prefill_us / 1000.0);
+        os << ",\"tokens\":{\"prompt\":" << prompt_tokens
+           << ",\"generated\":" << context->gen_seq_len
+           << ",\"cached\":" << cached_tokens
+           << ",\"evaluatedPrompt\":" << evaluated_prompt_tokens << "}"
+           << ",\"firstTokenMs\":" << visible_first_token_ms
+           << ",\"prefillUs\":" << context->prefill_us
+           << ",\"decodeUs\":" << context->decode_us;
     }
     os << "}";
     return os.str();
@@ -664,7 +674,7 @@ std::string MnnRuntimeNative::chat_image(JNIEnv* env, jobject bitmap, const std:
         return "{\"ok\":false,\"message\":\"invalid bitmap\"}";
     }
 
-    const int tokens = std::max(8, std::min(4096, max_tokens));
+    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
     MNN::Transformer::MultimodalPrompt input;
     input.prompt_template =
@@ -680,15 +690,14 @@ std::string MnnRuntimeNative::chat_image(JNIEnv* env, jobject bitmap, const std:
     input.images["image_0"] = part;
 
     llm_->reset();
-    active_session_id_.clear();
     active_runtime_config_.clear();
-    active_history_.clear();
+    active_cache_session_id_.clear();
     MNNODE_LOGI("chat_image stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
     if (!runtime_config.empty()) {
         llm_->set_config(runtime_config);
     }
-    const auto raw_text = run_image_generation(llm_, input, tokens, cancel_requested_, nullptr);
-    const auto text = strip_thinking_blocks(raw_text);
+    double first_token_ms = -1.0;
+    const auto text = run_image_generation(llm_, input, tokens, cancel_requested_, nullptr, &first_token_ms);
     MNNODE_LOGI("chat_image stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
     const auto* context = llm_->getContext();
 
@@ -701,8 +710,12 @@ std::string MnnRuntimeNative::chat_image(JNIEnv* env, jobject bitmap, const std:
        << "\"image\":{\"width\":" << width << ",\"height\":" << height << "},"
        << "\"text\":\"" << escape_json(text) << "\"";
     if (context) {
+        const double visible_first_token_ms = std::max(first_token_ms, context->prefill_us / 1000.0);
         os << ",\"tokens\":{\"prompt\":" << context->prompt_len
-           << ",\"generated\":" << context->gen_seq_len << "}";
+           << ",\"generated\":" << context->gen_seq_len << "}"
+           << ",\"firstTokenMs\":" << visible_first_token_ms
+           << ",\"prefillUs\":" << context->prefill_us
+           << ",\"decodeUs\":" << context->decode_us;
     }
     os << "}";
     return os.str();
@@ -730,7 +743,7 @@ std::string MnnRuntimeNative::chat_image_stream(
         return "{\"ok\":false,\"message\":\"invalid bitmap\"}";
     }
 
-    const int tokens = std::max(8, std::min(4096, max_tokens));
+    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
     MNN::Transformer::MultimodalPrompt input;
     input.prompt_template =
@@ -746,14 +759,14 @@ std::string MnnRuntimeNative::chat_image_stream(
     input.images["image_0"] = part;
 
     llm_->reset();
-    active_session_id_.clear();
     active_runtime_config_.clear();
-    active_history_.clear();
+    active_cache_session_id_.clear();
     MNNODE_LOGI("chat_image_stream stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
     if (!runtime_config.empty()) {
         llm_->set_config(runtime_config);
     }
-    run_image_generation(llm_, input, tokens, cancel_requested_, on_chunk);
+    double first_token_ms = -1.0;
+    const auto text = run_image_generation(llm_, input, tokens, cancel_requested_, on_chunk, &first_token_ms);
     MNNODE_LOGI("chat_image_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
 
     const auto* context = llm_->getContext();
@@ -765,8 +778,12 @@ std::string MnnRuntimeNative::chat_image_stream(
        << "\"elapsedMs\":" << (now_ms() - start) << ","
        << "\"image\":{\"width\":" << width << ",\"height\":" << height << "}";
     if (context) {
+        const double visible_first_token_ms = std::max(first_token_ms, context->prefill_us / 1000.0);
         os << ",\"tokens\":{\"prompt\":" << context->prompt_len
-           << ",\"generated\":" << context->gen_seq_len << "}";
+           << ",\"generated\":" << context->gen_seq_len << "}"
+           << ",\"firstTokenMs\":" << visible_first_token_ms
+           << ",\"prefillUs\":" << context->prefill_us
+           << ",\"decodeUs\":" << context->decode_us;
     }
     os << "}";
     return os.str();

@@ -40,8 +40,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         if (!ready) return NativeChatResult(ok = false, message = errorMsg, modelInstalled = true)
         val roles = messages.map { it.first }.toTypedArray()
         val contents = messages.map { it.second }.toTypedArray()
-        val raw = nativeChatText(handle, roles, contents,
-            maxTokens.coerceIn(MIN_OUTPUT_TOKENS, HARD_MAX_OUTPUT_TOKENS),
+        val raw = nativeChatText(handle, roles, contents, clampMaxTokens(maxTokens),
             sessionId, useSessionCache, runtimeConfigJson())
         return parseResult(raw, modelInstalled = true)
     }
@@ -56,7 +55,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         val contents = messages.map { it.second }.toTypedArray()
         val emit = onChunk
         val raw = nativeChatTextStream(handle, roles, contents,
-            maxTokens.coerceIn(MIN_OUTPUT_TOKENS, HARD_MAX_OUTPUT_TOKENS),
+            clampMaxTokens(maxTokens),
             sessionId, useSessionCache, runtimeConfigJson(),
             object : StreamCallback { override fun onChunk(text: String, done: Boolean) = emit(text, done) })
         return parseResult(raw, modelInstalled = true)
@@ -68,8 +67,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         if (!ready) return NativeChatResult(ok = false, message = errorMsg, modelInstalled = true)
         val bitmap = decodeChatBitmap(imageBytes) ?: return NativeChatResult(ok = false, message = "Cannot decode chat image")
         return try {
-            val raw = nativeChatImage(handle, bitmap, prompt,
-                maxTokens.coerceIn(MIN_OUTPUT_TOKENS, HARD_MAX_OUTPUT_TOKENS), runtimeConfigJson())
+            val raw = nativeChatImage(handle, bitmap, prompt, clampMaxTokens(maxTokens), runtimeConfigJson())
             parseResult(raw, modelInstalled = true)
         } finally { bitmap.recycle() }
     }
@@ -83,7 +81,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         return try {
             val emit = onChunk
             val raw = nativeChatImageStream(handle, bitmap, prompt,
-                maxTokens.coerceIn(MIN_OUTPUT_TOKENS, HARD_MAX_OUTPUT_TOKENS), runtimeConfigJson(),
+                clampMaxTokens(maxTokens), runtimeConfigJson(),
                 object : StreamCallback { override fun onChunk(text: String, done: Boolean) = emit(text, done) })
             parseResult(raw, modelInstalled = true)
         } finally { bitmap.recycle() }
@@ -91,7 +89,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
 
     fun cancel() {
         val currentHandle = handle
-        if (nativeAvailable && currentHandle != 0L) nativeCancel(currentHandle)
+        if (currentHandle != 0L) nativeCancel(currentHandle)
     }
 
     @Synchronized
@@ -102,15 +100,26 @@ class MnnRuntime(context: Context) : AutoCloseable {
     private fun parseResult(raw: String, modelInstalled: Boolean): NativeChatResult {
         val json = JSONObject(raw)
         val tokens = json.optJSONObject("tokens")
+        val cache = json.optJSONObject("cache")
+        val promptTokens = tokens?.optInt("prompt", 0) ?: 0
+        val cacheHit = cache?.optBoolean("hit", false) ?: false
         return NativeChatResult(
             ok = json.optBoolean("ok", false),
             text = json.optString("text", ""),
             message = json.optString("message", ""),
             modelInstalled = modelInstalled,
-            promptTokens = tokens?.optInt("prompt", 0) ?: 0,
+            promptTokens = promptTokens,
             generatedTokens = tokens?.optInt("generated", 0) ?: 0,
+            cachedTokens = tokens?.optInt("cached", 0) ?: 0,
+            cacheEnabled = cache?.optBoolean("enabled", false) ?: false,
+            cacheHit = cacheHit,
+            firstTokenMs = tokens?.optDouble("firstTokenMs", 0.0)?.toLong() ?: 0L,
+            prefillUs = json.optLong("prefillUs", 0),
+            decodeUs = json.optLong("decodeUs", 0),
         )
     }
+
+    private fun clampMaxTokens(value: Int): Int = value.coerceIn(MIN_OUTPUT_TOKENS, HARD_MAX_OUTPUT_TOKENS)
 
     private fun prepareModel(modelDir: File): Pair<Boolean, String> {
         if (!nativeAvailable) return false to "MNN native runtime unavailable"
@@ -206,11 +215,15 @@ class MnnRuntime(context: Context) : AutoCloseable {
         const val MAX_CPU_THREADS = 16
         private const val TAG = "MNNodeMnnRuntime"
 
-        private val nativeAvailable: Boolean = listOf(
-            "c++_shared", "MNN", "MNN_Express", "MNN_Vulkan", "MNN_CL", "MNNOpenCV", "MNNAudio", "llm", "mnnode_mnn",
-        ).fold(true) { ok, name -> ok && runCatching { System.loadLibrary(name) }.isSuccess }
+private val nativeAvailable: Boolean = runCatching {
+    System.loadLibrary("c++_shared")
+    System.loadLibrary("MNN")
+    System.loadLibrary("MNN_Express")
+    System.loadLibrary("llm")
+    System.loadLibrary("mnnode_mnn")
+    true
+}.getOrDefault(false)
     }
 
     private interface StreamCallback { fun onChunk(text: String, done: Boolean) }
 }
-
