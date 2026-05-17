@@ -6,8 +6,16 @@ const app = document.getElementById('app')
     const sceneHost = document.getElementById('sceneHost')
     const sceneFrame = document.getElementById('sceneFrame')
     const sceneList = document.getElementById('sceneList')
+    const modelHomeView = document.getElementById('modelHomeView')
+    const modelLocalView = document.getElementById('modelLocalView')
+    const modelLocalButton = document.getElementById('modelLocalButton')
+    const modelLocalBack = document.getElementById('modelLocalBack')
+    const modelLocalState = document.getElementById('modelLocalState')
+    const modelRuntimeButton = document.getElementById('modelRuntimeButton')
+    const modelRuntimeState = document.getElementById('modelRuntimeState')
     const modelList = document.getElementById('modelList')
     const modelMarketPanel = document.getElementById('modelMarketPanel')
+    const modelMarketBack = document.getElementById('modelMarketBack')
     const modelMarketList = document.getElementById('modelMarketList')
     const modelMarketSearch = document.getElementById('modelMarketSearch')
     const modelMarketRefreshButton = document.getElementById('modelMarketRefreshButton')
@@ -86,7 +94,7 @@ const app = document.getElementById('app')
     let runtimeSnapshot = null
     let runtimeServiceState = null
     let runtimeModels = []
-    let marketVisible = false
+    let modelView = 'home'
     let marketModels = []
     let marketQuery = ''
     let marketInstallTimer = null
@@ -170,6 +178,27 @@ const app = document.getElementById('app')
       return [runtimeSettingsPanel, runtimeServerPanel, runtimeModelPanel, runtimeSessionsPanel, runtimeDiagnosticsPanel].filter(Boolean)
     }
 
+    function setModelView(view) {
+      modelView = view || 'home'
+      const views = {
+        home: modelHomeView,
+        local: modelLocalView,
+        market: modelMarketPanel
+      }
+      Object.keys(views).forEach(key => {
+        const node = views[key]
+        if (!node) return
+        const active = key === modelView
+        node.classList.toggle('active', active)
+        node.setAttribute('aria-hidden', active ? 'false' : 'true')
+      })
+      if (modelView === 'local') loadModels()
+      if (modelView === 'market') {
+        renderModelMarket(marketModels)
+        if (!marketModels.length) loadModelMarket()
+      }
+    }
+
     const i18n = {
       en: {
         'nav.scenes': 'Scenes',
@@ -188,7 +217,7 @@ const app = document.getElementById('app')
         'settings.followSystem': 'System',
         'settings.runtimeTitle': 'Runtime & Background',
         'settings.runtimeSub': 'Foreground service, foreground window, and model server.',
-        'settings.runtimeIntro': 'Control MNNode as a local AI node in the background.',
+        'settings.runtimeIntro': 'Control Lociant as a local AI capability runtime in the background.',
         'settings.modelServer': 'Model Server',
         'settings.runtimeDefaultMessage': 'Foreground service exposes the LAN API; foreground window keeps inference visible.',
         'settings.serverTitle': 'Server',
@@ -242,6 +271,10 @@ const app = document.getElementById('app')
         'models.rescan': 'Rescan',
         'models.import': 'Import',
         'models.market': 'Market',
+        'models.localTitle': 'Local Models',
+        'models.localSub': 'Manage installed models and import local packages.',
+        'models.runtimeTitle': 'Runtime Settings',
+        'models.runtimeSub': 'Default model, CPU threads, and API service settings.',
         'models.marketTitle': 'Model Market',
         'models.marketSub': 'ModelScope MNN catalog.',
         'models.marketSearch': 'Search models',
@@ -286,7 +319,7 @@ const app = document.getElementById('app')
         'settings.followSystem': '系统',
         'settings.runtimeTitle': 'Runtime 与后台运行',
         'settings.runtimeSub': '前台服务、前台小窗和模型服务',
-        'settings.runtimeIntro': '控制 MNNode 作为本地 AI 节点在后台运行。',
+        'settings.runtimeIntro': '控制 Lociant 作为本地 AI 能力运行时在后台运行。',
         'settings.modelServer': 'Model Server',
         'settings.runtimeDefaultMessage': '前台服务暴露局域网 API；前台小窗用于保持推理可见运行。',
         'settings.serverTitle': '服务',
@@ -340,8 +373,13 @@ const app = document.getElementById('app')
         'models.rescan': '重新扫描',
         'models.import': '导入',
         'models.market': '模型市场',
+        'models.localTitle': '本地模型',
+        'models.localSub': '管理已安装模型、导入本地包。',
+        'models.runtimeTitle': 'Runtime 设置',
+        'models.runtimeSub': '默认模型、线程数和 API 服务配置。',
         'models.marketTitle': '魔塔模型市场',
         'models.marketSub': '精选 ModelScope MNN 模型。',
+        'models.marketSearch': '搜索模型',
         'models.install': '安装',
         'models.installed': '已安装',
         'models.installing': '正在安装模型',
@@ -631,7 +669,7 @@ const app = document.getElementById('app')
     }
 
     function stopCamera() {
-      apiPost('/v1/tools/stop_vision_rules/call', { arguments: {} }).catch(() => {})
+      apiPost('/v1/tools/vision_stop/call', { arguments: {} }).catch(() => {})
     }
 
     function runtimeApiCommand(command, payload) {
@@ -689,6 +727,7 @@ const app = document.getElementById('app')
       runtimeSessionsState.textContent = sessions.length ? String(sessions.length) : '--'
       runtimeCurrentSession.textContent = runtimeServiceState.currentSessionId || '--'
       runtimeDiagnosticsState.textContent = String(runtimeServiceState.requestCount || 0)
+      updateModelHomeState()
       diagService.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
       diagApi.textContent = running ? t('status.running') : t('status.stopped')
       diagUrl.textContent = runtimeServiceState.lanUrl || runtimeServiceState.url || '--'
@@ -911,9 +950,8 @@ const app = document.getElementById('app')
         const activePanel = document.getElementById('page-' + page)
         if (activePanel) activePanel.scrollTop = 0
         if (page === 'models') {
-          modelMarketPanel.classList.toggle('active', marketVisible)
+          setModelView(modelView)
           loadModels()
-          if (marketVisible) loadModelMarket()
         }
         stateText.textContent = t('state.idle')
         updateRuntimeStrip()
@@ -1001,20 +1039,19 @@ const app = document.getElementById('app')
     function loadModels() {
       retryApi(() => apiGet('/v1/models/full'), () => {
         runtimeModels = []
+        updateModelHomeState()
         renderModels([])
       })
         .then(models => {
           runtimeModels = Array.isArray(models) ? models.slice() : []
+          updateModelHomeState()
           renderModels(runtimeModels)
-          if (marketVisible) loadModelMarket()
+          if (modelView === 'market') renderModelMarket(marketModels)
         })
     }
 
     function loadModelMarket(refresh) {
       if (!modelMarketList) return Promise.resolve()
-      marketVisible = true
-      modelMarketPanel.classList.add('active')
-      modelMarketButton.classList.add('active')
       return retryApi(() => apiGet('/v1/models/market?q=' + encodeURIComponent(marketQuery || '') + (refresh ? '&refresh=true' : '')), () => {
         marketModels = []
         renderModelMarket([])
@@ -1089,7 +1126,7 @@ const app = document.getElementById('app')
     function renderModelMarket(models) {
       if (!modelMarketList) return
       modelMarketList.innerHTML = ''
-      if (!marketVisible) return
+      if (modelView !== 'market') return
 
       if (!models.length) {
         modelMarketList.appendChild(emptyCard(t('empty.models')))
@@ -1127,6 +1164,12 @@ const app = document.getElementById('app')
 
     function isMarketModelInstalled(model) {
       return runtimeModels.some(item => item && item.id === model.id && item.ready)
+    }
+
+    function updateModelHomeState() {
+      const readyModels = runtimeModels.filter(model => model && model.ready)
+      if (modelLocalState) modelLocalState.textContent = String(readyModels.length)
+      if (modelRuntimeState) modelRuntimeState.textContent = (runtimeServiceState && runtimeServiceState.modelId) || '--'
     }
 
     function installMarketModel(model) {
@@ -1444,12 +1487,16 @@ const app = document.getElementById('app')
     modelImportButton.addEventListener('click', () => {
       native('installModelPackage')
     })
-    modelMarketButton.addEventListener('click', () => {
-      marketVisible = !marketVisible
-      modelMarketPanel.classList.toggle('active', marketVisible)
-      modelMarketButton.classList.toggle('active', marketVisible)
-      renderModelMarket(marketModels)
-      if (marketVisible && !marketModels.length) loadModelMarket()
+    modelLocalButton.addEventListener('click', () => setModelView('local'))
+    modelLocalBack.addEventListener('click', () => setModelView('home'))
+    modelMarketButton.addEventListener('click', () => setModelView('market'))
+    modelMarketBack.addEventListener('click', () => setModelView('home'))
+    modelRuntimeButton.addEventListener('click', () => {
+      navItems.forEach(i => i.classList.toggle('active', i.dataset.page === 'settings'))
+      panels.forEach(panel => panel.classList.toggle('active', panel.id === 'page-settings'))
+      sceneHost.classList.remove('active')
+      backButton.classList.remove('active')
+      openRuntimeSettings()
     })
     modelMarketRefreshButton.addEventListener('click', () => loadModelMarket(true))
     modelMarketSearch.addEventListener('input', () => {

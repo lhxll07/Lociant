@@ -11,7 +11,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="MNNode"
+        android:label="Lociant"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity

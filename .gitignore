@@ -14,9 +14,19 @@ build/
 *.iml
 .vscode/
 
+# Local environment
+.env
+.env.*
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Python / JS temporary files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
 
 # Large model files (too big for git)
 models/Qwen3.5-2B-MNN/

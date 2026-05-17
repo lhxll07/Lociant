@@ -48,7 +48,8 @@ class ChatCapability(
             if (images.isEmpty()) {
                 mnnRuntime.chatText(
                     modelDir,
-                    normalizeMessages(request.messages),
+                    nativeMessages(request.messages),
+                    request.tools?.toString().orEmpty(),
                     maxTokens,
                     request.sessionId,
                     request.useSessionCache,
@@ -70,7 +71,8 @@ class ChatCapability(
             val result = if (images.isEmpty()) {
                 mnnRuntime.chatTextStream(
                     modelDir,
-                    normalizeMessages(request.messages),
+                    nativeMessages(request.messages),
+                    request.tools?.toString().orEmpty(),
                     maxTokens,
                     request.sessionId,
                     request.useSessionCache,
@@ -119,6 +121,7 @@ class ChatCapability(
 
         return block(dir, modelId, clampTokens(modelId, request.maxTokens ?: DEFAULT_OUTPUT_TOKENS), images)
             .also { if (it.ok) loadedModelId = modelId }
+            .withParsedToolCalls(request)
             .copy(elapsedMs = elapsed(started))
             .also { Log.i(TAG, "chat end modelId=$modelId ok=${it.ok} elapsed=${it.elapsedMs} textLen=${it.text.length}") }
     }
@@ -152,8 +155,39 @@ class ChatCapability(
         )
     }
 
-    private fun normalizeMessages(messages: List<ModelChatMessage>): List<Pair<String, String>> =
-        messages.map { it.role to it.text() }.filter { it.second.isNotBlank() }
+    private fun ModelChatResult.withParsedToolCalls(request: ModelChatRequest): ModelChatResult {
+        if (!ok || request.tools == null || toolCalls.isNotEmpty()) return this
+        val parsed = ToolTemplateContract.parse(text)
+        return if (parsed.isEmpty()) this else copy(text = "", toolCalls = parsed)
+    }
+
+    private fun nativeMessages(messages: List<ModelChatMessage>): List<NativeChatMessage> =
+        messages.mapNotNull { message ->
+            val json = message.toMnnJsonMessage()
+            if (json != null) NativeChatMessage("json", json.toString())
+            else message.text().takeIf { it.isNotBlank() }?.let { NativeChatMessage(message.role, it) }
+        }
+
+    private fun ModelChatMessage.toMnnJsonMessage(): org.json.JSONObject? {
+        val hasExtra = toolCalls.isNotEmpty() || toolCallId.isNotBlank() || name.isNotBlank()
+        if (!hasExtra) return null
+        val json = org.json.JSONObject()
+            .put("role", role)
+            .put("content", text())
+        if (name.isNotBlank()) json.put("name", name)
+        if (toolCallId.isNotBlank()) json.put("tool_call_id", toolCallId)
+        if (toolCalls.isNotEmpty()) {
+            json.put("tool_calls", org.json.JSONArray(toolCalls.map { call ->
+                org.json.JSONObject()
+                    .put("id", call.id)
+                    .put("type", "function")
+                    .put("function", org.json.JSONObject()
+                        .put("name", call.name)
+                        .put("arguments", call.arguments.ifBlank { "{}" }))
+            }))
+        }
+        return json
+    }
 
     private fun renderMultimodalPrompt(messages: List<ModelChatMessage>): String {
         var imageInserted = false

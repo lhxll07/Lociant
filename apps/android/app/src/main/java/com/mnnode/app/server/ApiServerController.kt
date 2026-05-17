@@ -5,8 +5,6 @@ import android.util.Log
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.model.ModelChatRequest
-import com.mnnode.app.model.ModelChatMessage
-import com.mnnode.app.model.ModelChatPart
 import com.mnnode.app.model.ModelToolCall
 import com.mnnode.app.model.ModelToolChoice
 import com.mnnode.app.model.ModelMarket
@@ -237,7 +235,7 @@ class ApiServerController(
             val currentRequest = chatController.boundRequest(parsed, modelId, maxOutputTokens)
             val includeStreamUsage = protocol == ChatProtocol.OPENAI && ModelApiMapper.openAiStreamIncludesUsage(raw)
             if (protocol == ChatProtocol.OPENAI) {
-                handleOpenAiToolRequest(currentRequest)?.let { response ->
+                handleOpenAiForcedToolRequest(currentRequest)?.let { response ->
                     chatController.recordRequestAsync(call.request.httpMethod.value, endpoint, response.first.value, System.currentTimeMillis() - started, modelId)
                     call.respondText(response.second.toString(), JsonContentType, response.first)
                     return
@@ -271,15 +269,15 @@ class ApiServerController(
         call.respondText(response.second.toString(), JsonContentType, response.first)
     }
 
-    private suspend fun handleOpenAiToolRequest(
+    private suspend fun handleOpenAiForcedToolRequest(
         request: ModelChatRequest,
     ): Pair<HttpStatusCode, JSONObject>? {
         val toolCall = forcedToolCall(request) ?: return null
-        if (!toolRegistry.has(toolCall.name)) {
-            return HttpStatusCode.BadRequest to ModelApiMapper.error("tool_not_found", "Unknown tool: ${toolCall.name}")
-        }
         if (!request.executeTools) {
             return HttpStatusCode.OK to ModelApiMapper.openAiToolCallResponse(request.modelId, toolCall)
+        }
+        if (!toolRegistry.has(toolCall.name)) {
+            return HttpStatusCode.BadRequest to ModelApiMapper.error("tool_not_found", "Unknown local Lociant tool: ${toolCall.name}")
         }
 
         val toolResult = executeToolCall(toolCall)
@@ -287,13 +285,8 @@ class ApiServerController(
             toolChoice = ModelToolChoice.None,
             executeTools = false,
             messages = request.messages + listOf(
-                ModelChatMessage("assistant", emptyList(), toolCalls = listOf(toolCall)),
-                ModelChatMessage(
-                    role = "tool",
-                    parts = listOf(ModelChatPart.Text(toolResult.toString())),
-                    toolCallId = toolCall.id,
-                    name = toolCall.name,
-                ),
+                ModelApiMapper.toolAssistantMessage(toolCall),
+                ModelApiMapper.toolResultMessage(toolCall, toolResult),
             ),
         )
         val sessionRequest = chatController.sessionRequest(followUp)
@@ -311,19 +304,19 @@ class ApiServerController(
                 name = choice.name,
                 arguments = choice.arguments.ifBlank { "{}" },
             )
-            ModelToolChoice.Required -> firstKnownTool(request)
+            ModelToolChoice.Required -> firstDeclaredTool(request)
             ModelToolChoice.Auto, ModelToolChoice.None -> null
         }
     }
 
-    private fun firstKnownTool(request: ModelChatRequest): ModelToolCall? {
+    private fun firstDeclaredTool(request: ModelChatRequest): ModelToolCall? {
         val tools = request.tools ?: toolRegistry.definitions()
         for (index in 0 until tools.length()) {
             val name = tools.optJSONObject(index)
                 ?.optJSONObject("function")
                 ?.optString("name")
                 .orEmpty()
-            if (name.isNotBlank() && toolRegistry.has(name)) {
+            if (name.isNotBlank()) {
                 return ModelToolCall("call_${UUID.randomUUID().toString().take(8)}", name, "{}")
             }
         }
@@ -547,7 +540,7 @@ class ApiServerController(
 
     private fun healthJson(): JSONObject = buildStateJson(null, includeHistory = false).apply {
         put("ok", true)
-        put("name", "MNNode Model Server")
+        put("name", "Lociant Model Server")
         put("version", "0.1.0")
         put("endpoints", JSONArray(listOf("/health", "/v1/models", "/v1/tools", "/v1/chat/completions", "/api/chat")))
     }

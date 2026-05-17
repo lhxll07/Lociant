@@ -34,29 +34,29 @@ class MnnRuntime(context: Context) : AutoCloseable {
     }
 
     @Synchronized
-    fun chatText(modelDir: File, messages: List<Pair<String, String>>, maxTokens: Int = 128,
+    fun chatText(modelDir: File, messages: List<NativeChatMessage>, toolsJson: String = "", maxTokens: Int = 128,
                  sessionId: String = "", useSessionCache: Boolean = false): NativeChatResult {
         val (ready, errorMsg) = prepareModel(modelDir)
         if (!ready) return NativeChatResult(ok = false, message = errorMsg, modelInstalled = true)
-        val roles = messages.map { it.first }.toTypedArray()
-        val contents = messages.map { it.second }.toTypedArray()
+        val roles = messages.map { it.role }.toTypedArray()
+        val contents = messages.map { it.content }.toTypedArray()
         val raw = nativeChatText(handle, roles, contents, clampMaxTokens(maxTokens),
-            sessionId, useSessionCache, runtimeConfigJson())
+            sessionId, useSessionCache, runtimeConfigJson(toolsJson))
         return parseResult(raw, modelInstalled = true)
     }
 
     @Synchronized
-    fun chatTextStream(modelDir: File, messages: List<Pair<String, String>>, maxTokens: Int = 128,
+    fun chatTextStream(modelDir: File, messages: List<NativeChatMessage>, toolsJson: String = "", maxTokens: Int = 128,
                        sessionId: String = "", useSessionCache: Boolean = false,
                        onChunk: (text: String, done: Boolean) -> Unit): NativeChatResult {
         val (ready, errorMsg) = prepareModel(modelDir)
         if (!ready) return NativeChatResult(ok = false, message = errorMsg, modelInstalled = true)
-        val roles = messages.map { it.first }.toTypedArray()
-        val contents = messages.map { it.second }.toTypedArray()
+        val roles = messages.map { it.role }.toTypedArray()
+        val contents = messages.map { it.content }.toTypedArray()
         val emit = onChunk
         val raw = nativeChatTextStream(handle, roles, contents,
             clampMaxTokens(maxTokens),
-            sessionId, useSessionCache, runtimeConfigJson(),
+            sessionId, useSessionCache, runtimeConfigJson(toolsJson),
             object : StreamCallback { override fun onChunk(text: String, done: Boolean) = emit(text, done) })
         return parseResult(raw, modelInstalled = true)
     }
@@ -141,15 +141,18 @@ class MnnRuntime(context: Context) : AutoCloseable {
         return loaded to JSONObject(raw).optString("message", "")
     }
 
-    private fun runtimeConfigJson(): String {
+    private fun runtimeConfigJson(toolsJson: String = ""): String {
+        val context = JSONObject().put("enable_thinking", false)
+        runCatching {
+            if (toolsJson.isNotBlank()) context.put("tools", org.json.JSONArray(toolsJson))
+        }
         return JSONObject()
             .put("async", false)
             .put("prompt_cache", true)
             .put("thread_num", cpuThreads)
             .put("mllm", JSONObject().put("thread_num", cpuThreads))
             .put("jinja", JSONObject()
-                .put("context", JSONObject()
-                    .put("enable_thinking", false)))
+                .put("context", context))
             .toString()
     }
 

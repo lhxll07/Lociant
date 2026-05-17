@@ -9,13 +9,13 @@ class VisionTools(
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
         ToolDefinition(
-            name = "get_vision_status",
+            name = "vision_status",
             description = "Return camera and object detection runtime status.",
             parameters = objectSchema(),
             policy = ToolPolicy(requiresActivity = true),
         ) { withVision { it.stateJson() } },
         ToolDefinition(
-            name = "start_vision_rules",
+            name = "vision_start",
             description = "Start continuous camera analysis and YOLO object detection.",
             parameters = objectSchema(JSONObject()
                 .put("modelId", JSONObject().put("type", "string"))
@@ -31,7 +31,7 @@ class VisionTools(
             }
         },
         ToolDefinition(
-            name = "stop_vision_rules",
+            name = "vision_stop",
             description = "Stop continuous camera analysis.",
             parameters = objectSchema(),
             policy = ToolPolicy(requiresActivity = true, sideEffect = true),

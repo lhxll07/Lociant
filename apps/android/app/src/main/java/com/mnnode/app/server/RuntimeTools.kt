@@ -11,13 +11,13 @@ class RuntimeTools(
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
         ToolDefinition(
-            name = "get_device_info",
+            name = "runtime_resources",
             description = "Return Android package and local runtime resource information.",
             parameters = objectSchema(),
         ) { deviceInfo() },
         ToolDefinition(
-            name = "get_runtime_status",
-            description = "Return MNNode API runtime status.",
+            name = "runtime_status",
+            description = "Return Lociant API runtime status.",
             parameters = objectSchema(),
         ) { runtimeState() },
     )
@@ -40,12 +40,12 @@ class ModelTools(
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
         ToolDefinition(
-            name = "list_models",
-            description = "List installed and built-in models visible to MNNode.",
+            name = "model_list",
+            description = "List installed and built-in models visible to Lociant.",
             parameters = objectSchema(),
         ) { JSONObject().put("models", JSONArray(modelManager.listModelsJson())) },
         ToolDefinition(
-            name = "preload_model",
+            name = "model_preload",
             description = "Queue model preload for the selected chat model.",
             parameters = objectSchema(JSONObject().put("model", JSONObject().put("type", "string"))),
             policy = ToolPolicy(sideEffect = true),
@@ -55,7 +55,7 @@ class ModelTools(
             JSONObject().put("queued", true).put("model", model)
         },
         ToolDefinition(
-            name = "cancel_chat",
+            name = "inference_cancel",
             description = "Cancel the currently running chat inference request.",
             parameters = objectSchema(),
             policy = ToolPolicy(sideEffect = true),

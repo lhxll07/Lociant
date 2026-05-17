@@ -193,7 +193,7 @@ async function startCamera() {
     await ensureCameraPermission()
     await API.post('/v1/scenes/study-desk/load', {})
     el.textContent = 'Starting camera...'
-    const r = await API.post('/v1/tools/start_vision_rules/call', {arguments:{
+    const r = await API.post('/v1/tools/vision_start/call', {arguments:{
       modelId:'yolov8n', backend:settings.backend, confidenceThreshold:settings.confidence,
       inferenceIntervalMs:settings.inferenceMs,
       previewIntervalMs:settings.previewMs
@@ -204,7 +204,7 @@ async function startCamera() {
     }
     for (let i = 0; i < 20; i++) {
       await new Promise(r => setTimeout(r, 800))
-      const vis = await API.post('/v1/tools/get_vision_status/call', {arguments:{}})
+      const vis = await API.post('/v1/tools/vision_status/call', {arguments:{}})
       if (vis && vis.result && vis.result.running) { visionRunning = true; startingVision = false; updateButtons(); el.textContent = ''; startStream(); return }
     }
     el.textContent = 'Camera start timed out.'
@@ -260,7 +260,7 @@ function startStream() {
 }
 async function stopCamera() {
   streamTimer = 0
-  await API.post('/v1/tools/stop_vision_rules/call', {arguments:{}})
+  await API.post('/v1/tools/vision_stop/call', {arguments:{}})
   visionRunning = false; updateButtons()
   const c = document.getElementById('previewCanvas'); c.style.display = 'none'
 }
@@ -282,7 +282,7 @@ async function refresh() {
   try {
     const [store, vis] = await Promise.all([
       API.get('/v1/store/study-desk'),
-      API.post('/v1/tools/get_vision_status/call', {arguments:{}})
+      API.post('/v1/tools/vision_status/call', {arguments:{}})
     ])
     const vs = store.values || {}
     const focus = Math.floor((vs.focus_seconds && vs.focus_seconds.value) || 0)

@@ -26,7 +26,7 @@ class ToolRegistry(
 
     fun call(name: String, args: JSONObject = JSONObject()): JSONObject {
         val tool = tools[name] ?: return error("tool_not_found", "Unknown tool: $name")
-        if (!tool.policy.local) return error("tool_not_local", "Tool is not executable inside MNNode: $name").put("tool", name)
+        if (!tool.policy.local) return error("tool_not_local", "Tool is not executable inside Lociant: $name").put("tool", name)
         return runCatching {
             val result = tool.handler(args)
             val ok = result.optBoolean("ok", true)

@@ -1,27 +1,25 @@
 # Scenes
 
-[English](#english) · [中文](#中文)
+[English](#english) | [中文](#中文)
 
 ## English
 
-This directory contains MNNode Scene Pack source files.
+This directory contains Lociant Scene Pack source files.
 
-A scene pack is a small installable unit:
+A Scene Pack is a small installable phone-local experience:
 
 ```text
 manifest.json
 web/index.html
 ```
 
-Current scenes:
+Current built-in scene:
 
 | Scene | Purpose | Notes |
 |---|---|---|
-| `study-desk/` | Focus tracking | Uses YOLO person / phone detection and unified chat/image model calls. |
+| `study-desk/` | Focus tracking | Uses YOLO person / phone detection and unified model calls. |
 
-Scene packs can be copied into Android assets for built-in use, or packaged as zip files for external installation.
-
-The model server is not a Scene Pack. It is controlled by the app's Runtime settings and exposed through the local HTTP API.
+Scene Packs are clients of the same local HTTP runtime API used by LAN clients. They should not own model-server lifecycle or add private native bridge methods.
 
 Example packaging command from the project root:
 
@@ -31,26 +29,26 @@ tar -a -cf dist/scenes/study-desk.scene.zip -C scenes/study-desk manifest.json w
 
 Keep zip entries flat under the scene root. The installer expects `manifest.json` and `web/index.html`, not an extra top-level directory.
 
+---
+
 ## 中文
 
-这个目录存放 MNNode Scene Pack 源文件。
+这个目录存放 Lociant Scene Pack 源文件。
 
-场景包是一个小型可安装单元：
+Scene Pack 是一个小型、可安装的手机本地体验：
 
 ```text
 manifest.json
 web/index.html
 ```
 
-当前场景：
+当前内置场景：
 
-| 场景 | 用途 | 说明 |
+| Scene | 用途 | 说明 |
 |---|---|---|
-| `study-desk/` | 专注跟踪 | 使用 YOLO person / phone 检测和统一 chat/image 模型调用。 |
+| `study-desk/` | 专注跟踪 | 使用 YOLO person / phone 检测和统一模型调用。 |
 
-场景包可以复制到 Android assets 作为内置场景，也可以打包成 zip 用于外部安装。
-
-模型服务不是 Scene Pack。它由 App 的 Runtime 设置控制，并通过本地 HTTP API 暴露。
+Scene Pack 是本地 HTTP runtime API 的客户端，和局域网客户端使用同一套能力入口。它不应该拥有 model-server 生命周期，也不应该新增私有 native bridge 方法。
 
 从项目根目录打包示例：
 

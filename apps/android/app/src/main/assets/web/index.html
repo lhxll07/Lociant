@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>MNNode</title>
+  <title>Lociant</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -113,7 +113,7 @@
             <button class="settings-back pressable" id="runtimeSettingsBack" type="button" data-i18n="common.back">返回</button>
             <div>
               <h2 data-i18n="settings.runtimeTitle">Runtime 与后台运行</h2>
-              <p data-i18n="settings.runtimeIntro">控制 MNNode 作为本地 AI 节点在后台运行。</p>
+              <p data-i18n="settings.runtimeIntro">控制 Lociant 作为本地 AI 能力运行时在后台运行。</p>
             </div>
           </div>
 
@@ -281,35 +281,71 @@
       <section class="panel" id="page-models">
         <div class="scene-head">
           <h1 class="section-title" data-i18n="nav.models">模型</h1>
-          <div class="scene-actions-top">
-            <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">重新扫描</button>
-            <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">导入</button>
-            <button class="install-button pressable" id="modelMarketButton" data-i18n="models.market">模型市场</button>
+        </div>
+
+        <div class="model-progress" id="modelProgress">
+          <div class="model-progress-row">
+            <span id="modelProgressText">模型正在导入</span>
+            <span class="model-progress-percent" id="modelProgressPercent"></span>
+          </div>
+          <div class="model-progress-track">
+            <div class="model-progress-fill" id="modelProgressFill"></div>
           </div>
         </div>
-        <div class="market-panel" id="modelMarketPanel" aria-hidden="true">
-          <div class="market-panel-head">
+
+        <div class="model-view active" id="modelHomeView">
+          <button class="settings-row pressable" id="modelLocalButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="models.localTitle">本地模型</span>
+              <span class="settings-row-sub" data-i18n="models.localSub">管理已安装模型、导入本地包。</span>
+            </span>
+            <span class="settings-row-state" id="modelLocalState">--</span>
+          </button>
+          <button class="settings-row pressable" id="modelMarketButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="models.marketTitle">模型市场</span>
+              <span class="settings-row-sub" data-i18n="models.marketSub">ModelScope MNN 模型目录。</span>
+            </span>
+            <span class="settings-row-state" data-i18n="models.market">市场</span>
+          </button>
+          <button class="settings-row pressable" id="modelRuntimeButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="models.runtimeTitle">Runtime 设置</span>
+              <span class="settings-row-sub" data-i18n="models.runtimeSub">默认模型、线程数和 API 服务配置。</span>
+            </span>
+            <span class="settings-row-state" id="modelRuntimeState">--</span>
+          </button>
+        </div>
+
+        <div class="model-view" id="modelLocalView" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="modelLocalBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 class="market-title" data-i18n="models.marketTitle">模型市场</h2>
-              <div class="market-sub" data-i18n="models.marketSub">ModelScope MNN 模型目录。</div>
+              <h2 data-i18n="models.localTitle">本地模型</h2>
+              <p data-i18n="models.localSub">管理已安装模型、导入本地包。</p>
+            </div>
+            <div class="scene-actions-top">
+              <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">重新扫描</button>
+              <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">导入</button>
+            </div>
+          </div>
+          <div class="model-list" id="modelList"></div>
+        </div>
+
+        <div class="model-view" id="modelMarketPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="modelMarketBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="models.marketTitle">模型市场</h2>
+              <p data-i18n="models.marketSub">ModelScope MNN 模型目录。</p>
             </div>
             <div class="market-search">
               <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="搜索模型">
               <button class="reload-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">刷新</button>
             </div>
           </div>
-          <div class="model-progress" id="modelProgress">
-            <div class="model-progress-row">
-              <span id="modelProgressText">模型正在导入</span>
-              <span class="model-progress-percent" id="modelProgressPercent"></span>
-            </div>
-            <div class="model-progress-track">
-              <div class="model-progress-fill" id="modelProgressFill"></div>
-            </div>
-          </div>
           <div class="market-list" id="modelMarketList"></div>
         </div>
-        <div class="model-list" id="modelList"></div>
       </section>
 
       <section class="panel" id="page-nodes">

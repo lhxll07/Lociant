@@ -56,6 +56,11 @@ object ModelApiMapper {
     }
 
     fun openAiResponse(result: ModelChatResult): JSONObject {
+        if (result.toolCalls.isNotEmpty()) {
+            return openAiToolCallResponse(result.modelId, result.toolCalls)
+                .put("usage", openAiUsage(result))
+                .put("mnnode", runtimeMetrics(result))
+        }
         return JSONObject()
             .put("id", "chatcmpl_mnnode_${System.currentTimeMillis()}")
             .put("object", "chat.completion")
@@ -104,7 +109,10 @@ object ModelApiMapper {
             )
     }
 
-    fun openAiToolCallResponse(modelId: String, toolCall: ModelToolCall): JSONObject {
+    fun openAiToolCallResponse(modelId: String, toolCall: ModelToolCall): JSONObject =
+        openAiToolCallResponse(modelId, listOf(toolCall))
+
+    fun openAiToolCallResponse(modelId: String, toolCalls: List<ModelToolCall>): JSONObject {
         return openAiBase(modelId)
             .put(
                 "choices",
@@ -114,7 +122,7 @@ object ModelApiMapper {
                         .put("message", JSONObject()
                             .put("role", "assistant")
                             .put("content", JSONObject.NULL)
-                            .put("tool_calls", JSONArray().put(openAiToolCallJson(toolCall))))
+                            .put("tool_calls", JSONArray(toolCalls.map { openAiToolCallJson(it) })))
                         .put("finish_reason", "tool_calls")
                 )
             )
@@ -136,6 +144,19 @@ object ModelApiMapper {
                     toolCalls = parseToolCalls(message.optJSONArray("tool_calls")),
                 )
             }
+    }
+
+    fun toolAssistantMessage(toolCall: ModelToolCall): ModelChatMessage {
+        return ModelChatMessage("assistant", emptyList(), toolCalls = listOf(toolCall))
+    }
+
+    fun toolResultMessage(toolCall: ModelToolCall, result: JSONObject): ModelChatMessage {
+        return ModelChatMessage(
+            role = "tool",
+            parts = listOf(ModelChatPart.Text(result.toString())),
+            toolCallId = toolCall.id,
+            name = toolCall.name,
+        )
     }
 
     private fun parseSceneMessages(json: JSONObject): List<ModelChatMessage> {

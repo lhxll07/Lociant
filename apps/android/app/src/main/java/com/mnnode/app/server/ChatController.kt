@@ -7,6 +7,8 @@ import com.mnnode.app.model.DEFAULT_MODEL_ID
 import com.mnnode.app.model.HARD_MAX_OUTPUT_TOKENS
 import com.mnnode.app.model.ModelChatRequest
 import com.mnnode.app.model.ModelChatResult
+import com.mnnode.app.model.ModelToolCall
+import com.mnnode.app.model.ToolTemplateContract
 import com.mnnode.app.session.SessionStore
 import io.ktor.http.ContentType
 import io.ktor.http.content.OutgoingContent
@@ -181,6 +183,8 @@ class ChatController(
     ) {
         val queue = LinkedBlockingQueue<StreamEvent>()
         val meta = StreamMeta("chatcmpl_mnnode_${System.currentTimeMillis()}", System.currentTimeMillis() / 1000, request.modelId)
+        var bufferToolCandidate = format == StreamFormat.OPENAI && request.tools != null
+        val bufferedText = StringBuilder()
         channel.writeEvent(format.start(meta))
         val job = executeStreamAsync(request) { text, done ->
             if (text.isNotEmpty()) queue.put(StreamEvent.Chunk(text))
@@ -190,16 +194,28 @@ class ChatController(
         var done = false
         var aborted = false
         var abortReason: String? = null
-        val streamStartedAt = System.currentTimeMillis()
+        var lastActivityAt = System.currentTimeMillis()
         try {
             while (!done) {
                 when (val event = withContext(Dispatchers.IO) { queue.poll(STREAM_HEARTBEAT_MS, TimeUnit.MILLISECONDS) }) {
-                    is StreamEvent.Chunk -> channel.writeEvent(format.chunk(meta, event.text))
-                    is StreamEvent.Done -> done = true
+                    is StreamEvent.Chunk -> {
+                        lastActivityAt = System.currentTimeMillis()
+                        if (bufferToolCandidate) {
+                            bufferedText.append(event.text)
+                            if (!looksLikeToolPrefix(bufferedText.toString())) {
+                                channel.writeEvent(format.chunk(meta, bufferedText.toString()))
+                                bufferedText.clear()
+                                bufferToolCandidate = false
+                            }
+                        } else {
+                            channel.writeEvent(format.chunk(meta, event.text))
+                        }
+                    }
+                    is StreamEvent.Done -> { lastActivityAt = System.currentTimeMillis(); done = true }
                     is StreamEvent.Error -> { channel.writeEvent(format.error(request.modelId, event.message)); done = true }
                     null -> {
-                        if (System.currentTimeMillis() - streamStartedAt > CHAT_TIMEOUT_MS) {
-                            lastError = "Chat stream timed out after ${CHAT_TIMEOUT_MS}ms"
+                        if (System.currentTimeMillis() - lastActivityAt > STREAM_IDLE_TIMEOUT_MS) {
+                            lastError = "Chat stream idle timed out after ${STREAM_IDLE_TIMEOUT_MS}ms"
                             abortReason = lastError
                             aborted = true
                             cancelStream(job, abortReason!!)
@@ -219,8 +235,20 @@ class ChatController(
                     withContext(Dispatchers.IO) { job.future.get(2, TimeUnit.SECONDS) }
                 }.getOrNull()
                 if (result != null && !result.ok) channel.writeEvent(format.error(result.modelId, result.message))
-                if (result != null && result.ok) saveModelTurn(turnRequest, result)
-                channel.writeEvent(format.done(meta, result, includeUsage))
+                val normalizedResult = if (result != null && result.ok && bufferToolCandidate) {
+                    val text = bufferedText.toString().ifBlank { result.text }
+                    val toolCalls = ToolTemplateContract.parse(text)
+                    if (toolCalls.isNotEmpty()) {
+                        val parsed = result.copy(text = "", toolCalls = toolCalls)
+                        channel.writeEvent(format.toolCalls(meta, toolCalls))
+                        parsed
+                    } else {
+                        if (text.isNotEmpty()) channel.writeEvent(format.chunk(meta, text))
+                        result.copy(text = text)
+                    }
+                } else result
+                if (normalizedResult != null && normalizedResult.ok) saveModelTurn(turnRequest, normalizedResult)
+                channel.writeEvent(format.done(meta, normalizedResult, includeUsage))
             }
         } catch (e: CancellationException) {
             aborted = true
@@ -257,6 +285,11 @@ class ChatController(
             OLLAMA -> ollamaLine(meta.modelId, text)
         }
 
+        fun toolCalls(meta: StreamMeta, calls: List<ModelToolCall>) = when (this) {
+            OPENAI -> "data: ${toolCallsChunkJson(meta, calls)}\n\n"
+            OLLAMA -> ollamaLine(meta.modelId, "")
+        }
+
         fun heartbeat(meta: StreamMeta) = when (this) {
             OPENAI -> ": keep-alive\n\n"
             OLLAMA -> ollamaLine(meta.modelId, "")
@@ -269,7 +302,8 @@ class ChatController(
 
         fun done(meta: StreamMeta, result: ModelChatResult?, includeUsage: Boolean) = when (this) {
             OPENAI -> buildString {
-                append("data: ${chunkJson(meta, null, "stop")}\n\n")
+                val reason = if (result?.toolCalls?.isNotEmpty() == true) "tool_calls" else "stop"
+                append("data: ${chunkJson(meta, null, reason)}\n\n")
                 if (includeUsage && result != null) append("data: ${usageChunkJson(meta, result)}\n\n")
                 append("data: [DONE]\n\n")
             }
@@ -287,6 +321,7 @@ class ChatController(
         private const val TAG = "MNNodeChat"
         const val CHAT_TIMEOUT_MS = 300_000L
         private const val STREAM_HEARTBEAT_MS = 10_000L
+        private const val STREAM_IDLE_TIMEOUT_MS = CHAT_TIMEOUT_MS
         const val MAX_HISTORY_MESSAGES = 64
         val EventStreamContentType = ContentType.Text.EventStream.withParameter("charset", "utf-8")
         val NdjsonContentType = ContentType.parse("application/x-ndjson").withParameter("charset", "utf-8")
@@ -342,6 +377,34 @@ private fun chunkJson(meta: StreamMeta, key: String?, value: String): JSONObject
         .put("choices", JSONArray().put(JSONObject()
             .put("index", 0).put("delta", delta)
             .put("finish_reason", if (key == null) value else JSONObject.NULL)))
+}
+
+private fun looksLikeToolPrefix(raw: String): Boolean {
+    val text = raw.trimStart()
+    if (text.isBlank()) return true
+    if (text.startsWith("<")) {
+        return "<tool_call>".startsWith(text.take("<tool_call>".length)) ||
+            text.startsWith("<tool_call>") ||
+            text.startsWith("<think>") ||
+            text.startsWith("</think>")
+    }
+    if (text.startsWith("```")) return true
+    if (text.startsWith("{") || text.startsWith("[")) return true
+    return false
+}
+
+private fun toolCallsChunkJson(meta: StreamMeta, calls: List<ModelToolCall>): JSONObject {
+    val delta = JSONObject()
+        .put("tool_calls", JSONArray(calls.mapIndexed { index, call ->
+            ModelApiMapper.openAiToolCallJson(call).put("index", index)
+        }))
+    return JSONObject()
+        .put("id", meta.id).put("object", "chat.completion.chunk")
+        .put("created", meta.created).put("model", meta.modelId)
+        .put("choices", JSONArray().put(JSONObject()
+            .put("index", 0)
+            .put("delta", delta)
+            .put("finish_reason", JSONObject.NULL)))
 }
 
 private fun ollamaLine(modelId: String, content: String): String {

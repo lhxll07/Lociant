@@ -12,7 +12,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 0, "absent": false, "minConfidence": 0.45 },
       "forMs": 2000,
-      "tool": "record_event",
+      "tool": "event_record",
       "arguments": { "sceneId": "study-desk", "type": "person.present", "level": "info" }
     },
     {
@@ -20,7 +20,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 0, "absent": true, "minConfidence": 0.45 },
       "forMs": 30000,
-      "tool": "record_event",
+      "tool": "event_record",
       "arguments": { "sceneId": "study-desk", "type": "person.away", "level": "info" }
     },
     {
@@ -28,7 +28,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 0, "absent": false, "minConfidence": 0.45 },
       "forMs": 10000,
-      "tool": "store_value",
+      "tool": "store_increment",
       "arguments": { "namespace": "study-desk", "key": "focus_seconds", "value": 10 }
     },
     {
@@ -36,7 +36,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 0, "absent": true, "minConfidence": 0.45 },
       "forMs": 120000,
-      "tool": "store_value",
+      "tool": "store_increment",
       "arguments": { "namespace": "study-desk", "key": "break_count", "value": 1 }
     },
     {
@@ -44,7 +44,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 67, "absent": false, "minConfidence": 0.45 },
       "forMs": 5000,
-      "tool": "store_value",
+      "tool": "store_increment",
       "arguments": { "namespace": "study-desk", "key": "distraction_count", "value": 1 }
     },
     {
@@ -52,7 +52,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 0, "absent": true, "minConfidence": 0.45 },
       "forMs": 300000,
-      "tool": "notify_user",
+      "tool": "notification_post",
       "arguments": { "title": "Still away?", "body": "5 minutes away. Time to come back?" }
     },
     {
@@ -60,7 +60,7 @@
       "source": "camera:yolov8n",
       "condition": { "type": "detection", "classId": 0, "absent": false, "minConfidence": 0.45 },
       "forMs": 2700000,
-      "tool": "notify_user",
+      "tool": "notification_post",
       "arguments": { "title": "Take a break!", "body": "45 minutes of focus. Get up, stretch, walk around." }
     }
   ]

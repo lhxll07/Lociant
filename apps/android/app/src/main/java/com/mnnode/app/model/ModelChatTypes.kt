@@ -62,6 +62,7 @@ data class ModelChatResult(
     val modelId: String,
     val text: String = "",
     val message: String = "",
+    val toolCalls: List<ModelToolCall> = emptyList(),
     val elapsedMs: Long = 0,
     val promptTokens: Int = 0,
     val generatedTokens: Int = 0,
@@ -106,6 +107,11 @@ data class NativeChatResult(
     val firstTokenMs: Long = 0,
     val prefillUs: Long = 0,
     val decodeUs: Long = 0,
+)
+
+data class NativeChatMessage(
+    val role: String,
+    val content: String,
 )
 
 const val DEFAULT_MODEL_ID = "qwen3.5-2b-mnn"

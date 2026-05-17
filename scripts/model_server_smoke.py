@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test MNNode's local model server.
+"""Smoke test Lociant's local model server.
 
 This script intentionally uses only Python's standard library so it behaves the
 same on Windows, macOS, and Linux without shell-specific JSON quoting issues.
@@ -19,7 +19,7 @@ from typing import Any
 
 DEFAULT_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "qwen3.5-2b-mnn"
-DEFAULT_TOOL = "get_runtime_status"
+DEFAULT_TOOL = "runtime_status"
 DEFAULT_SCENE = "study-desk"
 
 
@@ -153,7 +153,7 @@ def require_usage(value: dict[str, Any]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Smoke test MNNode model server endpoints.")
+    parser = argparse.ArgumentParser(description="Smoke test Lociant model server endpoints.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"default: {DEFAULT_BASE_URL}")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"default: {DEFAULT_MODEL}")
     parser.add_argument("--session-id", default="", help="optional session id for persistence tests")
@@ -259,7 +259,7 @@ def main() -> int:
             name = item.get("function", {}).get("name")
             policy = item.get("x_policy")
             if item.get("x_execution") != "local" or not isinstance(policy, dict):
-                fail(f"tool {name!r} missing MNNode policy metadata: {item}")
+                fail(f"tool {name!r} missing Lociant policy metadata: {item}")
             for key in ("local", "remoteAllowed", "requiresActivity", "sideEffect"):
                 if not isinstance(policy.get(key), bool):
                     fail(f"tool {name!r} has invalid x_policy.{key}: {item}")
@@ -267,10 +267,10 @@ def main() -> int:
             fail(f"tool {args.tool!r} not listed by /v1/tools: {tool_names}")
         print_step("tools manifest", f"{tools.elapsed_ms}ms tools={', '.join(tool_names)}")
 
-        for expected_tool in ("notify_user", "record_event", "call_webhook"):
+        for expected_tool in ("notification_post", "event_record", "webhook_post"):
             if expected_tool not in tool_names:
                 fail(f"new tool {expected_tool!r} not in /v1/tools: {tool_names}")
-        print_step("new tools", f"notify_user/record_event/call_webhook present")
+        print_step("new tools", f"notification_post/event_record/webhook_post present")
 
         direct_tool = request(
             "POST",

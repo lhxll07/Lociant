@@ -22,7 +22,7 @@ class NotificationTools(
 
     override fun tools(): List<ToolDefinition> = listOf(
         ToolDefinition(
-            name = "notify_user",
+            name = "notification_post",
             description = "Post a local Android notification. Useful for alerts triggered by sensor conditions.",
             parameters = objectSchema(JSONObject()
                 .put("title", JSONObject().put("type", "string").put("description", "Notification title"))
@@ -30,7 +30,7 @@ class NotificationTools(
             policy = ToolPolicy(sideEffect = true),
         ) { args -> postNotification(args) },
         ToolDefinition(
-            name = "call_webhook",
+            name = "webhook_post",
             description = "POST JSON to an external URL. Used by triggers to notify external agents or a custom server.",
             parameters = objectSchema(JSONObject()
                 .put("url", JSONObject().put("type", "string").put("description", "Target webhook URL"))
@@ -44,7 +44,7 @@ class NotificationTools(
     }
 
     private fun postNotification(args: JSONObject): JSONObject {
-        val title = args.optString("title", "MNNode")
+        val title = args.optString("title", "Lociant")
         val body = args.optString("body", "")
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val n = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -86,7 +86,7 @@ class NotificationTools(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(NotificationChannel(
-            NOTIFICATION_CHANNEL_ID, "MNNode Triggers", NotificationManager.IMPORTANCE_DEFAULT,
+            NOTIFICATION_CHANNEL_ID, "Lociant Triggers", NotificationManager.IMPORTANCE_DEFAULT,
         ).apply { description = "Scene trigger notifications" })
     }
 

@@ -100,7 +100,8 @@ class ModelMarket(
             }
             val modelRoot = modelManager.findMnnModelDirs(tempRoot).singleOrNull()
                 ?: error("Downloaded files do not form a valid MNN model")
-            val spec = modelManager.inferMnnSpec(modelRoot) ?: error("unknown MNN model package")
+            modelManager.writeMnnDisplayName(modelRoot, repo.modelName)
+            val spec = modelManager.inferMnnSpec(modelRoot, repo.modelName) ?: error("unknown MNN model package")
             targetDir = modelManager.externalModelDir(spec)
             backupDir = File(installParent, ".backup-${spec.id}").apply { deleteRecursively() }
 
@@ -230,7 +231,7 @@ class ModelMarket(
         conn.connectTimeout = NETWORK_TIMEOUT_MS
         conn.readTimeout = NETWORK_TIMEOUT_MS
         conn.requestMethod = "GET"
-        conn.setRequestProperty("User-Agent", "MNNode/${context.packageName}")
+        conn.setRequestProperty("User-Agent", "Lociant/${context.packageName}")
         return conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
     }
 
@@ -239,7 +240,7 @@ class ModelMarket(
         conn.connectTimeout = NETWORK_TIMEOUT_MS
         conn.readTimeout = NETWORK_TIMEOUT_MS
         conn.requestMethod = "GET"
-        conn.setRequestProperty("User-Agent", "MNNode/${context.packageName}")
+        conn.setRequestProperty("User-Agent", "Lociant/${context.packageName}")
         val digest = MessageDigest.getInstance("SHA-256")
         conn.inputStream.use { input ->
             target.outputStream().use { output ->

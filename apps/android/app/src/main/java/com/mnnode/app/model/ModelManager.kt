@@ -183,7 +183,7 @@ class ModelManager(context: Context) {
         )
     }
 
-    fun inferMnnSpec(dir: File): ModelSpec? {
+    fun inferMnnSpec(dir: File, preferredName: String = ""): ModelSpec? {
         val configFile = File(dir, "config.json")
         if (!configFile.isFile) return null
         val config = runCatching { JSONObject(configFile.readText(Charsets.UTF_8)) }.getOrNull() ?: return null
@@ -192,8 +192,11 @@ class ModelManager(context: Context) {
         if (!required.any { it.endsWith(".mnn") && !it.contains("visual") } ||
             !required.any { it.endsWith(".weight") && !it.contains("visual") }) return null
         val baseName = cleanModelName(config.optString("model_name")
-            .ifBlank { config.optString("model") }
             .ifBlank { config.optString("name") }
+            .ifBlank { config.optString("display_name") }
+            .ifBlank { preferredName }
+            .ifBlank { config.optString("model") }
+            .ifBlank { readAuxModelName(dir) }
             .ifBlank { dir.name })
         val hasVisual = required.any { it.startsWith("visual") || it.contains("/visual") }
         return ModelSpec(
@@ -205,6 +208,20 @@ class ModelManager(context: Context) {
             entry = "config.json",
             requiredFiles = required,
         )
+    }
+
+    fun writeMnnDisplayName(dir: File, preferredName: String) {
+        val name = cleanModelName(preferredName)
+        if (name.isBlank()) return
+        val configFile = File(dir, "config.json")
+        val config = runCatching { JSONObject(configFile.readText(Charsets.UTF_8)) }.getOrNull() ?: return
+        val existing = cleanModelName(config.optString("model_name")
+            .ifBlank { config.optString("name") }
+            .ifBlank { config.optString("display_name") })
+        if (existing.isBlank() || existing.startsWith("market-", ignoreCase = true) || existing.startsWith("install-", ignoreCase = true)) {
+            config.put("model_name", name)
+            configFile.writeText(config.toString(2), Charsets.UTF_8)
+        }
     }
 
     private fun inferMnnRequiredFiles(dir: File, config: JSONObject): List<String> {
@@ -238,6 +255,23 @@ class ModelManager(context: Context) {
             File(dir, "llm.mnn").isFile ||
             File(dir, "llm.mnn.weight").isFile ||
             File(dir, "llm_config.json").isFile
+    }
+
+    private fun readAuxModelName(dir: File): String {
+        return listOf("configuration.json", "llm_config.json")
+            .asSequence()
+            .map { File(dir, it) }
+            .filter { it.isFile }
+            .mapNotNull { file -> runCatching { JSONObject(file.readText(Charsets.UTF_8)) }.getOrNull() }
+            .mapNotNull { json ->
+                json.optString("model_name")
+                    .ifBlank { json.optString("name") }
+                    .ifBlank { json.optString("_name_or_path").substringAfterLast('/') }
+                    .ifBlank { json.optJSONArray("architectures")?.optString(0).orEmpty() }
+                    .takeIf { it.isNotBlank() }
+            }
+            .firstOrNull()
+            .orEmpty()
     }
 
     private fun addConfiguredOrFallback(files: MutableSet<String>, dir: File, configured: String, fallback: String, required: Boolean) {

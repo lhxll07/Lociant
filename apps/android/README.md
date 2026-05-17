@@ -1,6 +1,6 @@
-# MNNode Android
+# Lociant Android
 
-This is the Android application for MNNode.
+This is the Android application for Lociant.
 
 ## Build
 

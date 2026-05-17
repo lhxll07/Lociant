@@ -53,7 +53,7 @@ class MNNodeRuntimeService : Service() {
     private fun startRuntime(payload: JSONObject) {
         serviceMode = payload.optString("mode", MODE_HEADLESS).ifBlank { MODE_HEADLESS }
         runCatching {
-            startForeground(NOTIFICATION_ID, notification("Starting MNNode runtime"))
+            startForeground(NOTIFICATION_ID, notification("Starting Lociant runtime"))
             recordLifecycle("runtime.start", payload)
             MNNodeRuntime.apiServer(this).startForService(payload)
             if (payload.optBoolean("floatingWindow", false)) showFloatingWindow()
@@ -113,7 +113,7 @@ class MNNodeRuntimeService : Service() {
         )
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_mnnode)
-            .setContentTitle("MNNode Runtime")
+            .setContentTitle("Lociant Runtime")
             .setContentText(text)
             .setContentIntent(openIntent)
             .setOngoing(true)
@@ -126,10 +126,10 @@ class MNNodeRuntimeService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "MNNode Runtime",
+            "Lociant Runtime",
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Keeps MNNode runtime services visible while running."
+            description = "Keeps Lociant runtime services visible while running."
         }
         notificationManager().createNotificationChannel(channel)
     }
@@ -190,7 +190,7 @@ class MNNodeRuntimeService : Service() {
         }
         val model = state.optString("modelId", "").ifBlank { "no model" }
         val url = state.optString("lanUrl", "").ifBlank { "LAN API unavailable" }
-        return "MNNode · $status\n$model · $url"
+        return "Lociant · $status\n$model · $url"
     }
 
     private fun canDrawOverlay() =

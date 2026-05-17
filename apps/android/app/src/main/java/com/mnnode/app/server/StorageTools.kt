@@ -10,7 +10,7 @@ class StorageTools(
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
         ToolDefinition(
-            name = "record_event",
+            name = "event_record",
             description = "Record a runtime event to local persistent storage (Room). Useful for sensor-driven data logging.",
             parameters = objectSchema(JSONObject()
                 .put("sceneId", JSONObject().put("type", "string").put("description", "Scene identifier for this event"))
@@ -20,7 +20,7 @@ class StorageTools(
             policy = ToolPolicy(sideEffect = true),
         ) { args -> recordEvent(args) },
         ToolDefinition(
-            name = "store_value",
+            name = "store_increment",
             description = "Read-modify-write a numeric value (delta) in the local persistent key-value store. Use for trigger-driven accumulators like focus_seconds.",
             parameters = objectSchema(JSONObject()
                 .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))
