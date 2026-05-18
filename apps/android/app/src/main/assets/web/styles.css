@@ -1100,6 +1100,34 @@
       box-shadow: 0 0 0 3px rgba(105, 168, 255, .1);
     }
 
+    .settings-token-input,
+    .settings-select-input {
+      height: 38px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #111111;
+      color: #eeeeee;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .settings-token-input {
+      width: min(42vw, 210px);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .settings-select-input {
+      min-width: 112px;
+    }
+
+    .settings-token-input:focus,
+    .settings-select-input:focus {
+      outline: none;
+      border-color: rgba(105, 168, 255, .46);
+      box-shadow: 0 0 0 3px rgba(105, 168, 255, .1);
+    }
+
     .settings-section {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;

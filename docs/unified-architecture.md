@@ -98,7 +98,7 @@ Current local tools:
 | `notification_post` | Send Android notification |
 | `webhook_post` | Queue JSON webhook POST |
 
-Tool definitions carry policy metadata so LAN visibility, auth, side effects, and Activity requirements can be hardened later without inventing another capability system.
+Tool definitions carry policy metadata so LAN visibility, auth, side effects, and Activity requirements can be enforced without inventing another capability system. Runtime settings expose a small remote visibility policy: `read`, `sensor`, or `action`.
 
 ## Scene Packs
 
@@ -137,11 +137,11 @@ The product name can be Lociant while old internal identifiers remain until ther
 
 ## Next Work
 
-1. Harden LAN exposure with optional auth and remote tool visibility rules.
+1. Keep LAN auth and remote tool visibility rules simple enough for normal users to understand.
 2. Keep model import and model-market metadata config-driven.
 3. Improve Runtime Window diagnostics and recovery.
 4. Keep `study-desk` as the only built-in Scene Pack until the scene model proves stable.
-5. Harden MCP auth, remote visibility, and side-effect policy without creating a second tool system.
+5. Keep MCP policy as a thin projection of `ToolRegistry`, not a second tool system.
 
 ---
 
@@ -239,7 +239,7 @@ Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool ca
 | `notification_post` | 发送 Android 通知 |
 | `webhook_post` | 排队发送 JSON webhook |
 
-工具定义带策略元数据，后续可以在不引入第二套能力系统的前提下加固 LAN 可见性、auth、副作用和 Activity 依赖规则。
+工具定义带策略元数据，用于执行 LAN 可见性、auth、副作用和 Activity 依赖规则，而不引入第二套能力系统。Runtime 设置提供一个很小的远程可见性策略：`read`、`sensor` 或 `action`。
 
 ## Scene Packs
 
@@ -278,8 +278,8 @@ MNN 是当前 LLM/VLM 后端。NCNN 是当前视觉后端。两者都是 HTTP ca
 
 ## 下一步
 
-1. 用可选 auth 和 remote tool visibility 规则加固 LAN 暴露。
+1. 保持 LAN auth 和远程工具可见性规则足够简单，让普通用户能理解。
 2. 保持模型导入和模型市场元数据由 config 驱动。
 3. 改进 Runtime Window 诊断和恢复能力。
 4. 在 scene 模型稳定前，只保留 `study-desk` 作为内置 Scene Pack。
-5. 加固 MCP 的 auth、远程可见性和副作用策略，但不创建第二套工具系统。
+5. 让 MCP policy 始终只是 `ToolRegistry` 的薄投影，不成为第二套工具系统。

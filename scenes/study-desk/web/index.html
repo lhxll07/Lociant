@@ -142,18 +142,28 @@ input[type=range]{width:100%;accent-color:var(--blue);height:4px}
 
 <script>
 const API = (() => {
-  let base = ((window.MNNodeAPI && window.MNNodeAPI.baseUrl) || (() => { try { return parent.MNNodeAPI && parent.MNNodeAPI.baseUrl } catch(e) { return null } })() || 'http://127.0.0.1:11434').replace(/\/$/,'')
+  let shellApi = window.MNNodeAPI || (() => { try { return parent.MNNodeAPI } catch(e) { return null } })()
+  let base = ((shellApi && shellApi.baseUrl) || 'http://127.0.0.1:11434').replace(/\/$/,'')
+  const headers = () => {
+    const h = {'Content-Type':'application/json'}
+    try {
+      const token = shellApi && shellApi.authToken
+      if (token) h.Authorization = 'Bearer ' + token
+    } catch(e) {}
+    return h
+  }
   return {
     get base() { return base },
     setBase: v => { if (v) base = String(v).replace(/\/$/,'') },
-    get: p => fetch(base + p).then(async r => { const j = await r.json(); if (!r.ok) throw new Error((j.error&&j.error.message)||j.message||r.statusText); return j }),
-    post: (p, d) => fetch(base + p, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d||{})})
+    setShellApi: api => { shellApi = api || shellApi },
+    get: p => fetch(base + p, {headers:headers()}).then(async r => { const j = await r.json(); if (!r.ok) throw new Error((j.error&&j.error.message)||j.message||r.statusText); return j }),
+    post: (p, d) => fetch(base + p, {method:'POST', headers:headers(), body:JSON.stringify(d||{})})
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error((j.error&&j.error.message)||j.message||r.statusText); return j }),
     tool: (name, args) => fetch(base + '/v1/tools/' + encodeURIComponent(name) + '/call', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({arguments:args||{}})
+      method:'POST', headers:headers(), body:JSON.stringify({arguments:args||{}})
     }).then(async r => { const j = await r.json(); if (!r.ok || !j.ok) throw new Error((j.error&&j.error.message)||(j.result&&j.result.message)||j.message||r.statusText); return j.result || j }),
     chat: d => fetch(base + '/v1/chat/completions', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d||{})
+      method:'POST', headers:headers(), body:JSON.stringify(d||{})
     }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error((j.error&&j.error.message)||j.message||r.statusText); return j })
   }
 })()
@@ -397,7 +407,10 @@ async function analyzeDesk() {
   }
 }
 window.addEventListener('message', event => {
-  if (event.data && event.data.type === 'api.ready') API.setBase(event.data.baseUrl)
+  if (event.data && event.data.type === 'api.ready') {
+    API.setBase(event.data.baseUrl)
+    try { API.setShellApi(parent.MNNodeAPI) } catch(e) {}
+  }
 })
 refresh(); setInterval(refresh, 4000)
 </script>

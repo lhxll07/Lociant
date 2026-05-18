@@ -14,18 +14,20 @@ class ToolRegistry(
         }
     }
 
-    fun manifest(): JSONObject = JSONObject()
+    fun manifest(exposure: ToolExposure = ToolExposure.Action): JSONObject = JSONObject()
         .put("object", "list")
-        .put("data", definitions())
+        .put("data", definitions(exposure))
 
-    fun definitions(): JSONArray = JSONArray(tools.values.map { it.toJson() })
+    fun definitions(exposure: ToolExposure = ToolExposure.Action): JSONArray =
+        JSONArray(tools.values.filter { exposure.allows(it.level()) }.map { it.toJson() })
 
     fun definition(name: String): JSONObject? = tools[name]?.toJson()
 
     fun has(name: String): Boolean = tools.containsKey(name)
 
-    fun call(name: String, args: JSONObject = JSONObject()): JSONObject {
+    fun call(name: String, args: JSONObject = JSONObject(), exposure: ToolExposure = ToolExposure.Action): JSONObject {
         val tool = tools[name] ?: return error("tool_not_found", "Unknown tool: $name")
+        if (!exposure.allows(tool.level())) return error("tool_not_allowed", "Tool is not exposed by current policy: $name").put("tool", name)
         if (!tool.policy.local) return error("tool_not_local", "Tool is not executable inside Lociant: $name").put("tool", name)
         return runCatching {
             val result = tool.handler(args)
@@ -52,6 +54,18 @@ class ToolRegistry(
         return JSONObject()
             .put("code", nested?.optString("code")?.takeIf { it.isNotBlank() } ?: result.optString("code", "tool_failed"))
             .put("message", nested?.optString("message")?.takeIf { it.isNotBlank() } ?: result.optString("message", "tool failed"))
+    }
+}
+
+enum class ToolExposure(val id: String, private val rank: Int) {
+    Read("read", 0),
+    Sensor("sensor", 1),
+    Action("action", 2);
+
+    fun allows(level: ToolExposure): Boolean = level.rank <= rank
+
+    companion object {
+        fun from(value: String?): ToolExposure = entries.firstOrNull { it.id == value } ?: Action
     }
 }
 
@@ -89,4 +103,11 @@ class ToolDefinition(
             .put("parameters", parameters))
         .put("x_execution", policy.executionLabel())
         .put("x_policy", policy.toJson())
+        .put("x_lociant_level", level().id)
+
+    fun level(): ToolExposure = when {
+        policy.sideEffect -> ToolExposure.Action
+        policy.requiresActivity -> ToolExposure.Sensor
+        else -> ToolExposure.Read
+    }
 }

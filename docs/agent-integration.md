@@ -46,6 +46,12 @@ URL: http://<phone-ip>:11434/mcp
 Headers: empty
 ```
 
+If API Token is enabled in Runtime settings, add:
+
+```text
+Authorization: Bearer <token>
+```
+
 4. Enable the MCP server/tools in the current chat.
 5. Test with:
 
@@ -55,6 +61,14 @@ Start vision, then call camera_capture.
 ```
 
 Adding the MCP server only installs the tool source. Most clients still require enabling those tools in each chat or assistant profile.
+
+Runtime settings can limit exposed tools:
+
+| Level | Exposes |
+|---|---|
+| `read` | runtime/model status |
+| `sensor` | read tools plus camera/vision tools |
+| `action` | all local tools, including notifications and webhooks |
 
 ## OpenAI Connection
 
@@ -114,11 +128,15 @@ URL: http://<phone-ip>:11434/mcp
 Headers: empty
 ```
 
+If API Token is enabled, add the same `Authorization: Bearer <token>` header here too.
+
 Clients that only support command-based stdio can use the desktop adapter:
 
 ```bash
 python scripts/lociant_mcp_server.py --base-url http://<phone-ip>:11434
 ```
+
+If API Token is enabled, add `--api-key <token>`.
 
 Example client config:
 
@@ -137,6 +155,25 @@ Example client config:
 }
 ```
 
+With API Token enabled:
+
+```json
+{
+  "mcpServers": {
+    "lociant": {
+      "command": "python",
+      "args": [
+        "C:/Users/Lhx/Documents/Programs/Lociant/scripts/lociant_mcp_server.py",
+        "--base-url",
+        "http://<phone-ip>:11434",
+        "--api-key",
+        "<token>"
+      ]
+    }
+  }
+}
+```
+
 Both paths expose the same underlying `ToolRegistry`. MCP is only a protocol adapter over `/v1/tools`, not another capability system. Prefer the phone-native `/mcp` endpoint when the client supports Streamable HTTP.
 
 ## Client-Owned Tools
@@ -147,16 +184,34 @@ The client should execute those client-owned tools. Lociant should only execute 
 
 ## Debugging
 
-Smoke test:
+Quick runtime/API/MCP test:
 
 ```bash
-python scripts/openai_agent_probe.py smoke --base-url http://<phone-ip>:11434/v1
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434
+```
+
+Include one chat completion:
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
+```
+
+If API Token is enabled:
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --api-key <token> --expect-auth --chat
+```
+
+Full protocol test:
+
+```bash
+python scripts/lociant_test.py full --base-url http://<phone-ip>:11434
 ```
 
 Logging proxy:
 
 ```bash
-python scripts/openai_agent_probe.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
+python scripts/lociant_test.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
 ```
 
 Point the agent client to:
@@ -228,6 +283,12 @@ http://10.238.125.4:11434
 请求头：留空
 ```
 
+如果在 Runtime 设置里启用了 API Token，请添加：
+
+```text
+Authorization: Bearer <token>
+```
+
 4. 在当前对话里启用 MCP server / tools。
 5. 用下面的话测试：
 
@@ -237,6 +298,14 @@ http://10.238.125.4:11434
 ```
 
 添加 MCP server 只是安装工具源。大多数客户端还需要在每个对话或助手配置里启用这些工具。
+
+Runtime 设置可以限制暴露的工具：
+
+| 级别 | 暴露能力 |
+|---|---|
+| `read` | runtime/model 状态 |
+| `sensor` | 只读工具，以及摄像头/视觉工具 |
+| `action` | 全部本地工具，包括通知和 webhook |
 
 ## OpenAI 连接
 
@@ -296,11 +365,15 @@ python scripts/lociant_capture.py --base-url http://<phone-ip>:11434 --start --o
 请求头：留空
 ```
 
+如果启用了 API Token，这里也要添加 `Authorization: Bearer <token>`。
+
 只支持命令式 stdio 的客户端可以使用桌面端 adapter：
 
 ```bash
 python scripts/lociant_mcp_server.py --base-url http://<phone-ip>:11434
 ```
+
+如果启用了 API Token，加上 `--api-key <token>`。
 
 客户端配置示例：
 
@@ -319,6 +392,25 @@ python scripts/lociant_mcp_server.py --base-url http://<phone-ip>:11434
 }
 ```
 
+启用 API Token 时：
+
+```json
+{
+  "mcpServers": {
+    "lociant": {
+      "command": "python",
+      "args": [
+        "C:/Users/Lhx/Documents/Programs/Lociant/scripts/lociant_mcp_server.py",
+        "--base-url",
+        "http://<phone-ip>:11434",
+        "--api-key",
+        "<token>"
+      ]
+    }
+  }
+}
+```
+
 两条路径都暴露同一个底层 `ToolRegistry`。MCP 只是 `/v1/tools` 之上的协议适配层，不是第二套能力系统。客户端支持 Streamable HTTP 时，优先使用手机端原生 `/mcp`。
 
 ## 客户端自有工具
@@ -329,16 +421,34 @@ Agent 客户端可以传入自己的 OpenAI `tools`，例如 `read`、`edit` 或
 
 ## 调试
 
-基础测试：
+快速 Runtime/API/MCP 测试：
 
 ```bash
-python scripts/openai_agent_probe.py smoke --base-url http://<phone-ip>:11434/v1
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434
+```
+
+包含一次 chat completion：
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
+```
+
+如果启用了 API Token：
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --api-key <token> --expect-auth --chat
+```
+
+完整协议测试：
+
+```bash
+python scripts/lociant_test.py full --base-url http://<phone-ip>:11434
 ```
 
 日志代理：
 
 ```bash
-python scripts/openai_agent_probe.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
+python scripts/lociant_test.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
 ```
 
 把 agent 客户端指向：

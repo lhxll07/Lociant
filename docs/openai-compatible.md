@@ -29,7 +29,15 @@ GET  /v1/tools
 POST /v1/tools/{name}/call
 ```
 
-Keep the server on trusted LAN only. Public exposure needs auth hardening first.
+Keep the server on trusted LAN only.
+
+Runtime settings can enable an API Token. When enabled, LAN clients must send:
+
+```text
+Authorization: Bearer <token>
+```
+
+This applies to chat, tools, and MCP. `/health` stays public for simple discovery and diagnostics.
 
 ## Chat
 
@@ -146,13 +154,13 @@ Set `execute_tools: true` only when you want Lociant to execute a selected local
 Smoke test:
 
 ```bash
-python scripts/openai_agent_probe.py smoke --base-url http://<phone-ip>:11434/v1
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
 ```
 
 Logging proxy:
 
 ```bash
-python scripts/openai_agent_probe.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
+python scripts/lociant_test.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
 ```
 
 Point the agent to:
@@ -201,7 +209,15 @@ GET  /v1/tools
 POST /v1/tools/{name}/call
 ```
 
-只建议在可信局域网使用。公网暴露需要先补认证加固。
+只建议在可信局域网使用。
+
+Runtime 设置可以启用 API Token。启用后，局域网客户端必须发送：
+
+```text
+Authorization: Bearer <token>
+```
+
+这个 token 适用于 chat、tools 和 MCP。`/health` 保持公开，便于发现和诊断。
 
 ## Chat
 
@@ -318,13 +334,13 @@ curl -X POST http://<phone-ip>:11434/v1/tools/runtime_status/call \
 基础测试：
 
 ```bash
-python scripts/openai_agent_probe.py smoke --base-url http://<phone-ip>:11434/v1
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
 ```
 
 日志代理：
 
 ```bash
-python scripts/openai_agent_probe.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
+python scripts/lociant_test.py proxy --base-url http://<phone-ip>:11434/v1 --port 11435
 ```
 
 把 agent 指向：

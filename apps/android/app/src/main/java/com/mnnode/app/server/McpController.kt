@@ -12,6 +12,7 @@ import java.util.Base64
 
 class McpController(
     private val toolRegistry: ToolRegistry,
+    private val exposure: () -> ToolExposure,
 ) {
     suspend fun post(call: ApplicationCall) {
         val raw = call.receiveText()
@@ -64,7 +65,7 @@ class McpController(
 
     private fun mcpTools(): JSONArray {
         val output = JSONArray()
-        val tools = toolRegistry.definitions()
+        val tools = toolRegistry.definitions(exposure())
         for (index in 0 until tools.length()) {
             val item = tools.optJSONObject(index) ?: continue
             val function = item.optJSONObject("function") ?: continue
@@ -89,7 +90,7 @@ class McpController(
             .put("content", JSONArray().put(textContent("tools/call requires params.name")))
             .put("isError", true)
         val args = params.optJSONObject("arguments") ?: JSONObject()
-        val response = toolRegistry.call(name, args)
+        val response = toolRegistry.call(name, args, exposure())
         val result = response.optJSONObject("result") ?: response
         val isError = !response.optBoolean("ok", false) || result.optBoolean("ok", true) == false
         val content = JSONArray()

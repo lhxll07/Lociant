@@ -33,6 +33,7 @@ class McpError(Exception):
 class Config:
     base_url: str
     timeout: int
+    api_key: str
     allow: set[str]
     deny: set[str]
 
@@ -52,14 +53,16 @@ def api_url(base_url: str, path: str) -> str:
     return f"{base}{path}"
 
 
-def request_json(method: str, url: str, payload: dict[str, Any] | None, timeout: int) -> dict[str, Any]:
+def request_json(method: str, url: str, payload: dict[str, Any] | None, config: Config) -> dict[str, Any]:
     data = json_bytes(payload) if payload is not None else None
     headers = {"Accept": "application/json"}
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
     if payload is not None:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=config.timeout) as resp:
             body = resp.read()
     except urllib.error.HTTPError as error:
         body = error.read()
@@ -99,7 +102,7 @@ def allowed_tool(name: str, config: Config) -> bool:
 
 
 def list_lociant_tools(config: Config) -> list[dict[str, Any]]:
-    manifest = request_json("GET", api_url(config.base_url, "/v1/tools"), None, config.timeout)
+    manifest = request_json("GET", api_url(config.base_url, "/v1/tools"), None, config)
     items = manifest.get("data") or manifest.get("tools") or []
     if not isinstance(items, list):
         raise McpError(-32000, "Lociant /v1/tools returned no tool list", manifest)
@@ -200,7 +203,7 @@ def call_lociant_tool(config: Config, name: str, arguments: dict[str, Any]) -> d
         "POST",
         api_url(config.base_url, f"/v1/tools/{name}/call"),
         {"arguments": arguments},
-        config.timeout,
+        config,
     )
     content, structured, is_error = content_from_result(response)
     return {
@@ -299,12 +302,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Expose Lociant phone tools through MCP stdio.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Lociant HTTP base URL, default: {DEFAULT_BASE_URL}")
     parser.add_argument("--timeout", type=int, default=30, help="HTTP timeout in seconds")
+    parser.add_argument("--api-key", default="", help="optional Lociant API token")
     parser.add_argument("--allow", default="", help="comma-separated tool allowlist")
     parser.add_argument("--deny", default="", help="comma-separated tool denylist")
     args = parser.parse_args()
     config = Config(
         base_url=args.base_url.rstrip("/"),
         timeout=args.timeout,
+        api_key=args.api_key.strip(),
         allow=split_csv(args.allow),
         deny=split_csv(args.deny),
     )

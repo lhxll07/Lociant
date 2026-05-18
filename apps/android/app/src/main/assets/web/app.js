@@ -57,6 +57,10 @@ const app = document.getElementById('app')
     const runtimeServerBack = document.getElementById('runtimeServerBack')
     const runtimePortInput = document.getElementById('runtimePortInput')
     const runtimeMaxTokensInput = document.getElementById('runtimeMaxTokensInput')
+    const runtimeAuthTokenInput = document.getElementById('runtimeAuthTokenInput')
+    const runtimeAuthGenerateButton = document.getElementById('runtimeAuthGenerateButton')
+    const runtimeAuthClearButton = document.getElementById('runtimeAuthClearButton')
+    const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
     const runtimeCpuThreadsInput = document.getElementById('runtimeCpuThreadsInput')
     const runtimeModelButton = document.getElementById('runtimeModelButton')
     const runtimeModelState = document.getElementById('runtimeModelState')
@@ -138,9 +142,11 @@ const app = document.getElementById('app')
     }
 
     async function apiRequest(method, path, body) {
+      const headers = { 'Content-Type': 'application/json' }
+      if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
       const response = await fetch(apiUrl(path), {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: method === 'GET' ? undefined : JSON.stringify(body || {})
       })
       const json = await response.json()
@@ -243,6 +249,15 @@ const app = document.getElementById('app')
         'settings.cpuThreadsShort': 'CPU Threads',
         'settings.outputTokens': 'Output Tokens',
         'settings.outputTokensSub': 'Default cap for requests that do not specify max_tokens.',
+        'settings.apiToken': 'API Token',
+        'settings.apiTokenSub': 'Require Authorization: Bearer token for LAN chat, tools, and MCP.',
+        'settings.generate': 'Generate',
+        'settings.clear': 'Clear',
+        'settings.toolExposure': 'Remote Tools',
+        'settings.toolExposureSub': 'Choose how much phone capability LAN tools may see.',
+        'settings.toolRead': 'Read',
+        'settings.toolSensor': 'Sensor',
+        'settings.toolAction': 'Action',
         'settings.defaultTokens': 'Default',
         'settings.modelTokens': 'Model Cap',
         'settings.effectiveTokens': 'Effective Cap',
@@ -345,6 +360,15 @@ const app = document.getElementById('app')
         'settings.cpuThreadsShort': 'CPU 线程',
         'settings.outputTokens': '输出 Tokens',
         'settings.outputTokensSub': '请求未指定 max_tokens 时使用的默认上限。',
+        'settings.apiToken': 'API Token',
+        'settings.apiTokenSub': '局域网 chat、tools 和 MCP 需要 Authorization: Bearer token。',
+        'settings.generate': '生成',
+        'settings.clear': '清除',
+        'settings.toolExposure': '远程工具',
+        'settings.toolExposureSub': '选择局域网工具可见的手机能力范围。',
+        'settings.toolRead': '只读',
+        'settings.toolSensor': '感知',
+        'settings.toolAction': '动作',
         'settings.defaultTokens': '默认值',
         'settings.modelTokens': '模型上限',
         'settings.effectiveTokens': '生效上限',
@@ -501,9 +525,14 @@ const app = document.getElementById('app')
 
     function sceneApiClient() {
       const baseUrl = localApiBaseUrl()
+      const headers = () => {
+        const output = { 'Content-Type': 'application/json' }
+        if (runtimeServiceState && runtimeServiceState.authToken) output.Authorization = 'Bearer ' + runtimeServiceState.authToken
+        return output
+      }
       const request = (path, body) => fetch(baseUrl + path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers(),
         body: JSON.stringify(body || {})
       }).then(response => response.json().then(json => {
         if (!response.ok || !json.ok) throw new Error((json.error && json.error.message) || json.message || 'API request failed')
@@ -511,8 +540,11 @@ const app = document.getElementById('app')
       }))
       return {
         baseUrl,
+        get authToken() {
+          return (runtimeServiceState && runtimeServiceState.authToken) || ''
+        },
         get(path) {
-          return fetch(baseUrl + path).then(response => response.json())
+          return fetch(baseUrl + path, { headers: headers() }).then(response => response.json())
         },
         post(path, body) {
           return request(path, body)
@@ -523,7 +555,7 @@ const app = document.getElementById('app')
         chat(requestBody) {
           return fetch(baseUrl + '/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers(),
             body: JSON.stringify(requestBody || {})
           }).then(response => response.json())
         }
@@ -717,6 +749,8 @@ const app = document.getElementById('app')
       runtimeWindowPermissionButton.textContent = runtimeServiceState.windowAllowed ? t('settings.windowAllowed') : t('settings.windowPermission')
       if (document.activeElement !== runtimePortInput) runtimePortInput.value = String(runtimeServiceState.port || 11434)
       if (document.activeElement !== runtimeMaxTokensInput) runtimeMaxTokensInput.value = String(runtimeServiceState.maxOutputTokens || runtimeServiceState.defaultOutputTokens || 512)
+      if (runtimeAuthTokenInput && document.activeElement !== runtimeAuthTokenInput) runtimeAuthTokenInput.value = String(runtimeServiceState.authToken || '')
+      if (runtimeToolExposureInput && document.activeElement !== runtimeToolExposureInput) runtimeToolExposureInput.value = runtimeServiceState.toolExposure || 'action'
       const maxCpuThreads = Number(runtimeServiceState.maxCpuThreads) || 16
       const cpuThreads = Number(runtimeServiceState.cpuThreads) || 4
       runtimeCpuThreadsInput.max = String(maxCpuThreads)
@@ -1463,6 +1497,19 @@ const app = document.getElementById('app')
       const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeMaxTokensInput.value) || 512)))
       runtimeMaxTokensInput.value = String(value)
       runtimeApiCommand('settings', { maxOutputTokens: value })
+    })
+    runtimeAuthTokenInput.addEventListener('change', () => {
+      runtimeApiCommand('settings', { authToken: runtimeAuthTokenInput.value.trim() })
+    })
+    runtimeAuthGenerateButton.addEventListener('click', () => {
+      runtimeApiCommand('settings', { generateAuthToken: true })
+    })
+    runtimeAuthClearButton.addEventListener('click', () => {
+      runtimeAuthTokenInput.value = ''
+      runtimeApiCommand('settings', { authToken: '' })
+    })
+    runtimeToolExposureInput.addEventListener('change', () => {
+      runtimeApiCommand('settings', { toolExposure: runtimeToolExposureInput.value || 'action' })
     })
     runtimeCpuThreadsInput.addEventListener('change', () => {
       const max = Number(runtimeServiceState && runtimeServiceState.maxCpuThreads) || 16

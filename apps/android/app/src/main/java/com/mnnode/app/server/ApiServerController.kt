@@ -38,6 +38,7 @@ import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.io.File
+import java.security.SecureRandom
 import java.util.UUID
 import java.util.concurrent.Executors
 import io.ktor.http.content.OutgoingContent
@@ -65,6 +66,8 @@ class ApiServerController(
     private var cpuThreads = MnnRuntime.DEFAULT_CPU_THREADS
     private var autoStart = false
     private var currentSessionId = DEFAULT_SESSION_ID
+    private var authToken = ""
+    private var toolExposure = ToolExposure.Action
     private var serverEpoch = 0
     private var lastError: String? = null
     private val serverExecutor = Executors.newSingleThreadExecutor { runnable ->
@@ -89,7 +92,7 @@ class ApiServerController(
             )
         )
     }
-    private val mcpController by lazy { McpController(toolRegistry) }
+    private val mcpController by lazy { McpController(toolRegistry, exposure = { toolExposure }) }
 
     fun chatController() = chatController
     fun callTool(name: String, args: JSONObject): JSONObject = toolRegistry.call(name, args)
@@ -104,6 +107,7 @@ class ApiServerController(
             "start" -> start(payload)
             "stop" -> stop()
             "settings" -> {
+                if (payload.optBoolean("generateAuthToken", false)) payload.put("authToken", newToken())
                 updateSettings(payload)
                 if (server != null) tryPreload()
             }
@@ -122,8 +126,8 @@ class ApiServerController(
         runCatching { notificationTools.close() }
     }
 
-    fun state(): JSONObject = buildStateJson("api.server.state")
-    fun serviceState(): JSONObject = buildStateJson(null)
+    fun state(): JSONObject = buildStateJson("api.server.state", includeSensitive = true)
+    fun serviceState(): JSONObject = buildStateJson(null, includeSensitive = true)
     fun runtimeSummary(): JSONObject = buildStateJson(null, includeHistory = false)
 
     // ---- Lifecycle ----
@@ -171,20 +175,21 @@ class ApiServerController(
                         get("/v1/store/{namespace}") { call.withCors(); handleStoreList(call) }
                         post("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreSet(call) }
                         post("/v1/store/{namespace}/{key}/delete") { call.withCors(); handleStoreRemove(call) }
-                        post("/v1/runtime/{command}") { call.withCors(); handleRuntimeCommand(call) }
+                        post("/v1/runtime/{command}") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleRuntimeCommand(call) }
                         get("/v1/tools") {
                             call.withCors()
-                            val response = toolRegistry.manifest()
+                            if (!call.authorized()) return@get call.respondUnauthorized()
+                            val response = toolRegistry.manifest(toolExposure)
                             chatController.recordRequestAsync(call.request.httpMethod.value, call.request.path(), 200, 0, modelId)
                             call.respondText(response.toString(), JsonContentType)
                         }
                         post("/v1/tools/{name}/call") { call.withCors(); handleToolCall(call) }
-                        get("/mcp") { call.withCors(); mcpController.get(call) }
-                        post("/mcp") { call.withCors(); mcpController.post(call) }
-                        post("/v1/chat/completions") { call.withCors(); handleChat(call, ChatProtocol.OPENAI) }
-                        post("/api/chat") { call.withCors(); handleChat(call, ChatProtocol.OLLAMA) }
-                        get("/v1/chat/status/{requestId}") { call.withCors(); handleAsyncStatus(call) }
-                        get("/v1/chat/queue") { call.withCors(); handleQueueSnapshot(call) }
+                        get("/mcp") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else mcpController.get(call) }
+                        post("/mcp") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else mcpController.post(call) }
+                        post("/v1/chat/completions") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleChat(call, ChatProtocol.OPENAI) }
+                        post("/api/chat") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleChat(call, ChatProtocol.OLLAMA) }
+                        get("/v1/chat/status/{requestId}") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleAsyncStatus(call) }
+                        get("/v1/chat/queue") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleQueueSnapshot(call) }
                         get("/") { call.withCors(); call.respondText(healthJson().toString(), JsonContentType) }
                         get("/{...}") {
                             call.withCors()
@@ -313,7 +318,7 @@ class ApiServerController(
     }
 
     private fun firstDeclaredTool(request: ModelChatRequest): ModelToolCall? {
-        val tools = request.tools ?: toolRegistry.definitions()
+        val tools = request.tools ?: toolRegistry.definitions(toolExposure)
         for (index in 0 until tools.length()) {
             val name = tools.optJSONObject(index)
                 ?.optJSONObject("function")
@@ -328,7 +333,7 @@ class ApiServerController(
 
     private fun executeToolCall(toolCall: ModelToolCall): JSONObject {
         val args = runCatching { JSONObject(toolCall.arguments.ifBlank { "{}" }) }.getOrDefault(JSONObject())
-        return toolRegistry.call(toolCall.name, args)
+        return toolRegistry.call(toolCall.name, args, toolExposure)
             .put("tool_call_id", toolCall.id)
     }
 
@@ -369,10 +374,11 @@ class ApiServerController(
 
     private suspend fun handleToolCall(call: ApplicationCall) {
         val started = System.currentTimeMillis()
+        if (!call.authorized()) return call.respondUnauthorized()
         val name = call.parameters["name"].orEmpty()
         val json = requestJson(call)
         val args = json.optJSONObject("arguments") ?: json
-        val response = toolRegistry.call(name, args)
+        val response = toolRegistry.call(name, args, toolExposure)
         val status = if (response.optBoolean("ok", false)) HttpStatusCode.OK else HttpStatusCode.BadRequest
         chatController.recordRequestAsync(call.request.httpMethod.value, call.request.path(), status.value, System.currentTimeMillis() - started, modelId)
         call.respondText(response.toString(), JsonContentType, status)
@@ -496,7 +502,7 @@ class ApiServerController(
 
     // ---- State reporting ----
 
-    private fun buildStateJson(type: String?, includeHistory: Boolean = true): JSONObject {
+    private fun buildStateJson(type: String?, includeHistory: Boolean = true, includeSensitive: Boolean = false): JSONObject {
         val running = server != null
         val lanUrl = "http://${lanAddress()}:$port"
         val json = JSONObject()
@@ -507,7 +513,9 @@ class ApiServerController(
             .put("port", port)
             .put("url", "http://0.0.0.0:$port")
             .put("lanUrl", lanUrl)
-            .put("authEnabled", false)
+            .put("authEnabled", authToken.isNotBlank())
+            .apply { if (includeSensitive) put("authToken", authToken) }
+            .put("toolExposure", toolExposure.id)
             .put("modelId", modelId)
             .put("modelLoading", chatController.isLoading)
             .put("modelLoaded", chatController.isModelLoaded(modelId))
@@ -574,7 +582,7 @@ class ApiServerController(
 
     private fun ApplicationCall.withCors() {
         response.header("Access-Control-Allow-Origin", "*")
-        response.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-MNNode-Session-Id, X-Session-Id, MCP-Protocol-Version, Mcp-Session-Id")
+        response.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Lociant-Token, X-MNNode-Session-Id, X-Session-Id, MCP-Protocol-Version, Mcp-Session-Id")
         response.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     }
 
@@ -589,6 +597,8 @@ class ApiServerController(
             .put("port", port).put("modelId", modelId)
             .put("maxOutputTokens", maxOutputTokens)
             .put("cpuThreads", cpuThreads)
+            .put("authToken", authToken)
+            .put("toolExposure", toolExposure.id)
             .put("autoStart", autoStart).put("currentSessionId", currentSessionId))
     }
 
@@ -610,6 +620,8 @@ class ApiServerController(
         }
         autoStart = settings.optBoolean("autoStart", false)
         currentSessionId = sessionStore.normalizeModelSessionId(settings.optString("currentSessionId", DEFAULT_SESSION_ID))
+        authToken = settings.optString("authToken").trim()
+        toolExposure = ToolExposure.from(settings.optString("toolExposure", ToolExposure.Action.id))
     }
 
     private fun maxCpuThreads() = Runtime.getRuntime().availableProcessors()
@@ -637,6 +649,18 @@ class ApiServerController(
 
     private fun io.ktor.server.request.ApplicationRequest.headerSessionId() =
         header("X-MNNode-Session-Id") ?: header("X-Session-Id") ?: ""
+
+    private fun ApplicationCall.authorized(): Boolean {
+        val token = authToken
+        if (token.isBlank()) return true
+        val header = request.header("Authorization").orEmpty()
+        val bearer = if (header.startsWith("Bearer ", ignoreCase = true)) header.substringAfter(' ').trim() else ""
+        return bearer == token || request.header("X-Lociant-Token") == token
+    }
+
+    private suspend fun ApplicationCall.respondUnauthorized() {
+        respondText(errorJson("unauthorized", "Missing or invalid API token").toString(), JsonContentType, HttpStatusCode.Unauthorized)
+    }
 
     // ---- Network ----
 
@@ -672,6 +696,11 @@ class ApiServerController(
         private const val SETTINGS_NAMESPACE = "runtime/model-server/settings"
         private const val SETTINGS_KEY = "server"
         private val JsonContentType = ContentType.Application.Json.withParameter("charset", "utf-8")
+        fun newToken(): String {
+            val bytes = ByteArray(18)
+            SecureRandom().nextBytes(bytes)
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        }
     }
 
     private enum class ChatProtocol(val idPrefix: String) {

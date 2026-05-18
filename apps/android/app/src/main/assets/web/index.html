@@ -195,6 +195,30 @@
 
           <div class="settings-section">
             <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.apiToken">API Token</div>
+              <div class="settings-section-sub" data-i18n="settings.apiTokenSub">Require Authorization: Bearer token for LAN chat, tools, and MCP.</div>
+            </div>
+            <div class="settings-actions">
+              <input class="settings-token-input" id="runtimeAuthTokenInput" type="text" autocomplete="off" spellcheck="false" placeholder="off">
+              <button class="settings-action pressable" id="runtimeAuthGenerateButton" type="button" data-i18n="settings.generate">Generate</button>
+              <button class="settings-action pressable" id="runtimeAuthClearButton" type="button" data-i18n="settings.clear">Clear</button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.toolExposure">Remote Tools</div>
+              <div class="settings-section-sub" data-i18n="settings.toolExposureSub">Choose how much phone capability LAN tools may see.</div>
+            </div>
+            <select class="settings-select-input" id="runtimeToolExposureInput">
+              <option value="read" data-i18n="settings.toolRead">Read</option>
+              <option value="sensor" data-i18n="settings.toolSensor">Sensor</option>
+              <option value="action" data-i18n="settings.toolAction">Action</option>
+            </select>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
               <div class="settings-section-title" data-i18n="settings.pipTitle">Floating Window</div>
               <div class="settings-section-sub" data-i18n="settings.pipSub">Show a small runtime window over other apps while the server runs.</div>
             </div>
