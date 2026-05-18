@@ -114,7 +114,7 @@ await fetch('/v1/tools/vision_start/call', {
 })
 ```
 
-Scene Packs remain useful for phone-local UX. They are not the runtime boundary.
+Scene Packs remain useful for phone-local UX. They are not the runtime boundary. `study-desk` is the current reference scene: it starts vision through `vision_start`, captures frames through `camera_capture`, and can ask the local model for a short desk insight.
 
 ## Model Runtime
 
@@ -255,7 +255,7 @@ await fetch('/v1/tools/vision_start/call', {
 })
 ```
 
-Scene Pack 对手机本地 UX 仍然有价值，但它不是 runtime 边界。
+Scene Pack 对手机本地 UX 仍然有价值，但它不是 runtime 边界。`study-desk` 是当前参考场景：通过 `vision_start` 启动视觉，通过 `camera_capture` 获取画面，并可以让本地模型生成简短桌面分析。
 
 ## 模型 Runtime
 

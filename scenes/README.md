@@ -17,7 +17,7 @@ Current built-in scene:
 
 | Scene | Purpose | Notes |
 |---|---|---|
-| `study-desk/` | Focus tracking | Uses YOLO person / phone detection and unified model calls. |
+| `study-desk/` | Focus tracking | Uses YOLO detection, `camera_capture`, and local model analysis through the unified HTTP API. |
 
 Scene Packs are clients of the same local HTTP runtime API used by LAN clients. They should not own model-server lifecycle or add private native bridge methods.
 
@@ -46,7 +46,7 @@ web/index.html
 
 | Scene | 用途 | 说明 |
 |---|---|---|
-| `study-desk/` | 专注跟踪 | 使用 YOLO person / phone 检测和统一模型调用。 |
+| `study-desk/` | 专注跟踪 | 通过统一 HTTP API 使用 YOLO 检测、`camera_capture` 和本地模型分析。 |
 
 Scene Pack 是本地 HTTP runtime API 的客户端，和局域网客户端使用同一套能力入口。它不应该拥有 model-server 生命周期，也不应该新增私有 native bridge 方法。
 
