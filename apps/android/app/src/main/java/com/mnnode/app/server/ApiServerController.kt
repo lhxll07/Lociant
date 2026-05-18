@@ -10,10 +10,10 @@ import com.mnnode.app.model.ModelToolChoice
 import com.mnnode.app.model.ModelMarket
 import com.mnnode.app.model.MnnRuntime
 import com.mnnode.app.runtime.TriggerEngine
+import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
-import com.mnnode.app.vision.VisionAnalysisController
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -57,7 +57,6 @@ class ApiServerController(
     private val sessionStore: SessionStore,
     private val triggerEngine: TriggerEngine,
 ) {
-    @Volatile var visionController: VisionAnalysisController? = null
     @Volatile private var server: EmbeddedServer<*, *>? = null
     @Volatile private var starting = false
     private var port = DEFAULT_PORT
@@ -86,7 +85,7 @@ class ApiServerController(
                     preloadModel = { chatController.preload(it.ifBlank { modelId }) },
                     cancelChat = { chatController.cancelCurrent() },
                 ),
-                VisionTools(visionController = { visionController }),
+                VisionTools(context),
                 StorageTools(sessionStore, localStore),
                 notificationTools,
             )
@@ -128,6 +127,7 @@ class ApiServerController(
 
     fun state(): JSONObject = buildStateJson("api.server.state", includeSensitive = true)
     fun serviceState(): JSONObject = buildStateJson(null, includeSensitive = true)
+    fun uiState(): JSONObject = buildStateJson(null, includeHistory = false, includeSensitive = true)
     fun runtimeSummary(): JSONObject = buildStateJson(null, includeHistory = false)
 
     // ---- Lifecycle ----
@@ -418,7 +418,7 @@ class ApiServerController(
     }
 
     private suspend fun handlePreview(call: ApplicationCall) {
-        val bytes = visionController?.previewBytes()
+        val bytes = VisionRuntime.previewBytes()
         if (bytes == null) {
             call.respondText("No preview available", ContentType.Text.Plain, HttpStatusCode.NotFound)
             return
@@ -432,7 +432,7 @@ class ApiServerController(
             override suspend fun writeTo(channel: io.ktor.utils.io.ByteWriteChannel) {
                 var first = true
                 while (true) {
-                    val bytes = visionController?.previewBytes()
+                    val bytes = VisionRuntime.previewBytes()
                     if (bytes != null) {
                         if (first) { channel.writeStringUtf8("--MNNodeBoundary\r\n"); first = false }
                         else { channel.writeStringUtf8("\r\n--MNNodeBoundary\r\n") }

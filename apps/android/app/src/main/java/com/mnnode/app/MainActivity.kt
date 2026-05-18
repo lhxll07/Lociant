@@ -2,16 +2,15 @@ package com.mnnode.app
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
-import android.util.Rational
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -34,20 +33,20 @@ import com.mnnode.app.model.ModelManager
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.scene.ScenePackInstaller
 import com.mnnode.app.runtime.TriggerEngine
-import com.mnnode.app.runtime.SensorSample
+import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.server.ApiServerController
 import com.mnnode.app.runtime.MNNodeRuntime
 import com.mnnode.app.runtime.MNNodeRuntimeService
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
-import com.mnnode.app.vision.VisionAnalysisController
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private lateinit var root: FrameLayout
     private lateinit var webView: WebView
-    private lateinit var visionController: VisionAnalysisController
     private lateinit var modelManager: ModelManager
     private lateinit var modelInstaller: ModelInstaller
     private lateinit var sceneManager: SceneManager
@@ -59,6 +58,8 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private val modelInstallExecutor = Executors.newSingleThreadExecutor()
 
     private var pendingWebPermissionRequest: PermissionRequest? = null
+    private var startVisionAfterCameraPermission = false
+    private var pendingVisionPayload = JSONObject()
     private var startRuntimeAfterNotificationPermission = false
     private var pendingRuntimePayload = JSONObject()
     private var windowSettings = JSONObject()
@@ -69,6 +70,14 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             pendingWebPermissionRequest = null
             if (granted) webPermissionRequest.grant(webPermissionRequest.resources)
             else webPermissionRequest.deny()
+        }
+        if (startVisionAfterCameraPermission) {
+            startVisionAfterCameraPermission = false
+            if (granted) {
+                VisionRuntime.start(com.mnnode.app.vision.VisionConfig.fromJson(pendingVisionPayload.toString()))
+                startRuntimeService(JSONObject().put("floatingWindow", true))
+            }
+            pendingVisionPayload = JSONObject()
         }
     }
 
@@ -95,14 +104,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         apiServerController.startForService(JSONObject().put("source", "activity"))
         triggerEngine = MNNodeRuntime.triggerEngine(this)
         windowSettings = loadWindowSettings()
-
-        visionController = VisionAnalysisController(this, this).also {
-            it.setCallbacks(
-                onState = { state -> notifyVisionState(state) },
-                onFrame = { frame -> notifyVisionFrame(frame) },
-            )
-        }
-        apiServerController.visionController = visionController
 
         val assetLoader = WebViewAssetLoader.Builder()
             .setHttpAllowed(true)
@@ -170,7 +171,9 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (shouldShowRuntimeWindow()) showRuntimeWindow()
+        if (shouldShowRuntimeWindow()) runCatching {
+            MNNodeRuntimeService.showFloatingWindow(this)
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -189,7 +192,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     }
 
     override fun onDestroy() {
-        visionController.close()
         modelInstallExecutor.shutdown()
         webView.destroy()
         super.onDestroy()
@@ -241,38 +243,49 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             "start" -> {
                 runCatching { startRuntimeService(payload) }
                     .fold(
-                        onSuccess = { apiServerController.state().withRuntimeState().put("starting", true) },
-                        onFailure = { error -> apiServerController.state().withRuntimeState().put("lastError", error.message ?: "Runtime service start failed") },
+                        onSuccess = { runtimeSummaryWithWindow().put("starting", true) },
+                        onFailure = { error -> runtimeSummaryWithWindow().put("lastError", error.message ?: "Runtime service start failed") },
                     )
             }
             "stop" -> {
+                runCatching { apiServerController.stopForService() }
                 MNNodeRuntimeService.stopRuntime(this)
-                apiServerController.state().withRuntimeState()
+                runtimeSummaryWithWindow(MNNodeRuntimeService.hideFloatingWindow(this))
+                    .put("running", false)
+                    .put("starting", false)
+                    .put("message", "Runtime stopped.")
             }
             "battery.requestExemption" -> {
                 requestBatteryOptimizationExemption()
-                apiServerController.state().withRuntimeState()
+                runtimeSummaryWithWindow()
             }
             "window.show" -> {
-                runOnUiThread { showRuntimeWindow() }
-                apiServerController.state().withRuntimeState()
+                runtimeSummaryWithWindow(runUiCommand { showRuntimeWindowState() })
             }
             "window.hide" -> {
-                MNNodeRuntimeService.hideFloatingWindow(this)
-                apiServerController.state().withRuntimeState()
+                runtimeSummaryWithWindow(runUiCommand { MNNodeRuntimeService.hideFloatingWindow(this) })
+            }
+            "window.collapse" -> {
+                runtimeSummaryWithWindow(runUiCommand { MNNodeRuntimeService.collapseFloatingWindow(this) })
+            }
+            "window.expand" -> {
+                runtimeSummaryWithWindow(runUiCommand { MNNodeRuntimeService.expandFloatingWindow(this) })
             }
             "window.settings" -> {
                 updateWindowSettings(payload)
-                if (shouldShowRuntimeWindow()) runOnUiThread { showRuntimeWindow() }
-                apiServerController.state().withRuntimeState()
+                val windowState = if (shouldShowRuntimeWindow()) runUiCommand { showRuntimeWindowState() } else MNNodeRuntimeService.floatingWindowState(this)
+                runtimeSummaryWithWindow(windowState)
             }
             "window.permission" -> {
                 requestOverlayPermission()
-                apiServerController.state().withRuntimeState()
+                runtimeSummaryWithWindow()
             }
-            "settings", "session.create", "session.select", "session.delete" ->
-                apiServerController.command(command, payload).withRuntimeState()
-            "status" -> apiServerController.state().withRuntimeState()
+            "vision.start" -> startVisionFromShell(payload)
+            "vision.stop" -> runtimeSummaryWithWindow().put("vision", VisionRuntime.stop())
+            "vision.status" -> runtimeSummaryWithWindow()
+            "settings" -> apiServerController.command(command, payload).toRuntimeUiState()
+            "session.create", "session.select", "session.delete" -> apiServerController.command(command, payload).withRuntimeState()
+            "status" -> runtimeSummaryWithWindow()
             else -> JSONObject().put("ok", false).put("message", "Unknown shell command: $command")
         }.toString()
     }
@@ -289,6 +302,19 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         MNNodeRuntimeService.startRuntime(this, payload)
     }
 
+    private fun startVisionFromShell(payload: JSONObject): JSONObject {
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            startVisionAfterCameraPermission = true
+            pendingVisionPayload = JSONObject(payload.toString())
+            requestCameraPermission.launch(Manifest.permission.CAMERA)
+            return runtimeSummaryWithWindow()
+                .put("vision", VisionRuntime.status().put("message", "Camera permission requested."))
+        }
+        val vision = VisionRuntime.start(com.mnnode.app.vision.VisionConfig.fromJson(payload.toString()))
+        startRuntimeService(JSONObject().put("floatingWindow", true))
+        return runtimeSummaryWithWindow().put("vision", vision)
+    }
+
     private fun hasPermission(permission: String): Boolean {
         return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     }
@@ -297,19 +323,31 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         return runCatching { JSONObject(raw ?: "{}") }.getOrDefault(JSONObject())
     }
 
-    private fun JSONObject.withRuntimeState(): JSONObject {
+    private fun JSONObject.withRuntimeState(window: JSONObject = MNNodeRuntimeService.floatingWindowState(this@MainActivity)): JSONObject {
         return put("runtimeService", true)
             .put("mode", "foreground-service")
             .put("runtimeModes", org.json.JSONArray(listOf("interactive", "service", "headless")))
             .put("headlessCapable", true)
-            .put("vision", visionController.stateJson())
+            .put("vision", VisionRuntime.status())
             .put("triggers", triggerEngine.snapshot())
             .put("windowSupported", isFloatingWindowSupported())
             .put("windowAutoShow", windowSettings.optBoolean("autoShow", false))
             .put("windowAllowed", canDrawOverlays())
-            .put("windowVisible", MNNodeRuntimeService.isFloatingWindowVisible())
-            .put("inPictureInPicture", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false)
+            .put("windowVisible", window.optBoolean("visible"))
+            .put("windowState", window.optString("state", "hidden"))
+            .put("window", window)
             .put("batteryOptimizationIgnored", isIgnoringBatteryOptimizations())
+    }
+
+    private fun runtimeSummaryWithWindow(window: JSONObject = MNNodeRuntimeService.floatingWindowState(this)): JSONObject =
+        apiServerController.uiState().withRuntimeState(window)
+
+    private fun JSONObject.toRuntimeUiState(): JSONObject {
+        val full = this
+        return runtimeSummaryWithWindow()
+            .put("sessions", full.optJSONArray("sessions") ?: org.json.JSONArray())
+            .put("requestCount", full.optInt("requestCount"))
+            .put("recentRequests", full.optJSONArray("recentRequests") ?: org.json.JSONArray())
     }
 
     private fun updateWindowSettings(payload: JSONObject) {
@@ -320,16 +358,14 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
 
     private fun shouldShowRuntimeWindow(): Boolean {
         if (!windowSettings.optBoolean("autoShow", false)) return false
-        if (!isPipSupported() && !canDrawOverlays()) return false
+        if (!canDrawOverlays()) return false
         val state = apiServerController.runtimeSummary()
         return state.optBoolean("running", false) || state.optBoolean("starting", false)
     }
 
     private fun loadWindowSettings(): JSONObject {
         val current = localStore.getObject(RUNTIME_SETTINGS_NAMESPACE, WINDOW_SETTINGS_KEY)
-        if (current.length() > 0) return current
-        val legacy = localStore.getObject(RUNTIME_SETTINGS_NAMESPACE, LEGACY_PIP_SETTINGS_KEY)
-        return JSONObject().put("autoShow", legacy.optBoolean("autoEnterPip", false))
+        return if (current.length() > 0) current else JSONObject().put("autoShow", false)
     }
 
     private fun isFloatingWindowSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
@@ -337,18 +373,33 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
 
-    private fun showRuntimeWindow() {
+    private fun showRuntimeWindowState(): JSONObject {
         if (!canDrawOverlays()) {
-            requestOverlayPermission()
-            if (isPipSupported()) enterRuntimePip()
-            return
+            return MNNodeRuntimeService.floatingWindowState(this)
+                .put("state", "error")
+                .put("error", "Floating window permission is not granted")
         }
         val state = apiServerController.runtimeSummary()
         if (!state.optBoolean("running", false) && !state.optBoolean("starting", false)) {
             startRuntimeService(JSONObject().put("floatingWindow", true))
-            return
+            return MNNodeRuntimeService.floatingWindowState(this)
         }
-        MNNodeRuntimeService.showFloatingWindow(this)
+        return MNNodeRuntimeService.showFloatingWindow(this)
+    }
+
+    private fun runUiCommand(block: () -> JSONObject): JSONObject {
+        if (Looper.myLooper() == Looper.getMainLooper()) return block()
+        var result = JSONObject()
+        val latch = CountDownLatch(1)
+        runOnUiThread {
+            result = runCatching { block() }
+                .getOrElse { error -> JSONObject().put("state", "error").put("error", error.message ?: "UI command failed") }
+            latch.countDown()
+        }
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            return JSONObject().put("state", "error").put("error", "UI command timed out")
+        }
+        return result
     }
 
     private fun requestOverlayPermission() {
@@ -356,21 +407,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         runCatching { startActivity(intent) }
             .onFailure { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) }
-    }
-
-    private fun isPipSupported(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-    }
-
-    private fun enterRuntimePip() {
-        if (!isPipSupported()) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
-                .build()
-            runCatching { enterPictureInPictureMode(params) }
-        }
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {
@@ -413,31 +449,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             .put("model", model ?: JSONObject.NULL))
     }
 
-    private fun notifyVisionState(state: JSONObject) {
-        emitJs("onVisionState", state)
-    }
-
-    private fun notifyVisionFrame(frame: JSONObject) {
-        feedVisionToTriggers(frame)
-        emitJs("onVisionFrame", frame)
-    }
-
-    private fun feedVisionToTriggers(frame: JSONObject) {
-        val detections = frame.optJSONArray("detections") ?: return
-        val confs = mutableMapOf<Int, Double>()
-        for (i in 0 until detections.length()) {
-            val det = detections.optJSONObject(i) ?: continue
-            val cid = det.optInt("classId", -1)
-            val score = det.optDouble("score", 0.0)
-            if (cid >= 0) confs[cid] = maxOf(confs[cid] ?: 0.0, score)
-        }
-        triggerEngine.feed(SensorSample(
-            source = "camera:yolov8n",
-            timestamp = frame.optLong("timestamp", System.currentTimeMillis()),
-            confidenceByClass = confs,
-        ))
-    }
-
     private fun emitJs(event: String, payload: JSONObject) {
         val script = "window.MNNodeEvents && window.MNNodeEvents.$event(JSON.parse(${JSONObject.quote(payload.toString())}));"
         webView.post { webView.evaluateJavascript(script, null) }
@@ -452,6 +463,5 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         )
         private const val RUNTIME_SETTINGS_NAMESPACE = "runtime/settings"
         private const val WINDOW_SETTINGS_KEY = "window"
-        private const val LEGACY_PIP_SETTINGS_KEY = "pip"
     }
 }

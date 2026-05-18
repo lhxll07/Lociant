@@ -56,6 +56,7 @@
           <span class="runtime-strip-event" id="runtimeEventText">No event</span>
         </span>
         <span class="runtime-strip-meta">
+          <span class="runtime-strip-window" id="runtimeWindowText">Window</span>
           <span class="runtime-strip-state" id="runtimeStateText">Idle</span>
           <span class="runtime-strip-time" id="runtimeElapsedText">00:00</span>
         </span>
@@ -128,9 +129,17 @@
           <button class="settings-row pressable" id="runtimeServerButton" type="button">
             <span class="settings-row-main">
               <span class="settings-row-title" data-i18n="settings.serverTitle">Server</span>
-              <span class="settings-row-sub" data-i18n="settings.serverSub">Port, output tokens, URL, and visible window.</span>
+              <span class="settings-row-sub" data-i18n="settings.serverSub">Port, output tokens, API token, and URL.</span>
             </span>
             <span class="settings-row-state" id="runtimeServerState">--</span>
+          </button>
+
+          <button class="settings-row pressable" id="runtimeCapabilitiesButton" type="button">
+            <span class="settings-row-main">
+              <span class="settings-row-title" data-i18n="settings.capabilitiesTitle">Capabilities</span>
+              <span class="settings-row-sub" data-i18n="settings.capabilitiesSub">Vision, runtime window, and remote tool exposure.</span>
+            </span>
+            <span class="settings-row-state" id="runtimeCapabilitiesState">--</span>
           </button>
 
           <button class="settings-row pressable" id="runtimeModelButton" type="button">
@@ -205,6 +214,29 @@
             </div>
           </div>
 
+          <div class="settings-diagnostics">
+            <div class="diagnostic-row"><span>URL</span><strong id="diagUrl">--</strong></div>
+            <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
+          </div>
+        </div>
+
+        <div class="settings-detail" id="runtimeCapabilitiesPanel" aria-hidden="true">
+          <div class="settings-detail-head">
+            <button class="settings-back pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="settings.capabilitiesTitle">Capabilities</h2>
+              <p data-i18n="settings.capabilitiesIntro">Manage phone-side capabilities exposed to scenes, agents, and the floating runtime window.</p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-main">
+              <div class="settings-section-title" data-i18n="settings.visionTitle">Vision</div>
+              <div class="settings-section-sub" id="runtimeVisionText" data-i18n="settings.visionSub">Camera analysis and object detection.</div>
+            </div>
+            <button class="settings-action pressable" id="runtimeVisionButton" type="button" data-i18n="common.start">Start</button>
+          </div>
+
           <div class="settings-section">
             <div class="settings-section-main">
               <div class="settings-section-title" data-i18n="settings.toolExposure">Remote Tools</div>
@@ -219,8 +251,8 @@
 
           <div class="settings-section">
             <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.pipTitle">Floating Window</div>
-              <div class="settings-section-sub" data-i18n="settings.pipSub">Show a small runtime window over other apps while the server runs.</div>
+              <div class="settings-section-title" data-i18n="settings.windowTitle">Runtime Window</div>
+              <div class="settings-section-sub" data-i18n="settings.windowSub">Show a small runtime window over other apps while the server runs.</div>
             </div>
             <div class="settings-actions">
               <label class="switch-row">
@@ -233,8 +265,8 @@
           </div>
 
           <div class="settings-diagnostics">
-            <div class="diagnostic-row"><span>URL</span><strong id="diagUrl">--</strong></div>
-            <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.visionState">Vision</span><strong id="diagVision">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.windowTitle">Runtime Window</span><strong id="diagWindow">--</strong></div>
           </div>
         </div>
 

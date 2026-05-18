@@ -33,6 +33,7 @@ const app = document.getElementById('app')
     const runtimeStrip = document.getElementById('runtimeStrip')
     const runtimeSceneName = document.getElementById('runtimeSceneName')
     const runtimeEventText = document.getElementById('runtimeEventText')
+    const runtimeWindowText = document.getElementById('runtimeWindowText')
     const runtimeStateText = document.getElementById('runtimeStateText')
     const runtimeElapsedText = document.getElementById('runtimeElapsedText')
     const alertBanner = document.getElementById('alertBanner')
@@ -55,6 +56,12 @@ const app = document.getElementById('app')
     const runtimeServerState = document.getElementById('runtimeServerState')
     const runtimeServerPanel = document.getElementById('runtimeServerPanel')
     const runtimeServerBack = document.getElementById('runtimeServerBack')
+    const runtimeCapabilitiesButton = document.getElementById('runtimeCapabilitiesButton')
+    const runtimeCapabilitiesState = document.getElementById('runtimeCapabilitiesState')
+    const runtimeCapabilitiesPanel = document.getElementById('runtimeCapabilitiesPanel')
+    const runtimeCapabilitiesBack = document.getElementById('runtimeCapabilitiesBack')
+    const runtimeVisionText = document.getElementById('runtimeVisionText')
+    const runtimeVisionButton = document.getElementById('runtimeVisionButton')
     const runtimePortInput = document.getElementById('runtimePortInput')
     const runtimeMaxTokensInput = document.getElementById('runtimeMaxTokensInput')
     const runtimeAuthTokenInput = document.getElementById('runtimeAuthTokenInput')
@@ -86,6 +93,8 @@ const app = document.getElementById('app')
     const diagService = document.getElementById('diagService')
     const diagApi = document.getElementById('diagApi')
     const diagUrl = document.getElementById('diagUrl')
+    const diagVision = document.getElementById('diagVision')
+    const diagWindow = document.getElementById('diagWindow')
     const diagCpuThreads = document.getElementById('diagCpuThreads')
     const diagDefaultTokens = document.getElementById('diagDefaultTokens')
     const diagModelTokens = document.getElementById('diagModelTokens')
@@ -181,7 +190,7 @@ const app = document.getElementById('app')
     }
 
     function runtimeDetails() {
-      return [runtimeSettingsPanel, runtimeServerPanel, runtimeModelPanel, runtimeSessionsPanel, runtimeDiagnosticsPanel].filter(Boolean)
+      return [runtimeSettingsPanel, runtimeServerPanel, runtimeCapabilitiesPanel, runtimeModelPanel, runtimeSessionsPanel, runtimeDiagnosticsPanel].filter(Boolean)
     }
 
     function setModelView(view) {
@@ -227,18 +236,32 @@ const app = document.getElementById('app')
         'settings.modelServer': 'Model Server',
         'settings.runtimeDefaultMessage': 'Foreground service exposes the LAN API; foreground window keeps inference visible.',
         'settings.serverTitle': 'Server',
-        'settings.serverSub': 'Port, output tokens, URL, and visible window.',
+        'settings.serverSub': 'Port, output tokens, API token, and URL.',
         'settings.serverIntro': 'Configure the local OpenAI/Ollama-compatible API server.',
+        'settings.capabilitiesTitle': 'Capabilities',
+        'settings.capabilitiesSub': 'Vision, runtime window, and remote tool exposure.',
+        'settings.capabilitiesIntro': 'Manage phone-side capabilities exposed to scenes, agents, and the floating runtime window.',
+        'settings.visionTitle': 'Vision',
+        'settings.visionSub': 'Camera analysis and object detection.',
+        'settings.visionState': 'Vision',
+        'settings.visionReady': 'Ready',
+        'settings.visionStarting': 'Starting',
+        'settings.visionUnavailable': 'Unavailable',
         'settings.port': 'Port',
         'settings.portSub': 'Changing the port requires restarting the server.',
-        'settings.pipTitle': 'Runtime Window',
-        'settings.pipSub': 'Show a small runtime window over other apps while the server runs.',
+        'settings.windowTitle': 'Runtime Window',
+        'settings.windowSub': 'Show a small runtime window over other apps while the server runs.',
         'settings.windowAuto': 'Auto',
         'settings.windowShow': 'Show',
         'settings.windowHide': 'Hide',
         'settings.windowPermission': 'Permission',
         'settings.windowAllowed': 'Allowed',
         'settings.windowPermissionRequired': 'Floating window permission required',
+        'settings.windowStateVisible': 'Visible',
+        'settings.windowStateCollapsed': 'Collapsed',
+        'settings.windowStateHidden': 'Hidden',
+        'settings.windowStateError': 'Error',
+        'settings.windowStateWindow': 'Window',
         'settings.defaultModelTitle': 'Default Model',
         'settings.defaultModelSub': 'Choose the default model used by the model server.',
         'settings.defaultModelIntro': 'Pick the default model for OpenAI and Ollama requests that do not override model explicitly.',
@@ -312,9 +335,6 @@ const app = document.getElementById('app')
         'toast.modelDeleteFailed': 'Model delete failed',
         'toast.sceneUninstalled': 'Scene Pack uninstalled',
         'toast.sceneUninstallFailed': 'Uninstall failed',
-        'toast.cameraRequested': 'Camera request received',
-        'toast.visionRequested': 'Vision request received',
-        'toast.cameraStarted': 'Camera preview started',
         'toast.visionStarted': 'Vision analysis started'
       },
       zh: {
@@ -338,18 +358,32 @@ const app = document.getElementById('app')
         'settings.modelServer': 'Model Server',
         'settings.runtimeDefaultMessage': '前台服务暴露局域网 API；前台小窗用于保持推理可见运行。',
         'settings.serverTitle': '服务',
-        'settings.serverSub': '端口、输出 tokens、URL 和可见小窗。',
+        'settings.serverSub': '端口、输出 tokens、API Token 和 URL。',
         'settings.serverIntro': '配置本地 OpenAI/Ollama-compatible API 服务。',
+        'settings.capabilitiesTitle': '能力',
+        'settings.capabilitiesSub': '视觉、Runtime 小窗和远程工具暴露范围。',
+        'settings.capabilitiesIntro': '管理暴露给场景、Agent 和悬浮运行窗口的手机侧能力。',
+        'settings.visionTitle': '视觉',
+        'settings.visionSub': '相机分析和目标检测。',
+        'settings.visionState': '视觉',
+        'settings.visionReady': '就绪',
+        'settings.visionStarting': '启动中',
+        'settings.visionUnavailable': '不可用',
         'settings.port': '端口',
         'settings.portSub': '修改端口后需要重启服务。',
-        'settings.pipTitle': 'Runtime 小窗',
-        'settings.pipSub': '运行服务时在其他 App 上方显示 runtime 小窗。',
+        'settings.windowTitle': 'Runtime 小窗',
+        'settings.windowSub': '运行服务时在其他 App 上方显示 runtime 小窗。',
         'settings.windowAuto': '自动',
         'settings.windowShow': '显示',
         'settings.windowHide': '隐藏',
         'settings.windowPermission': '权限',
         'settings.windowAllowed': '已允许',
         'settings.windowPermissionRequired': '需要悬浮窗权限',
+        'settings.windowStateVisible': '已显示',
+        'settings.windowStateCollapsed': '已折叠',
+        'settings.windowStateHidden': '已隐藏',
+        'settings.windowStateError': '错误',
+        'settings.windowStateWindow': '小窗',
         'settings.defaultModelTitle': '默认模型',
         'settings.defaultModelSub': '选择 Runtime API 默认使用的模型。',
         'settings.defaultModelIntro': '这里设置的是 OpenAI 和 Ollama 请求在未显式指定 model 时所使用的默认模型。',
@@ -423,9 +457,6 @@ const app = document.getElementById('app')
         'toast.modelDeleteFailed': '模型删除失败',
         'toast.sceneUninstalled': '已卸载场景包',
         'toast.sceneUninstallFailed': '卸载失败',
-        'toast.cameraRequested': 'Camera request received',
-        'toast.visionRequested': 'Vision request received',
-        'toast.cameraStarted': 'Camera preview started',
         'toast.visionStarted': 'Vision analysis started'
       }
     }
@@ -558,6 +589,12 @@ const app = document.getElementById('app')
             headers: headers(),
             body: JSON.stringify(requestBody || {})
           }).then(response => response.json())
+        },
+        runtime(command, payload) {
+          return shellCommand(command, payload || {})
+        },
+        window(command) {
+          return runtimeWindowCommand(command || 'show')
         }
       }
     }
@@ -607,6 +644,30 @@ const app = document.getElementById('app')
       return state || t('state.idle')
     }
 
+    function runtimeWindowLabel(state) {
+      const value = state || (runtimeServiceState && runtimeServiceState.windowState) || 'hidden'
+      return ({
+        expanded: t('settings.windowStateVisible'),
+        collapsed: t('settings.windowStateCollapsed'),
+        hidden: t('settings.windowStateHidden'),
+        error: t('settings.windowStateError')
+      })[value] || t('settings.windowStateWindow')
+    }
+
+    function visionState() {
+      return (runtimeServiceState && runtimeServiceState.vision) || {}
+    }
+
+    function visionStateLabel(vision) {
+      const current = vision || {}
+      const state = String(current.state || '').toLowerCase()
+      if (current.running || state === 'running') return t('status.running')
+      if (state === 'starting') return t('settings.visionStarting')
+      if (state === 'unavailable') return t('settings.visionUnavailable')
+      if (state === 'idle') return t('status.stopped')
+      return state || t('status.stopped')
+    }
+
     function sceneById(sceneId) {
       return scenes.find(scene => scene.id === sceneId) || null
     }
@@ -621,6 +682,8 @@ const app = document.getElementById('app')
       const events = Array.isArray(runtimeSnapshot.events) ? runtimeSnapshot.events : []
       const latest = events[0]
       runtimeSceneName.textContent = scene.name || scene.id
+      runtimeWindowText.textContent = runtimeWindowLabel()
+      runtimeWindowText.classList.toggle('active', !!(runtimeServiceState && runtimeServiceState.windowVisible))
       runtimeStateText.textContent = runtimeStateLabel(runtimeSnapshot.state)
       runtimeElapsedText.textContent = fmtDuration(runtimeSnapshot.elapsedMs)
       runtimeEventText.textContent = latest
@@ -700,16 +763,12 @@ const app = document.getElementById('app')
       postToScene({ type: 'scene.settings.toggle', sceneId: activeScene.id })
     }
 
-    function stopCamera() {
-      apiPost('/v1/tools/vision_stop/call', { arguments: {} }).catch(() => {})
-    }
-
     function runtimeApiCommand(command, payload) {
       try {
         const body = Object.assign({}, payload || {}, {
           sceneId: (payload && payload.sceneId) || (activeScene && activeScene.id) || ''
         })
-        const runShell = ['start', 'stop', 'status', 'battery.requestExemption', 'window.show', 'window.hide', 'window.settings', 'window.permission'].includes(command)
+        const runShell = ['start', 'stop', 'status', 'battery.requestExemption', 'window.show', 'window.hide', 'window.collapse', 'window.expand', 'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status'].includes(command)
         if (runShell) {
           updateRuntimeServiceState(shellCommand(command, body))
           return
@@ -731,8 +790,15 @@ const app = document.getElementById('app')
       }
     }
 
+    function runtimeWindowCommand(command) {
+      const next = command || ((runtimeServiceState && runtimeServiceState.windowVisible) ? 'hide' : 'show')
+      const state = shellCommand('window.' + next, {})
+      updateRuntimeServiceState(state)
+      return state.window || state
+    }
+
     function updateRuntimeServiceState(state) {
-      runtimeServiceState = state || runtimeServiceState || {}
+      runtimeServiceState = Object.assign({}, runtimeServiceState || {}, state || {})
       publishSceneApiClient()
       const running = !!runtimeServiceState.running
       const starting = !!runtimeServiceState.starting
@@ -741,10 +807,23 @@ const app = document.getElementById('app')
       runtimeServiceToggle.textContent = running || starting ? t('common.stop') : t('common.start')
       runtimeServiceMessage.textContent = runtimeServiceState.message || t('settings.runtimeDefaultMessage')
       runtimeServerState.textContent = runtimeServiceState.port ? String(runtimeServiceState.port) : '--'
+      const vision = visionState()
+      const visionRunning = !!vision.running
+      const visionStarting = String(vision.state || '').toLowerCase() === 'starting'
+      const visionLabel = visionStateLabel(vision)
+      runtimeCapabilitiesState.textContent = visionLabel + ' · ' + runtimeWindowLabel()
+      runtimeCapabilitiesState.classList.toggle('running', visionRunning || visionStarting)
+      runtimeVisionText.textContent = vision.message || (
+        visionRunning
+          ? (Math.round(Number(vision.fps) || 0) + ' fps · ' + ((((vision.lastDetection || {}).detections) || []).length || 0) + ' detections')
+          : t('settings.visionSub')
+      )
+      runtimeVisionButton.textContent = visionRunning ? t('common.stop') : t('common.start')
       runtimeWindowAutoInput.checked = !!runtimeServiceState.windowAutoShow
       runtimeWindowAutoInput.disabled = !runtimeServiceState.windowSupported
       runtimeWindowButton.disabled = !runtimeServiceState.windowSupported
       runtimeWindowButton.textContent = runtimeServiceState.windowVisible ? t('settings.windowHide') : t('settings.windowShow')
+      runtimeWindowButton.title = runtimeWindowLabel()
       runtimeWindowPermissionButton.disabled = !runtimeServiceState.windowSupported || !!runtimeServiceState.windowAllowed
       runtimeWindowPermissionButton.textContent = runtimeServiceState.windowAllowed ? t('settings.windowAllowed') : t('settings.windowPermission')
       if (document.activeElement !== runtimePortInput) runtimePortInput.value = String(runtimeServiceState.port || 11434)
@@ -765,6 +844,8 @@ const app = document.getElementById('app')
       diagService.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
       diagApi.textContent = running ? t('status.running') : t('status.stopped')
       diagUrl.textContent = runtimeServiceState.lanUrl || runtimeServiceState.url || '--'
+      if (diagVision) diagVision.textContent = visionLabel
+      if (diagWindow) diagWindow.textContent = runtimeWindowLabel()
       diagCpuThreads.textContent = cpuThreads + ' / ' + maxCpuThreads
       diagDefaultTokens.textContent = runtimeServiceState.defaultOutputTokens !== undefined && runtimeServiceState.defaultOutputTokens !== null
         ? String(runtimeServiceState.defaultOutputTokens)
@@ -820,6 +901,11 @@ const app = document.getElementById('app')
 
     function openRuntimeServerSettings() {
       showRuntimePanel(runtimeServerPanel)
+      refreshRuntimeServiceState()
+    }
+
+    function openRuntimeCapabilitiesSettings() {
+      showRuntimePanel(runtimeCapabilitiesPanel)
       refreshRuntimeServiceState()
     }
 
@@ -898,12 +984,11 @@ const app = document.getElementById('app')
 
     function sendRuntimeCommand(sceneId, command, payload) {
       try {
-        if (command === 'stop') {
-          runtimeSnapshot = null
-          stopCamera()
-          updateRuntimeStrip()
-          return
-        }
+      if (command === 'stop') {
+        runtimeSnapshot = null
+        updateRuntimeStrip()
+        return
+      }
         if (command === 'start' || command === 'sync' || command === 'reset') {
           const scene = sceneById(sceneId)
           if (scene) activateRuntime(scene)
@@ -974,7 +1059,6 @@ const app = document.getElementById('app')
       item.addEventListener('click', () => {
         const page = item.dataset.page
         navItems.forEach(i => i.classList.toggle('active', i === item))
-        stopCamera()
         unloadSceneFrame()
         sceneHost.classList.remove('active')
         backButton.classList.remove('active')
@@ -1408,7 +1492,6 @@ const app = document.getElementById('app')
     }
 
     function goHome() {
-      stopCamera()
       unloadSceneFrame()
       sceneHost.classList.remove('active')
       backButton.classList.remove('active')
@@ -1428,7 +1511,6 @@ const app = document.getElementById('app')
       activeScene = scene
       setSceneSettingsVisible(sceneHasSettings(scene))
       sceneHost.classList.add('active')
-      stopCamera()
       sceneHost.scrollTop = 0
       cameraPreviewRect = null
       sceneFrame.style.height = '100%'
@@ -1464,10 +1546,16 @@ const app = document.getElementById('app')
       const scene = runtimeScene()
       if (scene) openScene(scene)
     })
+    runtimeWindowText.addEventListener('click', event => {
+      event.stopPropagation()
+      runtimeWindowCommand()
+    })
     runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
     runtimeSettingsBack.addEventListener('click', closeRuntimeSettings)
     runtimeServerButton.addEventListener('click', openRuntimeServerSettings)
     runtimeServerBack.addEventListener('click', backToRuntimeSettings)
+    runtimeCapabilitiesButton.addEventListener('click', openRuntimeCapabilitiesSettings)
+    runtimeCapabilitiesBack.addEventListener('click', backToRuntimeSettings)
     runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
     runtimeModelBack.addEventListener('click', backToRuntimeSettings)
     runtimeSessionsButton.addEventListener('click', openRuntimeSessionsSettings)
@@ -1478,11 +1566,15 @@ const app = document.getElementById('app')
       const running = runtimeServiceState && (runtimeServiceState.running || runtimeServiceState.starting)
       runtimeApiCommand(running ? 'stop' : 'start', {})
     })
+    runtimeVisionButton.addEventListener('click', () => {
+      const vision = visionState()
+      runtimeServiceCommand(vision && vision.running ? 'vision.stop' : 'vision.start', {})
+    })
     runtimeWindowAutoInput.addEventListener('change', () => {
       runtimeServiceCommand('window.settings', { autoShow: !!runtimeWindowAutoInput.checked })
     })
     runtimeWindowButton.addEventListener('click', () => {
-      runtimeServiceCommand(runtimeServiceState && runtimeServiceState.windowVisible ? 'window.hide' : 'window.show', {})
+      runtimeWindowCommand()
     })
     runtimeWindowPermissionButton.addEventListener('click', () => {
       runtimeServiceCommand('window.permission', {})
@@ -1584,15 +1676,6 @@ const app = document.getElementById('app')
         } else if (result) {
           setModelProgress(Object.assign({ state: 'error' }, result))
           showToast(result.message || t('toast.modelImportFailed'))
-        }
-      },
-      onCameraResult(result) {
-        if (result && result.ok) {
-          postToScene({ type: 'camera.state', state: 'previewing' })
-          showToast(t('toast.cameraStarted'))
-        } else if (result) {
-          postToScene({ type: 'camera.state', state: 'error', message: result.message || '' })
-          showToast(result.message || 'Camera failed')
         }
       },
       onVisionState(result) {

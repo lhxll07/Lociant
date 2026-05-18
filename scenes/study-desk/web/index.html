@@ -88,17 +88,17 @@ input[type=range]{width:100%;accent-color:var(--blue);height:4px}
     <div class="row space">
       <div>
         <div class="label">Local insight</div>
-        <div class="footer" style="text-align:left;margin-top:2px">Camera tools + local model</div>
+        <div class="footer" style="text-align:left;margin-top:2px">Runtime Vision + local model</div>
       </div>
       <button onclick="analyzeDesk()" id="analyzeBtn" style="color:var(--blue);border-color:rgba(96,165,250,.25)">Analyze</button>
     </div>
-    <div class="insight muted" id="insightText" style="margin-top:10px">Start camera, then analyze the desk.</div>
+    <div class="insight muted" id="insightText" style="margin-top:10px">Start Runtime Vision, then analyze the desk.</div>
   </div>
 
   <div class="row space" style="margin-top:8px">
     <div class="row">
-      <button onclick="startCamera()" id="startBtn" style="color:var(--green);border-color:rgba(74,222,128,.25)">Start Camera</button>
-      <button onclick="stopCamera()" id="stopBtn" style="display:none;color:var(--red);border-color:rgba(248,113,113,.25)">Stop</button>
+      <button onclick="startVision()" id="startBtn" style="color:var(--green);border-color:rgba(74,222,128,.25)">Start Vision</button>
+      <button onclick="stopVision()" id="stopBtn" style="display:none;color:var(--red);border-color:rgba(248,113,113,.25)">Stop</button>
     </div>
     <button onclick="refresh()">Refresh</button>
   </div>
@@ -136,7 +136,7 @@ input[type=range]{width:100%;accent-color:var(--blue);height:4px}
       <input type="range" id="previewRange" min="5" max="30" step="1">
       <div class="setting-val" id="previewVal">20fps</div>
     </div>
-    <div class="footer" style="margin-top:14px">Changes apply on next camera start.</div>
+    <div class="footer" style="margin-top:14px">Changes apply on next Runtime Vision start.</div>
   </div>
 </div>
 
@@ -164,7 +164,8 @@ const API = (() => {
     }).then(async r => { const j = await r.json(); if (!r.ok || !j.ok) throw new Error((j.error&&j.error.message)||(j.result&&j.result.message)||j.message||r.statusText); return j.result || j }),
     chat: d => fetch(base + '/v1/chat/completions', {
       method:'POST', headers:headers(), body:JSON.stringify(d||{})
-    }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error((j.error&&j.error.message)||j.message||r.statusText); return j })
+    }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error((j.error&&j.error.message)||j.message||r.statusText); return j }),
+    runtime: (command, args) => shellApi && typeof shellApi.runtime === 'function' ? shellApi.runtime(command, args || {}) : null
   }
 })()
 
@@ -206,28 +207,22 @@ document.getElementById('backendSelect').addEventListener('change', e => { setti
 document.getElementById('settingsOverlay').addEventListener('click', () => toggleSettings())
 loadSettings()
 
-let pollCount = 0, visionRunning = false, startingVision = false, streamTimer = 0, permissionStream = null
+let pollCount = 0, visionRunning = false, startingVision = false, streamTimer = 0
 const GOAL = 14400
 
-async function ensureCameraPermission() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return
-  permissionStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-  permissionStream.getTracks().forEach(t => t.stop())
-  permissionStream = null
-}
-
-async function startCamera() {
+async function startVision() {
   startingVision = true; updateButtons()
   const el = document.getElementById('errMsg'); el.textContent = 'Loading triggers...'
   try {
-    await ensureCameraPermission()
     await API.post('/v1/scenes/study-desk/load', {})
-    el.textContent = 'Starting camera...'
-    const r = await API.tool('vision_start', {
+    el.textContent = 'Starting Runtime Vision...'
+    const args = {
       modelId:'yolov8n', backend:settings.backend, confidenceThreshold:settings.confidence,
       inferenceIntervalMs:settings.inferenceMs,
       previewIntervalMs:settings.previewMs
-    })
+    }
+    const runtimeState = API.runtime('vision.start', args)
+    const r = runtimeState && runtimeState.vision ? runtimeState.vision : await API.tool('vision_start', args)
     if (!r || r.ok === false) {
       const msg = (r && r.error && r.error.message) || (r && r.message) || 'Camera start failed.'
       el.textContent = msg; startingVision = false; updateButtons(); return false
@@ -237,7 +232,7 @@ async function startCamera() {
       const vis = await API.tool('vision_status', {})
       if (vis && vis.running) { visionRunning = true; startingVision = false; updateButtons(); el.textContent = ''; startStream(); return true }
     }
-    el.textContent = 'Camera start timed out.'
+    el.textContent = 'Runtime Vision start timed out.'
   } catch(e) { el.textContent = 'Start failed: ' + e.message }
   startingVision = false; updateButtons(); return false
 }
@@ -288,9 +283,9 @@ function startStream() {
   fetchLoop()
   animId = requestAnimationFrame(drawLoop)
 }
-async function stopCamera() {
+async function stopVision() {
   streamTimer = 0
-  await API.tool('vision_stop', {})
+  if (!API.runtime('vision.stop', {})) await API.tool('vision_stop', {})
   visionRunning = false; updateButtons()
   const c = document.getElementById('previewCanvas'); c.style.display = 'none'
 }
@@ -334,11 +329,11 @@ async function refresh() {
     const topDets = dets.slice(0,3).map(d => d.label + ' ' + Math.round((d.score||0)*100) + '%').join(', ')
     el('footerMsg').textContent = running
       ? 'Active ' + Math.round((vis.fps||0)) + 'fps · ' + (topDets || 'no objects')
-      : 'Camera idle'
+      : 'Runtime Vision idle'
 
     const dot = el('presenceDot'), txt = el('presenceText'), pill = el('statusPill')
     if (!running) {
-      dot.className = 'dot red'; txt.textContent = 'Camera not started'
+      dot.className = 'dot red'; txt.textContent = 'Runtime Vision not started'
       pill.className = 'pill stale'; pill.innerHTML = '&#x25CF; Idle'
     } else if (dets.some(d => d.classId === 0 || (d.score||0) > 0)) {
       dot.className = 'dot green'; txt.textContent = 'Person detected'
@@ -369,7 +364,7 @@ async function fallbackInsight(reason) {
   const running = vis && vis.running
   const summary = detectionSummary(vis)
   return (reason ? 'Local model unavailable: ' + reason + '\n\n' : '') +
-    (running ? 'Vision is running. ' : 'Camera is idle. ') +
+    (running ? 'Vision is running. ' : 'Runtime Vision is idle. ') +
     'Detected: ' + summary
 }
 
@@ -380,7 +375,7 @@ async function analyzeDesk() {
   out.className = 'insight muted'
   out.textContent = 'Analyzing locally...'
   try {
-    if (!visionRunning && !await startCamera()) throw new Error('camera start failed')
+    if (!visionRunning && !await startVision()) throw new Error('vision start failed')
     await new Promise(r => setTimeout(r, 500))
     const shot = await API.tool('camera_capture', {})
     const image = shot && shot.image
