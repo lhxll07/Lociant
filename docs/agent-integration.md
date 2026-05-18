@@ -28,7 +28,35 @@ Lociant on Android
 
 This division keeps the phone useful without asking it to behave like a desktop coding workstation.
 
-## Connection Profile
+## Quick Start
+
+1. Install Lociant on the Android phone and start Runtime.
+2. Confirm the phone shows a LAN URL such as:
+
+```text
+http://10.238.125.4:11434
+```
+
+3. Add an MCP server in the agent client:
+
+```text
+Name: Lociant
+Transport: Streamable HTTP
+URL: http://<phone-ip>:11434/mcp
+Headers: empty
+```
+
+4. Enable the MCP server/tools in the current chat.
+5. Test with:
+
+```text
+Call runtime_status.
+Start vision, then call camera_capture.
+```
+
+Adding the MCP server only installs the tool source. Most clients still require enabling those tools in each chat or assistant profile.
+
+## OpenAI Connection
 
 ```text
 Base URL: http://<phone-ip>:11434/v1
@@ -74,6 +102,42 @@ For photo capture, use `camera_capture`. It intentionally reuses the active visi
 ```bash
 python scripts/lociant_capture.py --base-url http://<phone-ip>:11434 --start --out capture.jpg
 ```
+
+## MCP
+
+For MCP-native clients that support Streamable HTTP, connect directly to the phone:
+
+```text
+Name: Lociant
+Transport: Streamable HTTP
+URL: http://<phone-ip>:11434/mcp
+Headers: empty
+```
+
+Clients that only support command-based stdio can use the desktop adapter:
+
+```bash
+python scripts/lociant_mcp_server.py --base-url http://<phone-ip>:11434
+```
+
+Example client config:
+
+```json
+{
+  "mcpServers": {
+    "lociant": {
+      "command": "python",
+      "args": [
+        "C:/Users/Lhx/Documents/Programs/Lociant/scripts/lociant_mcp_server.py",
+        "--base-url",
+        "http://<phone-ip>:11434"
+      ]
+    }
+  }
+}
+```
+
+Both paths expose the same underlying `ToolRegistry`. MCP is only a protocol adapter over `/v1/tools`, not another capability system. Prefer the phone-native `/mcp` endpoint when the client supports Streamable HTTP.
 
 ## Client-Owned Tools
 
@@ -146,7 +210,35 @@ Android 上的 Lociant
 
 这个划分可以让手机持续有用，而不要求它伪装成桌面代码工作站。
 
-## 连接配置
+## 快速开始
+
+1. 在 Android 手机上安装 Lociant，并启动 Runtime。
+2. 确认手机显示局域网地址，例如：
+
+```text
+http://10.238.125.4:11434
+```
+
+3. 在 agent 客户端添加 MCP server：
+
+```text
+名称：Lociant
+传输类型：Streamable HTTP
+服务器地址：http://<phone-ip>:11434/mcp
+请求头：留空
+```
+
+4. 在当前对话里启用 MCP server / tools。
+5. 用下面的话测试：
+
+```text
+调用 runtime_status。
+启动视觉，然后调用 camera_capture。
+```
+
+添加 MCP server 只是安装工具源。大多数客户端还需要在每个对话或助手配置里启用这些工具。
+
+## OpenAI 连接
 
 ```text
 Base URL: http://<phone-ip>:11434/v1
@@ -192,6 +284,42 @@ API Key: 留空或任意非空字符串，取决于客户端
 ```bash
 python scripts/lociant_capture.py --base-url http://<phone-ip>:11434 --start --out capture.jpg
 ```
+
+## MCP
+
+支持 Streamable HTTP 的 MCP-native 客户端可以直接连手机：
+
+```text
+名称：Lociant
+传输类型：Streamable HTTP
+服务器地址：http://<phone-ip>:11434/mcp
+请求头：留空
+```
+
+只支持命令式 stdio 的客户端可以使用桌面端 adapter：
+
+```bash
+python scripts/lociant_mcp_server.py --base-url http://<phone-ip>:11434
+```
+
+客户端配置示例：
+
+```json
+{
+  "mcpServers": {
+    "lociant": {
+      "command": "python",
+      "args": [
+        "C:/Users/Lhx/Documents/Programs/Lociant/scripts/lociant_mcp_server.py",
+        "--base-url",
+        "http://<phone-ip>:11434"
+      ]
+    }
+  }
+}
+```
+
+两条路径都暴露同一个底层 `ToolRegistry`。MCP 只是 `/v1/tools` 之上的协议适配层，不是第二套能力系统。客户端支持 Streamable HTTP 时，优先使用手机端原生 `/mcp`。
 
 ## 客户端自有工具
 

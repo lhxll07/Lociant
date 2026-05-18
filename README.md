@@ -36,6 +36,21 @@ What that means in practice:
 
 Under the hood, Lociant uses an Android app with a foreground runtime, local HTTP API, MNN model inference, CameraX camera access, NCNN vision, local sessions, storage, and tool calling. The point is not to replace your agent. The point is to give it a local body.
 
+Zero-friction agent setup:
+
+1. Install the Android app and start Runtime.
+2. Add an MCP server in your agent client:
+
+```text
+Name: Lociant
+Transport: Streamable HTTP
+URL: http://<phone-ip>:11434/mcp
+Headers: empty
+```
+
+3. Enable the MCP tools in the current chat.
+4. Ask: `Call runtime_status`, or `Start vision and capture a photo`.
+
 ```powershell
 cd apps/android
 .\gradlew.bat :app:assembleDebug
@@ -65,6 +80,21 @@ AI agent 已经会推理、写代码、搜索和调用工具。
 - 📦 可以直接在手机上导入和下载模型
 
 底层实现上，Lociant 是一个 Android App：有前台 runtime、本地 HTTP API、MNN 模型推理、CameraX 摄像头、NCNN 视觉、本地会话、存储和工具调用。它不是要替代你的 agent，而是给 agent 一个本地身体。
+
+零成本接入 agent：
+
+1. 安装 Android App，并启动 Runtime。
+2. 在 agent 客户端添加 MCP server：
+
+```text
+名称：Lociant
+传输类型：Streamable HTTP
+服务器地址：http://<phone-ip>:11434/mcp
+请求头：留空
+```
+
+3. 在当前对话里启用 MCP 工具。
+4. 直接问：`调用 runtime_status`，或 `启动视觉并拍一张照片`。
 
 ```powershell
 cd apps/android

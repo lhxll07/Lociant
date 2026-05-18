@@ -89,6 +89,7 @@ class ApiServerController(
             )
         )
     }
+    private val mcpController by lazy { McpController(toolRegistry) }
 
     fun chatController() = chatController
     fun callTool(name: String, args: JSONObject): JSONObject = toolRegistry.call(name, args)
@@ -178,6 +179,8 @@ class ApiServerController(
                             call.respondText(response.toString(), JsonContentType)
                         }
                         post("/v1/tools/{name}/call") { call.withCors(); handleToolCall(call) }
+                        get("/mcp") { call.withCors(); mcpController.get(call) }
+                        post("/mcp") { call.withCors(); mcpController.post(call) }
                         post("/v1/chat/completions") { call.withCors(); handleChat(call, ChatProtocol.OPENAI) }
                         post("/api/chat") { call.withCors(); handleChat(call, ChatProtocol.OLLAMA) }
                         get("/v1/chat/status/{requestId}") { call.withCors(); handleAsyncStatus(call) }
@@ -542,7 +545,7 @@ class ApiServerController(
         put("ok", true)
         put("name", "Lociant Model Server")
         put("version", "0.1.0")
-        put("endpoints", JSONArray(listOf("/health", "/v1/models", "/v1/tools", "/v1/chat/completions", "/api/chat")))
+        put("endpoints", JSONArray(listOf("/health", "/mcp", "/v1/models", "/v1/tools", "/v1/chat/completions", "/api/chat")))
     }
 
     private fun modelsJson(): JSONObject {
@@ -571,7 +574,7 @@ class ApiServerController(
 
     private fun ApplicationCall.withCors() {
         response.header("Access-Control-Allow-Origin", "*")
-        response.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-MNNode-Session-Id, X-Session-Id")
+        response.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-MNNode-Session-Id, X-Session-Id, MCP-Protocol-Version, Mcp-Session-Id")
         response.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     }
 

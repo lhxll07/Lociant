@@ -18,6 +18,7 @@ One capability should have one runtime entry point:
 | Models | `/v1/models` |
 | Runtime state | `/health`, runtime commands |
 | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
+| MCP | `/mcp` |
 | Storage | `/v1/store/{namespace}/{key}` |
 | Scenes | `/v1/scenes`, `/v1/scenes/{sceneId}/load` |
 
@@ -77,7 +78,7 @@ Locked-screen and fully headless behavior remain best-effort system behavior, no
 
 ## Tool System
 
-Tools are protocol-neutral phone capabilities. OpenAI tool calling, direct HTTP tool calls, and future adapters such as MCP should all map to the same `ToolRegistry`.
+Tools are protocol-neutral phone capabilities. OpenAI tool calling, direct HTTP tool calls, and MCP all map to the same `ToolRegistry`.
 
 Current local tools:
 
@@ -140,7 +141,7 @@ The product name can be Lociant while old internal identifiers remain until ther
 2. Keep model import and model-market metadata config-driven.
 3. Improve Runtime Window diagnostics and recovery.
 4. Keep `study-desk` as the only built-in Scene Pack until the scene model proves stable.
-5. Add MCP only as an adapter over `ToolRegistry`, not as a second tool system.
+5. Harden MCP auth, remote visibility, and side-effect policy without creating a second tool system.
 
 ---
 
@@ -158,6 +159,7 @@ Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是�
 | Models | `/v1/models` |
 | Runtime state | `/health`, runtime commands |
 | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
+| MCP | `/mcp` |
 | Storage | `/v1/store/{namespace}/{key}` |
 | Scenes | `/v1/scenes`, `/v1/scenes/{sceneId}/load` |
 
@@ -217,7 +219,7 @@ Lociant 是可见手机 runtime，不是隐藏 daemon。Android 后台执行高�
 
 ## 工具系统
 
-Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool call，以及未来 MCP adapter，都应该映射到同一个 `ToolRegistry`。
+Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool call 和 MCP 都映射到同一个 `ToolRegistry`。
 
 当前本地工具：
 
@@ -280,4 +282,4 @@ MNN 是当前 LLM/VLM 后端。NCNN 是当前视觉后端。两者都是 HTTP ca
 2. 保持模型导入和模型市场元数据由 config 驱动。
 3. 改进 Runtime Window 诊断和恢复能力。
 4. 在 scene 模型稳定前，只保留 `study-desk` 作为内置 Scene Pack。
-5. MCP 只作为 `ToolRegistry` 的 adapter，不作为第二套工具系统。
+5. 加固 MCP 的 auth、远程可见性和副作用策略，但不创建第二套工具系统。
