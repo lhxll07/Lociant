@@ -102,8 +102,8 @@
           </div>
           <button class="settings-row pressable" id="runtimeSettingsButton" type="button">
             <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.runtimeTitle">Runtime 与后台运行</span>
-              <span class="settings-row-sub" data-i18n="settings.runtimeSub">前台服务、前台小窗和模型服务</span>
+              <span class="settings-row-title" data-i18n="settings.runtimeTitle">Runtime</span>
+              <span class="settings-row-sub" data-i18n="settings.runtimeSub">Foreground service, runtime window, and model server.</span>
             </span>
             <span class="settings-row-state" id="runtimeSettingsState">Stopped</span>
           </button>
@@ -111,10 +111,10 @@
 
         <div class="settings-detail" id="runtimeSettingsPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeSettingsBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="runtimeSettingsBack" type="button" data-i18n="common.back">Back</button>
             <div>
-              <h2 data-i18n="settings.runtimeTitle">Runtime 与后台运行</h2>
-              <p data-i18n="settings.runtimeIntro">控制 Lociant 作为本地 AI 能力运行时在后台运行。</p>
+              <h2 data-i18n="settings.runtimeTitle">Runtime</h2>
+              <p data-i18n="settings.runtimeIntro">Control how Lociant runs local AI capabilities in the background.</p>
             </div>
           </div>
 
@@ -174,12 +174,12 @@
             <button class="settings-action pressable" id="batteryOptimizationButton" type="button">Allow</button>
           </div>
 
-          <div class="settings-note" data-i18n="settings.runtimeScope">稳定推理建议在亮屏时使用前台小窗。锁屏继续运行仍取决于系统策略。</div>
+          <div class="settings-note" data-i18n="settings.runtimeScope">For stable inference, keep the runtime window visible while the screen is on. Lock-screen behavior still depends on Android policy.</div>
         </div>
 
         <div class="settings-detail" id="runtimeServerPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeServerBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="runtimeServerBack" type="button" data-i18n="common.back">Back</button>
             <div>
               <h2 data-i18n="settings.serverTitle">Server</h2>
               <p data-i18n="settings.serverIntro">Configure the local OpenAI/Ollama-compatible API server.</p>
@@ -222,7 +222,7 @@
 
         <div class="settings-detail" id="runtimeCapabilitiesPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">Back</button>
             <div>
               <h2 data-i18n="settings.capabilitiesTitle">Capabilities</h2>
               <p data-i18n="settings.capabilitiesIntro">Manage phone-side capabilities exposed to scenes, agents, and the floating runtime window.</p>
@@ -272,7 +272,7 @@
 
         <div class="settings-detail" id="runtimeModelPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeModelBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="runtimeModelBack" type="button" data-i18n="common.back">Back</button>
             <div>
               <h2 data-i18n="settings.defaultModelTitle">Default Model</h2>
               <p data-i18n="settings.defaultModelIntro">Pick the default model for OpenAI and Ollama requests that do not override model explicitly.</p>
@@ -293,7 +293,7 @@
 
         <div class="settings-detail" id="runtimeSessionsPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeSessionsBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="runtimeSessionsBack" type="button" data-i18n="common.back">Back</button>
             <div>
               <h2 data-i18n="settings.sessionsTitle">Sessions</h2>
               <p data-i18n="settings.sessionsIntro">Choose which durable API chat session receives new turns.</p>
@@ -313,7 +313,7 @@
 
         <div class="settings-detail" id="runtimeDiagnosticsPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeDiagnosticsBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="runtimeDiagnosticsBack" type="button" data-i18n="common.back">Back</button>
             <div>
               <h2 data-i18n="settings.diagnosticsTitle">Diagnostics</h2>
               <p data-i18n="settings.diagnosticsIntro">Runtime state and recent API request history.</p>
@@ -336,12 +336,12 @@
 
       <section class="panel" id="page-models">
         <div class="scene-head">
-          <h1 class="section-title" data-i18n="nav.models">模型</h1>
+          <h1 class="section-title" data-i18n="nav.models">Models</h1>
         </div>
 
         <div class="model-progress" id="modelProgress">
           <div class="model-progress-row">
-            <span id="modelProgressText">模型正在导入</span>
+            <span id="modelProgressText">Importing model</span>
             <span class="model-progress-percent" id="modelProgressPercent"></span>
           </div>
           <div class="model-progress-track">
@@ -352,22 +352,22 @@
         <div class="model-view active" id="modelHomeView">
           <button class="settings-row pressable" id="modelLocalButton" type="button">
             <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="models.localTitle">本地模型</span>
-              <span class="settings-row-sub" data-i18n="models.localSub">管理已安装模型、导入本地包。</span>
+              <span class="settings-row-title" data-i18n="models.localTitle">Local Models</span>
+              <span class="settings-row-sub" data-i18n="models.localSub">Manage installed models and import local packages.</span>
             </span>
             <span class="settings-row-state" id="modelLocalState">--</span>
           </button>
           <button class="settings-row pressable" id="modelMarketButton" type="button">
             <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="models.marketTitle">模型市场</span>
-              <span class="settings-row-sub" data-i18n="models.marketSub">ModelScope MNN 模型目录。</span>
+              <span class="settings-row-title" data-i18n="models.marketTitle">Model Market</span>
+              <span class="settings-row-sub" data-i18n="models.marketSub">Search ModelScope MNN models.</span>
             </span>
-            <span class="settings-row-state" data-i18n="models.market">市场</span>
+            <span class="settings-row-state" data-i18n="models.market">Market</span>
           </button>
           <button class="settings-row pressable" id="modelRuntimeButton" type="button">
             <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="models.runtimeTitle">Runtime 设置</span>
-              <span class="settings-row-sub" data-i18n="models.runtimeSub">默认模型、线程数和 API 服务配置。</span>
+              <span class="settings-row-title" data-i18n="models.runtimeTitle">Runtime Settings</span>
+              <span class="settings-row-sub" data-i18n="models.runtimeSub">Default model, CPU threads, and API server settings.</span>
             </span>
             <span class="settings-row-state" id="modelRuntimeState">--</span>
           </button>
@@ -375,14 +375,14 @@
 
         <div class="model-view" id="modelLocalView" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="modelLocalBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="modelLocalBack" type="button" data-i18n="common.back">Back</button>
             <div>
-              <h2 data-i18n="models.localTitle">本地模型</h2>
-              <p data-i18n="models.localSub">管理已安装模型、导入本地包。</p>
+              <h2 data-i18n="models.localTitle">Local Models</h2>
+              <p data-i18n="models.localSub">Manage installed models and import local packages.</p>
             </div>
             <div class="scene-actions-top">
-              <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">重新扫描</button>
-              <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">导入</button>
+              <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">Rescan</button>
+              <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">Import</button>
             </div>
           </div>
           <div class="model-list" id="modelList"></div>
@@ -390,14 +390,14 @@
 
         <div class="model-view" id="modelMarketPanel" aria-hidden="true">
           <div class="settings-detail-head">
-            <button class="settings-back pressable" id="modelMarketBack" type="button" data-i18n="common.back">返回</button>
+            <button class="settings-back pressable" id="modelMarketBack" type="button" data-i18n="common.back">Back</button>
             <div>
-              <h2 data-i18n="models.marketTitle">模型市场</h2>
-              <p data-i18n="models.marketSub">ModelScope MNN 模型目录。</p>
+              <h2 data-i18n="models.marketTitle">Model Market</h2>
+              <p data-i18n="models.marketSub">Search ModelScope MNN models.</p>
             </div>
             <div class="market-search">
-              <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="搜索模型">
-              <button class="reload-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">刷新</button>
+              <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="Search models">
+              <button class="reload-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">Refresh</button>
             </div>
           </div>
           <div class="market-list" id="modelMarketList"></div>

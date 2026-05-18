@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Study Desk</title>
 <style>
-:root{--bg:#080808;--card:#111;--line:#282828;--text:#e0e0e0;--muted:#707070;--green:#4ade80;--red:#f87171;--blue:#60a5fa;--orange:#fbbf24;--r:14px}
+:root{--bg:#101315;--card:#171a1d;--card2:#202428;--line:rgba(222,227,233,.12);--text:#eef1f4;--muted:#aeb6bf;--green:#9ad7ad;--red:#ffb4ab;--blue:#9fcaff;--orange:#f2cc78;--r:22px}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:transparent;color:var(--text);font-family:-apple-system,"Segoe UI","Noto Sans CJK SC",sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
-body{padding:14px}
-main{max-width:520px;display:grid;gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+body{padding:16px}
+main{width:min(100%,760px);display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
+.card{background:rgba(23,26,29,.9);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .space{justify-content:space-between}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .dot.green{background:var(--green);box-shadow:0 0 8px rgba(74,222,128,.35)}
 .dot.red{background:var(--red);box-shadow:0 0 8px rgba(248,113,113,.3)}
-.big-num{font-size:48px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.big-num{font-size:clamp(44px,8vw,72px);font-weight:520;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:0}
+.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:800}
 .progress{height:4px;background:var(--line);border-radius:2px;margin-top:10px;overflow:hidden}
 .progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width 1.2s ease}
 .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.03em}
@@ -32,10 +32,10 @@ main{max-width:520px;display:grid;gap:12px}
 .err{color:var(--red);font-size:12px;margin-top:8px}
 .insight{font-size:13px;line-height:1.55;color:var(--text);white-space:pre-wrap}
 .insight.muted{color:var(--muted)}
-button{border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--text);padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit}
-button:hover{border-color:var(--muted)}
+button{border:1px solid var(--line);border-radius:12px;background:var(--card2);color:var(--text);padding:7px 14px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
+button:hover{border-color:rgba(222,227,233,.24)}
 button:disabled{opacity:.45;cursor:wait}
-.gear-btn{width:30px;height:30px;border-radius:50%;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.gear-btn{width:34px;height:34px;border-radius:50%;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .overlay{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .18s ease;display:grid;align-items:center;justify-items:center;padding:18px}
 .overlay.active{opacity:1;pointer-events:auto}
 .panel{width:min(100%,480px);padding:18px;border:1px solid rgba(255,255,255,.11);border-radius:20px;background:rgba(14,14,14,.95);box-shadow:0 24px 70px rgba(0,0,0,.38)}
@@ -45,6 +45,18 @@ button:disabled{opacity:.45;cursor:wait}
 .setting-label{color:var(--muted);font-weight:700}
 .setting-val{color:var(--blue);text-align:right;font-variant-numeric:tabular-nums}
 input[type=range]{width:100%;accent-color:var(--blue);height:4px}
+.card:first-child{grid-row:span 2}
+#previewCanvas{min-height:220px}
+@media (orientation:portrait),(max-width:680px){
+  body{padding:12px}
+  main{width:100%;grid-template-columns:1fr;gap:10px}
+  .card:first-child{grid-row:auto}
+  .card{border-radius:20px;padding:14px}
+  #previewCanvas{min-height:0}
+  .row.space{gap:12px}
+  .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .setting-row{grid-template-columns:96px 1fr 46px}
+}
 </style>
 </head>
 <body>
