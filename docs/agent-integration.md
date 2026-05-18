@@ -60,6 +60,7 @@ Current Lociant-local tools:
 | `inference_cancel` | Cancel current inference |
 | `vision_status` | Camera/vision runtime status |
 | `vision_start` | Start continuous camera vision analysis |
+| `camera_capture` | Capture the latest camera frame as a JPEG data URL |
 | `vision_stop` | Stop continuous camera vision analysis |
 | `event_record` | Persist a runtime event |
 | `store_increment` | Increment a numeric local-store value |
@@ -67,6 +68,12 @@ Current Lociant-local tools:
 | `webhook_post` | Queue JSON webhook POST |
 
 These tools should describe Android-side capabilities. Do not add PC workspace tools to Lociant unless they map to real phone-side behavior.
+
+For photo capture, use `camera_capture`. It intentionally reuses the active vision runtime instead of opening a second camera path. Start vision first, then capture:
+
+```bash
+python scripts/lociant_capture.py --base-url http://<phone-ip>:11434 --start --out capture.jpg
+```
 
 ## Client-Owned Tools
 
@@ -171,6 +178,7 @@ API Key: 留空或任意非空字符串，取决于客户端
 | `inference_cancel` | 取消当前推理 |
 | `vision_status` | 摄像头/视觉 runtime 状态 |
 | `vision_start` | 启动连续摄像头视觉分析 |
+| `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
 | `vision_stop` | 停止连续摄像头视觉分析 |
 | `event_record` | 持久化 runtime 事件 |
 | `store_increment` | 递增本地存储里的数值 |
@@ -178,6 +186,12 @@ API Key: 留空或任意非空字符串，取决于客户端
 | `webhook_post` | 排队发送 JSON webhook |
 
 这些工具应该描述 Android 侧能力。不要把 PC 工作区工具加进 Lociant，除非它真的映射到手机侧行为。
+
+获取手机照片时使用 `camera_capture`。它会复用当前 vision runtime，不打开第二套摄像头链路。先启动 vision，再捕获：
+
+```bash
+python scripts/lociant_capture.py --base-url http://<phone-ip>:11434 --start --out capture.jpg
+```
 
 ## 客户端自有工具
 

@@ -31,6 +31,12 @@ class VisionTools(
             }
         },
         ToolDefinition(
+            name = "camera_capture",
+            description = "Capture the latest camera frame from the Android phone. Use this when the user asks what the phone sees or needs a current photo from the device.",
+            parameters = objectSchema(),
+            policy = ToolPolicy(requiresActivity = true),
+        ) { withVision { it.snapshotJson() } },
+        ToolDefinition(
             name = "vision_stop",
             description = "Stop continuous camera analysis.",
             parameters = objectSchema(),

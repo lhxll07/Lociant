@@ -90,6 +90,7 @@ Current local tools:
 | `inference_cancel` | Cancel current inference |
 | `vision_status` | Camera/vision runtime status |
 | `vision_start` | Start continuous camera vision analysis |
+| `camera_capture` | Capture the latest camera frame as a JPEG data URL |
 | `vision_stop` | Stop continuous camera vision analysis |
 | `event_record` | Persist a runtime event |
 | `store_increment` | Increment a numeric local-store value |
@@ -229,6 +230,7 @@ Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool ca
 | `inference_cancel` | 取消当前推理 |
 | `vision_status` | 摄像头/视觉 runtime 状态 |
 | `vision_start` | 启动连续摄像头视觉分析 |
+| `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
 | `vision_stop` | 停止连续摄像头视觉分析 |
 | `event_record` | 持久化 runtime 事件 |
 | `store_increment` | 递增本地存储里的数值 |

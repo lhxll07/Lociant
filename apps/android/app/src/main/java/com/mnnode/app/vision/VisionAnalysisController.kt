@@ -1,6 +1,7 @@
 package com.mnnode.app.vision
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Size
@@ -47,6 +48,12 @@ class VisionAnalysisController(
     private var lastPreviewMs = 0L
     private var lastPreviewBase64: String? = null
     private var lastPreviewBytes: ByteArray? = null
+    private var lastPreviewWidth = 0
+    private var lastPreviewHeight = 0
+    private var lastPreviewRotation = 0
+    private var lastPreviewTimestamp = 0L
+    private var lastPreviewSourceWidth = 0
+    private var lastPreviewSourceHeight = 0
     private var onState: (JSONObject) -> Unit = {}
     private var onFrame: (JSONObject) -> Unit = {}
 
@@ -96,6 +103,38 @@ class VisionAnalysisController(
     }
 
     fun previewBytes(): ByteArray? = lastPreviewBytes
+
+    fun snapshotJson(): JSONObject {
+        val image = lastPreviewBase64
+        if (state != VisionState.Running) {
+            return JSONObject()
+                .put("ok", false)
+                .put("code", "camera_not_running")
+                .put("message", "Camera capture requires vision runtime to be running")
+                .put("state", state.value)
+        }
+        if (image.isNullOrBlank()) {
+            return JSONObject()
+                .put("ok", false)
+                .put("code", "camera_frame_unavailable")
+                .put("message", "No camera frame is available yet")
+                .put("state", state.value)
+                .put("frameCount", frameCount)
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("state", state.value)
+            .put("image", "data:image/jpeg;base64,$image")
+            .put("mimeType", "image/jpeg")
+            .put("width", lastPreviewWidth)
+            .put("height", lastPreviewHeight)
+            .put("sourceWidth", lastPreviewSourceWidth)
+            .put("sourceHeight", lastPreviewSourceHeight)
+            .put("rotation", lastPreviewRotation)
+            .put("timestamp", lastPreviewTimestamp)
+            .put("frameCount", frameCount)
+            .put("fps", fps)
+    }
 
     fun start(config: VisionConfig = VisionConfig()) {
         if (state == VisionState.Running || state == VisionState.Starting) {
@@ -209,6 +248,16 @@ class VisionAnalysisController(
                     lastPreviewMs = nowMs
                     lastPreviewBytes = runCatching { YuvPreviewEncoder.encodeJpegBytes(image) }.getOrNull()
                     lastPreviewBase64 = lastPreviewBytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+                    if (lastPreviewBytes != null) {
+                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeByteArray(lastPreviewBytes, 0, lastPreviewBytes?.size ?: 0, bounds)
+                        lastPreviewWidth = bounds.outWidth.takeIf { it > 0 } ?: image.width
+                        lastPreviewHeight = bounds.outHeight.takeIf { it > 0 } ?: image.height
+                        lastPreviewSourceWidth = image.width
+                        lastPreviewSourceHeight = image.height
+                        lastPreviewRotation = image.imageInfo.rotationDegrees
+                        lastPreviewTimestamp = image.imageInfo.timestamp
+                    }
                 }
 
                 onFrame(
@@ -248,6 +297,13 @@ class VisionAnalysisController(
         lastInferMs = nowMs
         lastPreviewMs = nowMs
         lastPreviewBase64 = null
+        lastPreviewBytes = null
+        lastPreviewWidth = 0
+        lastPreviewHeight = 0
+        lastPreviewSourceWidth = 0
+        lastPreviewSourceHeight = 0
+        lastPreviewRotation = 0
+        lastPreviewTimestamp = 0L
         lastDetection = JSONObject().put("ok", false).put("detections", JSONArray())
     }
 
