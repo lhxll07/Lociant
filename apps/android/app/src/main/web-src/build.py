@@ -62,7 +62,8 @@ def build() -> None:
     # 3. Copy HTML
     html_src = src / "html" / "index.html"
     if html_src.is_file():
-        shutil.copy(html_src, out / "index.html")
+        html = html_src.read_text(encoding="utf-8").rstrip() + "\n"
+        (out / "index.html").write_text(html, encoding="utf-8")
         size = html_src.stat().st_size
         print(f"[build] copied index.html ({size:,} bytes)")
     else:

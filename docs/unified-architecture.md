@@ -78,6 +78,8 @@ Locked-screen and fully headless behavior remain best-effort system behavior, no
 
 The in-app WebView UI (`assets/web/index.html`) is the primary UX surface for configuring server port, API Token, tool exposure level, default model, vision, and runtime window behavior. Scene Packs and LAN clients use the same HTTP API.
 
+The WebView UI source lives in `web-src/` (split into HTML, CSS, and 9 JS modules by function). Run `python web-src/build.py` to concatenate and copy to `assets/web/`. The app icon is `ic_lociant_foreground.xml` (purple background + white "L" mark), based on `assets/brand/lociant-mark.svg`.
+
 ## Tool System
 
 Tools are protocol-neutral phone capabilities. OpenAI tool calling, direct HTTP tool calls, and MCP all map to the same `ToolRegistry`.
@@ -220,6 +222,8 @@ Lociant 是可见手机 runtime，不是隐藏 daemon。Android 后台执行高�
 锁屏和完全 headless 行为只能视为系统层面的 best-effort，不作为核心保证。
 
 App 内 WebView UI（`assets/web/index.html`）是配置端口、API Token、工具暴露级别、默认模型、视觉和悬浮窗行为的主要 UX 界面。Scene Pack 和 LAN 客户端使用相同的 HTTP API。
+
+WebView UI 源码在 `web-src/` 中（按功能拆分为 HTML、CSS 和 9 个 JS 模块）。运行 `python web-src/build.py` 拼合并复制到 `assets/web/`。App 图标为 `ic_lociant_foreground.xml`（紫色背景 + 白色 "L" 标记），基于 `assets/brand/lociant-mark.svg`。
 
 ## 工具系统
 

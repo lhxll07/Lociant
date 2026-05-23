@@ -49,7 +49,6 @@ function navigateTo(page) {
 // ---- Clock tick ----
 function tick() {
   clock.textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  syncRuntimeSnapshot({ notifyScene: false })
   updateRuntimeStrip()
 }
 

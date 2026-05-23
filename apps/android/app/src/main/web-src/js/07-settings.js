@@ -22,6 +22,9 @@ function applyLocale() {
   document.querySelectorAll('[data-i18n]').forEach(node => {
     node.textContent = t(node.dataset.i18n)
   })
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(node => {
+    node.setAttribute('placeholder', t(node.dataset.i18nPlaceholder))
+  })
   Array.from(languageControl.querySelectorAll('.segmented-option')).forEach(button => {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
@@ -91,15 +94,23 @@ function updateDiagnostics(state) {
 
 // ---- Settings navigation ----
 function showSettingsHome() {
-  ensureSettingsDetailClosed()
-  settingsList.setAttribute('aria-hidden', 'false')
+  closeSettingsDetails()
+  if (settingsList) {
+    settingsList.classList.add('active')
+    settingsList.setAttribute('aria-hidden', 'false')
+  }
 }
 
 function showSettingsDetail(panel) {
-  ensureSettingsDetailClosed()
-  settingsList.setAttribute('aria-hidden', 'true')
-  panel.classList.add('active')
-  panel.setAttribute('aria-hidden', 'false')
+  closeSettingsDetails()
+  if (settingsList) {
+    settingsList.classList.remove('active')
+    settingsList.setAttribute('aria-hidden', 'true')
+  }
+  if (panel) {
+    panel.classList.add('active')
+    panel.setAttribute('aria-hidden', 'false')
+  }
 }
 
 function openRuntimeSettings() {
@@ -116,6 +127,14 @@ function closeRuntimeSettingsBack() {
 }
 
 function ensureSettingsDetailClosed() {
+  closeSettingsDetails()
+  if (settingsList) {
+    settingsList.classList.add('active')
+    settingsList.setAttribute('aria-hidden', 'false')
+  }
+}
+
+function closeSettingsDetails() {
   runtimeDetails().forEach(p => { p.classList.remove('active'); p.setAttribute('aria-hidden', 'true') })
 }
 
@@ -137,10 +156,6 @@ function openRuntimeModelSettings() {
   renderRuntimeModelChoices(runtimeModels)
 }
 
-function openRuntimeSessionsSettings() {
-  showSettingsDetail(runtimeSessionsPanel)
-}
-
-function openRuntimeDiagnosticsSettings() {
-  showSettingsDetail(runtimeDiagnosticsPanel)
+function openRuntimeAdvancedSettings() {
+  showSettingsDetail(runtimeAdvancedPanel)
 }

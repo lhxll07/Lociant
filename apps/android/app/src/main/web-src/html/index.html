@@ -14,25 +14,22 @@
         <span class="hamburger"></span>
       </button>
 
-      <nav class="nav">
+      <nav class="nav" aria-label="Primary">
         <button class="nav-item pressable active" data-page="scenes">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M8 4h10a2 2 0 0 1 2 2v14H7a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2h2z"/><path d="M8 4v14"/><path d="M11 8h5"/><path d="M11 12h4"/></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg></span>
           <span class="nav-label" data-i18n="nav.scenes">场景</span>
         </button>
-
         <button class="nav-item pressable" data-page="settings">
           <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></span>
           <span class="nav-label" data-i18n="nav.settings">设置</span>
         </button>
-
         <button class="nav-item pressable" data-page="models">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
           <span class="nav-label" data-i18n="nav.models">模型</span>
         </button>
-
         <button class="nav-item pressable" data-page="nodes">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l2.1-2.1a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0L4.8 13.1a5 5 0 0 0 7.1 7.1L13 19.1"/></svg></span>
-          <span class="nav-label" data-i18n="nav.nodes">多节点</span>
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="7" cy="12" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9.7 10.7 14.4 8.2"/><path d="M9.7 13.3 14.4 15.8"/></svg></span>
+          <span class="nav-label" data-i18n="nav.nodes">节点</span>
         </button>
       </nav>
 
@@ -40,13 +37,13 @@
     </aside>
 
     <main class="main">
-      <section class="status-card">
-        <div class="clock" id="clock">--:--:--</div>
-        <div class="state">
-          <button class="back-button pressable" id="backButton" data-i18n="common.back">返回</button>
-          <button class="scene-settings-button pressable" id="sceneSettingsButton" data-i18n="nav.settings">设置</button>
-          <span class="status-dot" id="stateDot"></span><span id="stateText" class="status-text" data-i18n="state.idle">待机</span>
-        </div>
+      <section class="top-bar">
+        <button class="back-button pressable" id="backButton" data-i18n="common.back">返回</button>
+        <button class="scene-settings-button pressable" id="sceneSettingsButton" data-i18n="nav.settings">设置</button>
+        <div class="top-spacer"></div>
+        <span class="status-dot" id="stateDot"></span>
+        <span id="stateText" class="status-text" data-i18n="state.idle">待机</span>
+        <span class="clock" id="clock">--:--:--</span>
       </section>
 
       <button class="runtime-strip pressable" id="runtimeStrip" type="button" aria-hidden="true">
@@ -55,7 +52,7 @@
           <span class="runtime-strip-title" id="runtimeSceneName">Scene</span>
           <span class="runtime-strip-text" id="runtimeEventText">-</span>
         </span>
-        <span class="runtime-strip-text" id="runtimeWindowText" style="flex-shrink:0;cursor:pointer">Window</span>
+        <span class="runtime-strip-text" id="runtimeWindowText">Window</span>
         <span class="runtime-strip-text" id="runtimeStateText">-</span>
         <span class="runtime-strip-text" id="runtimeElapsedText">-</span>
       </button>
@@ -66,387 +63,348 @@
         <span class="alert-message" id="alertMessage">Message</span>
         <span class="alert-actions">
           <button class="alert-action pressable" id="alertOpenButton" data-i18n="common.open">Open</button>
-          <button class="alert-action pressable" id="alertCloseButton">✕</button>
+          <button class="alert-action pressable" id="alertCloseButton">x</button>
         </span>
       </section>
 
-      <!-- Scenes page -->
       <section class="panel active" id="page-scenes">
-        <div class="page-head">
-          <h1 class="section-title" data-i18n="nav.scenes">场景</h1>
-          <button class="reload-button pressable" id="reloadButton" data-i18n="common.refresh">刷新</button>
-          <button class="reload-button pressable" id="installButton" data-i18n="common.install">+ 安装</button>
-        </div>
-        <div class="scene-list" id="sceneList"></div>
+        <header class="page-head">
+          <div>
+            <p class="eyebrow">Lociant</p>
+            <h1 class="section-title" data-i18n="page.scenesTitle">场景</h1>
+            <p class="section-subtitle" data-i18n="page.scenesSub">运行手机侧工作流与能力包</p>
+          </div>
+          <div class="head-actions">
+            <button class="tonal-button pressable" id="reloadButton" data-i18n="common.refresh">刷新</button>
+            <button class="filled-button pressable" id="installButton" data-i18n="common.install">安装</button>
+          </div>
+        </header>
+        <div class="surface-list scene-list" id="sceneList"></div>
       </section>
 
-      <!-- Settings page -->
       <section class="panel" id="page-settings">
-        <div class="page-head">
-          <h1 class="section-title" data-i18n="nav.settings">设置</h1>
-        </div>
-
-        <!-- Language control -->
-        <div class="settings-group">
-        <div class="settings-section">
-          <div class="settings-section-main">
-            <div class="settings-section-title" data-i18n="settings.language">语言</div>
-            <div class="settings-section-sub" data-i18n="settings.languageSub">跟随系统或选择显示语言。</div>
+        <header class="page-head">
+          <div>
+            <p class="eyebrow">Control</p>
+            <h1 class="section-title" data-i18n="page.settingsTitle">设置</h1>
+            <p class="section-subtitle" data-i18n="page.settingsSub">集中管理运行时、权限和模型行为</p>
           </div>
-          <div class="segmented-control" id="languageControl">
-            <button class="segmented-option" data-lang-mode="system" data-i18n="settings.followSystem">系统</button>
-            <button class="segmented-option" data-lang-mode="zh">中文</button>
-            <button class="segmented-option" data-lang-mode="en">EN</button>
-          </div>
-        </div>
-        </div>
+        </header>
 
-        <div class="settings" id="settingsList">
-          <div class="settings-group">
-          <button class="settings-row pressable" id="runtimeSettingsButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.runtimeTitle">Runtime & Background</span>
-              <span class="settings-row-sub" data-i18n="settings.runtimeSub">Foreground service, foreground window, and model server.</span>
-            </span>
-            <span class="settings-row-state status-text" id="runtimeSettingsState" data-i18n="status.stopped">已停止</span>
-          </button>
-
-          <button class="settings-row pressable" id="runtimeServerButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.serverTitle">Server</span>
-              <span class="settings-row-sub" data-i18n="settings.serverSub">Port, output tokens, API token, and URL.</span>
-            </span>
-            <span class="settings-row-state status-text" id="runtimeServerState">--</span>
-          </button>
-
-          <button class="settings-row pressable" id="runtimeCapabilitiesButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.capabilitiesTitle">Capabilities</span>
-              <span class="settings-row-sub" data-i18n="settings.capabilitiesSub">Vision, runtime window, and remote tool exposure.</span>
-            </span>
-            <span class="settings-row-state status-text" id="runtimeCapabilitiesState">--</span>
-          </button>
-
-          <button class="settings-row pressable" id="runtimeModelButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.defaultModelTitle">Default Model</span>
-              <span class="settings-row-sub" data-i18n="settings.defaultModelSub">Choose the default model used by the model server.</span>
-            </span>
-            <span class="settings-row-state status-text" id="runtimeModelState">--</span>
-          </button>
-
-          <button class="settings-row pressable" id="runtimeSessionsButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.sessionsTitle">Sessions</span>
-              <span class="settings-row-sub" data-i18n="settings.sessionsSub">Current API chat session and recent sessions.</span>
-            </span>
-            <span class="settings-row-state status-text" id="runtimeSessionsState">--</span>
-          </button>
-
-          <button class="settings-row pressable" id="runtimeDiagnosticsButton" type="button">
-            <span class="settings-row-main">
-              <span class="settings-row-title" data-i18n="settings.diagnosticsTitle">Diagnostics</span>
-              <span class="settings-row-sub" data-i18n="settings.diagnosticsSub">Queue, requests, token caps, and recent errors.</span>
-            </span>
-            <span class="settings-row-state status-text" id="runtimeDiagnosticsState">--</span>
-          </button>
-          </div>
-
-          <div class="settings-group">
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.battery">Battery Optimization</div>
-              <div class="settings-section-sub" id="batteryOptimizationText" data-i18n="settings.checking">Checking status...</div>
+        <section class="settings-page settings-home-page active" id="settingsList" aria-hidden="false">
+          <div class="settings-grid">
+            <div class="settings-tile settings-tile-control">
+              <span class="settings-tile-title" data-i18n="settings.language">语言</span>
+              <span class="settings-tile-sub" data-i18n="settings.languageSub">显示语言</span>
+              <div class="segmented-control settings-tile-control-row" id="languageControl">
+                <button class="segmented-option" data-lang-mode="system" data-i18n="settings.followSystem">系统</button>
+                <button class="segmented-option" data-lang-mode="zh">中文</button>
+                <button class="segmented-option" data-lang-mode="en">EN</button>
+              </div>
             </div>
-            <button class="settings-action pressable" id="batteryOptimizationButton" type="button">Allow</button>
+            <button class="settings-tile pressable" id="runtimeSettingsButton" type="button">
+              <span class="settings-tile-title" data-i18n="settings.runtimeTitle">运行时</span>
+              <span class="settings-tile-sub" data-i18n="settings.runtimeSub">后台服务与悬浮窗</span>
+              <span class="settings-tile-state status-pill" id="runtimeSettingsState" data-i18n="status.stopped">已停止</span>
+            </button>
+            <button class="settings-tile pressable" id="runtimeServerButton" type="button">
+              <span class="settings-tile-title" data-i18n="settings.serverTitle">服务</span>
+              <span class="settings-tile-sub" data-i18n="settings.serverSub">端口、令牌、地址</span>
+              <span class="settings-tile-state status-pill" id="runtimeServerState">--</span>
+            </button>
+            <button class="settings-tile pressable" id="runtimeCapabilitiesButton" type="button">
+              <span class="settings-tile-title" data-i18n="settings.capabilitiesTitle">能力</span>
+              <span class="settings-tile-sub" data-i18n="settings.capabilitiesSub">视觉与远程工具</span>
+              <span class="settings-tile-state status-pill" id="runtimeCapabilitiesState">--</span>
+            </button>
+            <button class="settings-tile pressable" id="runtimeModelButton" type="button">
+              <span class="settings-tile-title" data-i18n="settings.defaultModelTitle">默认模型</span>
+              <span class="settings-tile-sub" data-i18n="settings.defaultModelSub">模型与 CPU 线程</span>
+              <span class="settings-tile-state status-pill" id="runtimeModelState">--</span>
+            </button>
+            <button class="settings-tile pressable" id="runtimeAdvancedButton" type="button">
+              <span class="settings-tile-title" data-i18n="settings.advancedTitle">高级</span>
+              <span class="settings-tile-sub" data-i18n="settings.advancedSub">会话与诊断</span>
+              <span class="settings-tile-state status-pill" id="runtimeAdvancedState">--</span>
+            </button>
           </div>
+        </section>
 
-          <div class="settings-note" data-i18n="settings.runtimeScope">For stable inference, keep the runtime window visible while the screen is on. Lock-screen behavior still depends on Android policy.</div>
-          </div>
-        </div>
-
-        <!-- Runtime settings detail -->
-        <div class="settings-detail" id="runtimeSettingsPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeSettingsBack" type="button" data-i18n="common.back">Back</button>
+        <section class="settings-page" id="runtimeSettingsPanel" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="runtimeSettingsBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="settings.runtimeTitle">Runtime & Background</h2>
-              <p data-i18n="settings.runtimeIntro">Control Lociant as a local AI capability runtime in the background.</p>
+              <h2 data-i18n="settings.runtimeTitle">运行时</h2>
+              <p data-i18n="settings.runtimeIntro">本地能力运行时</p>
             </div>
           </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Service</div>
-          <div class="settings-section">
-            <span class="settings-section-main">
-              <span class="settings-section-title" data-i18n="settings.modelServer">Model Server</span>
-              <span class="settings-section-sub" id="runtimeServiceMessage" data-i18n="settings.runtimeDefaultMessage">Foreground service exposes the LAN API; foreground window keeps inference visible.</span>
-            </span>
-            <button class="settings-action pressable" id="runtimeServiceToggle" type="button" data-i18n="common.start">Start</button>
-          </div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Window</div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.windowTitle">Runtime Window</div>
-              <div class="settings-section-sub" data-i18n="settings.windowSub">Show a small runtime window over other apps while the server runs.</div>
+          <div class="surface-list">
+            <div class="settings-section runtime-service-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.modelServer">服务</span>
+                <span class="settings-section-sub" id="runtimeServiceMessage" data-i18n="settings.runtimeDefaultMessage">服务运行后即可提供本地 API</span>
+              </span>
+              <button class="filled-button pressable" id="runtimeServiceToggle" type="button" data-i18n="common.start">启动</button>
             </div>
-            <button class="settings-action pressable" id="runtimeWindowButton" type="button" data-i18n="settings.windowShow">Show</button>
+            <label class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.autoStart">开机启动</span>
+                <span class="settings-section-sub" data-i18n="settings.autoStartSub">重启后恢复运行时</span>
+              </span>
+              <input class="switch-input" type="checkbox" id="runtimeAutoStartInput">
+            </label>
           </div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.windowAuto">Auto</div>
-              <div class="settings-section-sub" data-i18n="settings.windowSub">Show Runtime Window when activity leaves the foreground.</div>
-            </div>
-            <input type="checkbox" id="runtimeWindowAutoInput">
-          </div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Permission</div>
-          <div class="settings-section" id="windowPermissionSection">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.windowPermission">Permission</div>
-              <div class="settings-section-sub" data-i18n="settings.windowAllowed">Allowed</div>
-            </div>
-            <button class="settings-action pressable" id="runtimeWindowPermissionButton" type="button" data-i18n="settings.windowShow" style="display:none">Request</button>
-          </div>
-          </div>
-        </div>
 
-        <!-- Server settings detail -->
-        <div class="settings-detail" id="runtimeServerPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeServerBack" type="button" data-i18n="common.back">Back</button>
+          <h3 class="group-title" data-i18n="settings.permissionsTitle">权限</h3>
+          <div class="surface-list">
+            <div class="settings-section permission-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cameraPermission">摄像头</span>
+                <span class="settings-section-sub" id="cameraPermissionState">--</span>
+              </span>
+              <button class="tonal-button pressable" id="cameraPermissionButton" type="button" data-i18n="settings.request">授权</button>
+            </div>
+            <div class="settings-section permission-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.notificationPermission">通知</span>
+                <span class="settings-section-sub" id="notificationPermissionState">--</span>
+              </span>
+              <button class="tonal-button pressable" id="notificationPermissionButton" type="button" data-i18n="settings.request">授权</button>
+            </div>
+            <div class="settings-section permission-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.overlayPermission">悬浮窗</span>
+                <span class="settings-section-sub" id="overlayPermissionState">--</span>
+              </span>
+              <button class="tonal-button pressable" id="overlayPermissionButton" type="button" data-i18n="settings.request">授权</button>
+            </div>
+            <div class="settings-section permission-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.battery">后台电量</span>
+                <span class="settings-section-sub" id="batteryPermissionState">--</span>
+              </span>
+              <button class="tonal-button pressable" id="batteryPermissionButton" type="button" data-i18n="settings.request">授权</button>
+            </div>
+          </div>
+
+          <h3 class="group-title" data-i18n="settings.windowTitle">悬浮窗</h3>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.windowTitle">悬浮窗</span>
+                <span class="settings-section-sub" data-i18n="settings.windowSub">可选状态界面</span>
+              </span>
+              <button class="tonal-button pressable" id="runtimeWindowButton" type="button" data-i18n="settings.windowShow">显示</button>
+            </div>
+            <label class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.windowAuto">自动显示</span>
+                <span class="settings-section-sub" data-i18n="settings.windowAutoSub">离开前台时显示</span>
+              </span>
+              <input class="switch-input" type="checkbox" id="runtimeWindowAutoInput">
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-page" id="runtimeServerPanel" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="runtimeServerBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="settings.serverTitle">Server</h2>
-              <p data-i18n="settings.serverIntro">Configure the local OpenAI/Ollama-compatible API server.</p>
+              <h2 data-i18n="settings.serverTitle">服务</h2>
+              <p data-i18n="settings.serverIntro">OpenAI/Ollama 兼容 API</p>
             </div>
           </div>
-          <div class="settings-group">
-            <div class="settings-group-title">API</div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.port">Port</div>
-              <div class="settings-section-sub" data-i18n="settings.portSub">Changing the port requires restarting the server.</div>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.port">端口</span>
+                <span class="settings-section-sub" data-i18n="settings.portSub">重启服务后生效</span>
+              </span>
+              <input class="settings-number-input" id="runtimePortInput" type="number" min="1024" max="65535" step="1" inputmode="numeric">
             </div>
-            <input class="settings-number-input" id="runtimePortInput" type="number" min="1024" max="65535" step="1" inputmode="numeric">
-          </div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.outputTokens">Output Tokens</div>
-              <div class="settings-section-sub" data-i18n="settings.outputTokensSub">Default cap for requests that do not specify max_tokens.</div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.outputTokens">输出 Tokens</span>
+                <span class="settings-section-sub" data-i18n="settings.outputTokensSub">默认回复上限</span>
+              </span>
+              <input class="settings-number-input" id="runtimeMaxTokensInput" type="number" min="1" max="32768" step="1" inputmode="numeric">
             </div>
-            <input class="settings-number-input" id="runtimeMaxTokensInput" type="number" min="1" max="32768" step="1" inputmode="numeric">
-          </div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Auth</div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.apiToken">API Token</div>
-              <div class="settings-section-sub" data-i18n="settings.apiTokenSub">Require Authorization: Bearer token for LAN chat, tools, and MCP.</div>
-            </div>
-            <div class="settings-actions">
-              <input class="settings-token-input" id="runtimeAuthTokenInput" type="text" autocomplete="off" spellcheck="false" placeholder="off">
-              <button class="settings-action pressable" id="runtimeAuthGenerateButton" type="button" data-i18n="settings.generate">Generate</button>
-              <button class="settings-action pressable" id="runtimeAuthClearButton" type="button" data-i18n="settings.clear">Clear</button>
+            <div class="settings-section wrap">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.apiToken">API 令牌</span>
+                <span class="settings-section-sub" data-i18n="settings.apiTokenSub">局域网访问认证</span>
+              </span>
+              <div class="settings-actions">
+                <input class="settings-token-input" id="runtimeAuthTokenInput" type="text" autocomplete="off" spellcheck="false" placeholder="off">
+                <button class="tonal-button pressable" id="runtimeAuthGenerateButton" type="button" data-i18n="settings.generate">生成</button>
+                <button class="text-button pressable" id="runtimeAuthClearButton" type="button" data-i18n="settings.clear">清除</button>
+              </div>
             </div>
           </div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Endpoint</div>
-          <div class="settings-diagnostics">
+          <h3 class="group-title">Endpoint</h3>
+          <div class="surface-list settings-diagnostics">
             <div class="diagnostic-row"><span>URL</span><strong id="diagUrl">--</strong></div>
             <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
           </div>
-          </div>
-        </div>
+        </section>
 
-        <!-- Capabilities settings detail -->
-        <div class="settings-detail" id="runtimeCapabilitiesPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">Back</button>
+        <section class="settings-page" id="runtimeCapabilitiesPanel" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="settings.capabilitiesTitle">Capabilities</h2>
-              <p data-i18n="settings.capabilitiesIntro">Manage phone-side capabilities exposed to scenes, agents, and the floating runtime window.</p>
+              <h2 data-i18n="settings.capabilitiesTitle">能力</h2>
+              <p data-i18n="settings.capabilitiesIntro">提供给场景和 Agent 的手机能力</p>
             </div>
           </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Vision</div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.visionTitle">Vision</div>
-              <div class="settings-section-sub" id="runtimeVisionText" data-i18n="settings.visionSub">Camera analysis and object detection.</div>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.visionTitle">视觉</span>
+                <span class="settings-section-sub" id="runtimeVisionText" data-i18n="settings.visionSub">摄像头分析</span>
+              </span>
+              <button class="filled-button pressable" id="runtimeVisionButton" type="button" data-i18n="common.start">启动</button>
             </div>
-            <button class="settings-action pressable" id="runtimeVisionButton" type="button" data-i18n="common.start">Start</button>
-          </div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Remote</div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.toolExposure">Remote Tools</div>
-              <div class="settings-section-sub" data-i18n="settings.toolExposureSub">Choose how much phone capability LAN tools may see.</div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.toolExposure">远程工具</span>
+                <span class="settings-section-sub" data-i18n="settings.toolExposureSub">可见能力等级</span>
+              </span>
+              <select class="settings-select-input" id="runtimeToolExposureInput">
+                <option value="read" data-i18n="settings.toolRead">只读</option>
+                <option value="sensor" data-i18n="settings.toolSensor">感知</option>
+                <option value="action" data-i18n="settings.toolAction">动作</option>
+              </select>
             </div>
-            <select class="settings-select-input" id="runtimeToolExposureInput">
-              <option value="read" data-i18n="settings.toolRead">Read</option>
-              <option value="sensor" data-i18n="settings.toolSensor">Sensor</option>
-              <option value="action" data-i18n="settings.toolAction">Action</option>
-            </select>
           </div>
+          <h3 class="group-title">Limits</h3>
+          <div class="surface-list settings-metrics">
+            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">线程</span><strong id="runtimeCpuThreadsDisplay">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">默认</span><strong id="runtimeDefaultTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">模型</span><strong id="runtimeModelTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">生效</span><strong id="runtimeEffectiveTokens">--</strong></div>
+            <div class="diagnostic-row"><span>Device</span><strong id="runtimeDeviceState">--</strong></div>
           </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Window</div>
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.windowTitle">Runtime Window</div>
-              <div class="settings-section-sub" data-i18n="settings.windowSub">Show a small runtime window over other apps while the server runs.</div>
-            </div>
-            <button class="settings-action pressable" id="runtimeWindowButton2" type="button" data-i18n="settings.windowShow">Show</button>
-          </div>
-          </div>
-          <div class="settings-group">
-            <div class="settings-group-title">Limits</div>
-          <div class="settings-metrics">
-            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">CPU Threads</span><strong id="runtimeCpuThreadsDisplay">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">Default</span><strong id="runtimeDefaultTokens">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">Model cap</span><strong id="runtimeModelTokens">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">Effective</span><strong id="runtimeEffectiveTokens">--</strong></div>
-          </div>
-          </div>
-        </div>
+        </section>
 
-        <!-- Default model settings detail -->
-        <div class="settings-detail" id="runtimeModelPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeModelBack" type="button" data-i18n="common.back">Back</button>
+        <section class="settings-page" id="runtimeModelPanel" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="runtimeModelBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="settings.defaultModelTitle">Default Model</h2>
-              <p data-i18n="settings.defaultModelIntro">Default model used for OpenAI and Ollama requests when no model is specified.</p>
+              <h2 data-i18n="settings.defaultModelTitle">默认模型</h2>
+              <p data-i18n="settings.defaultModelIntro">请求未指定模型时使用</p>
             </div>
           </div>
-          <div class="settings-group">
-          <div class="settings-section">
-            <div class="settings-section-main">
-              <div class="settings-section-title" data-i18n="settings.cpuThreads">CPU Threads</div>
-              <div class="settings-section-sub" data-i18n="settings.cpuThreadsSub">Override thread_num in model config.json. Changing this reloads the model.</div>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cpuThreads">CPU 线程</span>
+                <span class="settings-section-sub" data-i18n="settings.cpuThreadsSub">会重新加载当前模型</span>
+              </span>
+              <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
             </div>
-            <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.defaultModelTitle">默认模型</span>
+                <span class="settings-section-sub" id="runtimeModelNote"></span>
+              </span>
+            </div>
+            <div class="list-inset" id="runtimeModelList"></div>
           </div>
-          </div>
-          <div class="settings-group">
-          <div class="settings-section">
-            <span class="settings-section-main">
-              <span class="settings-section-title" data-i18n="settings.defaultModelTitle">Default Model</span>
-              <span class="settings-section-sub" id="runtimeModelNote"></span>
-            </span>
-          </div>
-          <div id="runtimeModelList"></div>
-          </div>
-        </div>
+        </section>
 
-        <!-- Sessions settings detail -->
-        <div class="settings-detail" id="runtimeSessionsPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeSessionsBack" type="button" data-i18n="common.back">Back</button>
+        <section class="settings-page" id="runtimeAdvancedPanel" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="runtimeAdvancedBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="settings.sessionsTitle">Sessions</h2>
-              <p data-i18n="settings.sessionsIntro">Choose which persistent session new API chat turns write to.</p>
-            </div>
-            <button class="reload-button pressable" id="runtimeSessionNewButton" type="button" data-i18n="settings.newSession">New</button>
-          </div>
-          <div class="settings-group">
-          <div class="settings-section">
-            <span class="settings-section-main">
-              <span class="settings-section-title" data-i18n="settings.currentSession">Current Session</span>
-              <span class="settings-section-sub" id="runtimeSessionCurrent">--</span>
-            </span>
-          </div>
-          <div id="runtimeSessionList"></div>
-          </div>
-        </div>
-
-        <!-- Diagnostics settings detail -->
-        <div class="settings-detail" id="runtimeDiagnosticsPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="runtimeDiagnosticsBack" type="button" data-i18n="common.back">Back</button>
-            <div>
-              <h2 data-i18n="settings.diagnosticsTitle">Diagnostics</h2>
-              <p data-i18n="settings.diagnosticsIntro">Runtime state and recent API request history.</p>
+              <h2 data-i18n="settings.advancedTitle">高级</h2>
+              <p data-i18n="settings.advancedIntro">运行记录与 API 历史</p>
             </div>
           </div>
-          <div class="settings-group">
-          <div id="runtimeDiagLog"></div>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.currentSession">当前</span>
+                <span class="settings-section-sub" id="runtimeSessionCurrent">--</span>
+              </span>
+              <button class="tonal-button pressable" id="runtimeSessionNewButton" type="button" data-i18n="settings.newSession">新建</button>
+            </div>
+            <div class="list-inset" id="runtimeSessionList"></div>
           </div>
-        </div>
+          <h3 class="group-title">Diagnostics</h3>
+          <div class="surface-list" id="runtimeDiagLog"></div>
+        </section>
       </section>
 
-      <!-- Models page -->
       <section class="panel" id="page-models">
         <div class="model-view active" id="modelHomeView">
-          <div class="page-head">
-            <h1 class="section-title" data-i18n="nav.models">模型</h1>
-          </div>
-          <div class="settings-group">
-            <button class="settings-row pressable" id="modelLocalButton" type="button">
-              <span class="settings-row-main">
-                <span class="settings-row-title" data-i18n="models.localTitle">Local Models</span>
-                <span class="settings-row-sub" data-i18n="models.localSub">Manage installed models and import local packages.</span>
-              </span>
-              <span class="settings-row-state status-text" id="modelLocalState">0</span>
+          <header class="page-head">
+            <div>
+              <p class="eyebrow">Local AI</p>
+              <h1 class="section-title" data-i18n="page.modelsTitle">模型</h1>
+              <p class="section-subtitle" data-i18n="page.modelsSub">安装、选择和管理本地推理</p>
+            </div>
+          </header>
+          <div class="settings-grid">
+            <button class="settings-tile pressable" id="modelLocalButton" type="button">
+              <span class="settings-tile-title" data-i18n="models.localTitle">本地模型</span>
+              <span class="settings-tile-sub" data-i18n="models.localSub">已安装模型包</span>
+              <span class="settings-tile-state status-pill" id="modelLocalState">0</span>
             </button>
-            <button class="settings-row pressable" id="modelMarketButton" type="button">
-              <span class="settings-row-main">
-                <span class="settings-row-title" data-i18n="models.marketTitle">Model Market</span>
-                <span class="settings-row-sub" data-i18n="models.marketSub">Search ModelScope MNN models.</span>
-              </span>
-              <span class="settings-row-state status-text" data-i18n="models.market">Market</span>
+            <button class="settings-tile pressable" id="modelMarketButton" type="button">
+              <span class="settings-tile-title" data-i18n="models.marketTitle">模型市场</span>
+              <span class="settings-tile-sub" data-i18n="models.marketSub">ModelScope MNN 模型</span>
+              <span class="settings-tile-state status-pill" data-i18n="models.market">市场</span>
             </button>
-            <button class="settings-row pressable" id="modelRuntimeButton" type="button">
-              <span class="settings-row-main">
-                <span class="settings-row-title" data-i18n="models.runtimeTitle">Runtime Settings</span>
-                <span class="settings-row-sub" data-i18n="models.runtimeSub">Default model, CPU threads, and API server settings.</span>
-              </span>
-              <span class="settings-row-state status-text" id="modelRuntimeState">--</span>
+            <button class="settings-tile pressable" id="modelRuntimeButton" type="button">
+              <span class="settings-tile-title" data-i18n="models.runtimeTitle">运行时</span>
+              <span class="settings-tile-sub" data-i18n="models.runtimeSub">默认模型与 API</span>
+              <span class="settings-tile-state status-pill" id="modelRuntimeState">--</span>
             </button>
           </div>
         </div>
 
         <div class="model-view" id="modelLocalView" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="modelLocalBack" type="button" data-i18n="common.back">Back</button>
+          <div class="detail-head">
+            <button class="back-chip pressable" id="modelLocalBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="models.localTitle">Local Models</h2>
-              <p data-i18n="models.localSub">Manage installed models and import local packages.</p>
+              <h2 data-i18n="models.localTitle">本地模型</h2>
+              <p data-i18n="models.localSub">已安装模型包</p>
             </div>
-            <div class="scene-actions-top">
-              <button class="reload-button pressable" id="modelReloadButton" data-i18n="models.rescan">Rescan</button>
-              <button class="reload-button pressable" id="modelImportButton" data-i18n="models.import">Import</button>
+            <div class="head-actions">
+              <button class="tonal-button pressable" id="modelReloadButton" data-i18n="models.rescan">扫描</button>
+              <button class="filled-button pressable" id="modelImportButton" data-i18n="models.import">导入</button>
             </div>
           </div>
-          <div class="model-list" id="modelList"></div>
+          <div class="surface-list model-list" id="modelList"></div>
         </div>
 
         <div class="model-view" id="modelMarketPanel" aria-hidden="true">
-          <div class="settings-detail-head">
-            <button class="settings-back pressable" id="modelMarketBack" type="button" data-i18n="common.back">Back</button>
+          <div class="detail-head">
+            <button class="back-chip pressable" id="modelMarketBack" type="button" data-i18n="common.back">返回</button>
             <div>
-              <h2 data-i18n="models.marketTitle">Model Market</h2>
-              <p data-i18n="models.marketSub">Search ModelScope MNN models.</p>
-            </div>
-            <div class="market-search">
-              <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="Search models">
-              <button class="reload-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">Refresh</button>
+              <h2 data-i18n="models.marketTitle">模型市场</h2>
+              <p data-i18n="models.marketSub">ModelScope MNN 模型</p>
             </div>
           </div>
-          <div class="market-list" id="modelMarketList"></div>
+          <div class="market-search">
+            <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="搜索模型">
+            <button class="tonal-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">刷新</button>
+          </div>
+          <div class="surface-list market-list" id="modelMarketList"></div>
         </div>
       </section>
 
-      <!-- Nodes page -->
       <section class="panel" id="page-nodes">
-        <h1 class="section-title" data-i18n="nav.nodes">多节点</h1>
-        <div class="simple-card" data-i18n="nodes.placeholder">多节点发现、连接状态和协同任务会放在这里。当前版本仅保留界面占位。</div>
+        <header class="page-head">
+          <div>
+            <p class="eyebrow">Network</p>
+            <h1 class="section-title" data-i18n="page.nodesTitle">节点</h1>
+            <p class="section-subtitle" data-i18n="page.nodesSub">为设备协同预留</p>
+          </div>
+        </header>
+        <div class="surface-list">
+          <div class="simple-card" data-i18n="nodes.placeholder">节点发现与协同能力会放在这里</div>
+        </div>
       </section>
 
       <section class="scene-host" id="sceneHost">

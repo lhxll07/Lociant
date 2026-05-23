@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- White "L" shape on transparent background (backdrop is ic_lociant_background) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFBFF"
+        android:strokeWidth="38"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M174,176L174,316C174,329.807 185.193,341 199,341L324,341" />
+    <!-- Top-right node dot -->
+    <path
+        android:fillColor="#D0BCFF"
+        android:pathData="M352,156m-11,0a11,11 0 1,1 22,0a11,11 0 1,1 -22,0" />
+    <!-- Bottom-left node dot -->
+    <path
+        android:fillColor="#D0BCFF"
+        android:fillAlpha="0.88"
+        android:pathData="M160,349m-8,0a8,8 0 1,1 16,0a8,8 0 1,1 -16,0" />
+</vector>

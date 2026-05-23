@@ -5,7 +5,7 @@ function runtimeApiCommand(command, payload) {
     const body = Object.assign({}, payload || {}, {
       sceneId: (payload && payload.sceneId) || (activeScene && activeScene.id) || ''
     })
-    const runShell = ['start', 'stop', 'status', 'battery.requestExemption',
+    const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status'
     ].includes(command)
@@ -42,13 +42,26 @@ function updateRuntimeServiceState(state) {
   publishSceneApiClient()
   const running = !!runtimeServiceState.running
   const starting = !!runtimeServiceState.starting
+  const cameraGranted = runtimeServiceState.cameraPermissionGranted === true
+  const notificationGranted = runtimeServiceState.notificationPermissionGranted === true
+  const overlayGranted = runtimeServiceState.windowAllowed === true
+  const batteryGranted = !!runtimeServiceState.batteryOptimizationIgnored
   if (stateDot) stateDot.classList.toggle('running', running || starting)
   if (stateText) stateText.classList.toggle('running', running || starting)
   runtimeSettingsState.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
   runtimeSettingsState.classList.toggle('running', running || starting)
   runtimeServiceToggle.textContent = running || starting ? t('common.stop') : t('common.start')
-  runtimeServiceMessage.textContent = runtimeServiceState.message || t('settings.runtimeDefaultMessage')
+  runtimeServiceMessage.textContent = runtimeServiceStatusText(runtimeServiceState, running, starting)
+  if (runtimeAutoStartInput) runtimeAutoStartInput.checked = !!runtimeServiceState.autoStart
   runtimeServerState.textContent = runtimeServiceState.port ? String(runtimeServiceState.port) : '--'
+  if (cameraPermissionState) cameraPermissionState.textContent = devicePermissionLabel(cameraGranted, t('settings.cameraPermissionGranted'), t('settings.cameraPermissionNeeded'))
+  if (notificationPermissionState) notificationPermissionState.textContent = devicePermissionLabel(notificationGranted, t('settings.notificationPermissionGranted'), t('settings.notificationPermissionNeeded'))
+  if (overlayPermissionState) overlayPermissionState.textContent = devicePermissionLabel(overlayGranted, t('settings.overlayPermissionGranted'), t('settings.overlayPermissionNeeded'))
+  if (batteryPermissionState) batteryPermissionState.textContent = devicePermissionLabel(batteryGranted, t('settings.batteryAllowed'), t('settings.batteryRestricted'))
+  setPermissionButton(cameraPermissionButton, cameraGranted)
+  setPermissionButton(notificationPermissionButton, notificationGranted)
+  setPermissionButton(overlayPermissionButton, overlayGranted)
+  setPermissionButton(batteryPermissionButton, batteryGranted)
   const vision = visionState()
   const visionRunning = !!vision.running
   const visionStarting = String(vision.state || '').toLowerCase() === 'starting'
@@ -65,9 +78,6 @@ function updateRuntimeServiceState(state) {
   runtimeWindowAutoInput.disabled = !running || !runtimeServiceState.port
   runtimeWindowButton.textContent =
     runtimeServiceState.windowVisible ? t('settings.windowHide') : t('settings.windowShow')
-  if (runtimeServiceState.windowAllowed !== undefined) {
-    runtimeWindowPermissionButton.style.display = runtimeServiceState.windowAllowed ? 'none' : ''
-  }
   runtimeModelState.textContent = (runtimeServiceState && runtimeServiceState.modelId) || '--'
   runtimePortInput.value = runtimeServiceState.port || ''
   runtimeMaxTokensInput.value = runtimeServiceState.maxOutputTokens || ''
@@ -81,8 +91,8 @@ function updateRuntimeServiceState(state) {
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }
-  if (runtimeServiceState.port && runtimeServiceState.url) {
-    diagUrl.textContent = runtimeServiceState.url.replace('0.0.0.0', localApiBaseUrl().split(':')[0] || '127.0.0.1')
+  if (runtimeServiceState.port && (runtimeServiceState.lanUrl || runtimeServiceState.url)) {
+    diagUrl.textContent = runtimeServiceState.lanUrl || publicRuntimeUrl(runtimeServiceState)
   }
   if (runtimeServiceState.running !== undefined) {
     diagApi.textContent = running ? t('status.running') : (starting ? t('status.starting') : t('status.stopped'))
@@ -94,16 +104,44 @@ function updateRuntimeServiceState(state) {
   if (runtimeDefaultTokens) runtimeDefaultTokens.textContent = String(defaultVal)
   if (runtimeModelTokens) runtimeModelTokens.textContent = String(modelVal)
   if (runtimeEffectiveTokens) runtimeEffectiveTokens.textContent = String(effective)
+  if (runtimeDeviceState) {
+    const device = runtimeServiceState.device || {}
+    const parts = []
+    parts.push(device.interactive ? 'interactive' : 'idle')
+    if (device.keyguardLocked) parts.push('locked')
+    if (!device.activityForeground) parts.push('background')
+    runtimeDeviceState.textContent = parts.join(' · ')
+  }
   if (runtimeServiceState.sessions) renderSessions(runtimeServiceState.sessions)
+  if (runtimeAdvancedState) {
+    const sessions = Array.isArray(runtimeServiceState.sessions) ? runtimeServiceState.sessions.length : 0
+    const requests = Number(runtimeServiceState.requestCount) || 0
+    runtimeAdvancedState.textContent = sessions + ' / ' + requests
+  }
   if (runtimeServiceState.requestCount !== undefined || runtimeServiceState.recentRequests) {
     updateDiagnostics(runtimeServiceState)
   }
-  batteryAction(runtimeServiceState)
   updateRuntimeStrip()
+}
+
+function runtimeServiceStatusText(state, running, starting) {
+  if (starting) return t('status.starting')
+  if (running) return publicRuntimeUrl(state)
+  return t('settings.runtimeDefaultMessage')
 }
 
 function visionState() {
   return (runtimeServiceState && runtimeServiceState.vision) || {}
+}
+
+function devicePermissionLabel(granted, okText, badText) {
+  return granted ? okText : badText
+}
+
+function setPermissionButton(button, granted) {
+  if (!button) return
+  button.textContent = granted ? t('settings.manage') : t('settings.grant')
+  button.dataset.permissionGranted = granted ? 'true' : 'false'
 }
 
 function visionStateLabel(vision) {
@@ -168,21 +206,4 @@ function updateRuntimeStrip() {
   runtimeEventText.textContent = latest
     ? ((latest.name || latest.ruleId || 'event') + ' · ' + new Date(latest.timestamp || Date.now()).toLocaleTimeString('zh-CN', { hour12: false }))
     : ((runtimeSnapshot.running || runtimeSnapshot.sessionState === 'running') ? t('state.background') : 'Paused')
-}
-
-// ---- Battery ----
-function batteryAction(state) {
-  if (!batteryOptimizationText) return
-  if (!state || !state.running) {
-    batteryOptimizationText.textContent = t('settings.checking')
-    batteryOptimizationButton.style.display = 'none'
-    return
-  }
-  if (state.batteryExempted) {
-    batteryOptimizationText.textContent = t('settings.batteryAllowed')
-    batteryOptimizationButton.style.display = 'none'
-    return
-  }
-  batteryOptimizationText.textContent = t('settings.batteryRestricted')
-  batteryOptimizationButton.style.display = ''
 }

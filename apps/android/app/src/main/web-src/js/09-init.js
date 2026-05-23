@@ -68,15 +68,25 @@ runtimeCapabilitiesButton.addEventListener('click', openRuntimeCapabilitiesSetti
 runtimeCapabilitiesBack.addEventListener('click', backToRuntimeSettings)
 runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
 runtimeModelBack.addEventListener('click', backToRuntimeSettings)
-runtimeSessionsButton.addEventListener('click', openRuntimeSessionsSettings)
-runtimeSessionsBack.addEventListener('click', backToRuntimeSettings)
-runtimeDiagnosticsButton.addEventListener('click', openRuntimeDiagnosticsSettings)
-runtimeDiagnosticsBack.addEventListener('click', backToRuntimeSettings)
+runtimeAdvancedButton.addEventListener('click', openRuntimeAdvancedSettings)
+runtimeAdvancedBack.addEventListener('click', backToRuntimeSettings)
 
 // ---- Runtime controls ----
+function isPermissionGranted(button) {
+  return button && button.dataset.permissionGranted === 'true'
+}
+
+function handlePermissionAction(button, requestMethod, settingsKind) {
+  if (isPermissionGranted(button)) native('openPermissionSettings', settingsKind || 'app')
+  else native(requestMethod)
+}
+
 runtimeServiceToggle.addEventListener('click', () => {
   const running = runtimeServiceState && (runtimeServiceState.running || runtimeServiceState.starting)
   runtimeApiCommand(running ? 'stop' : 'start', {})
+})
+runtimeAutoStartInput.addEventListener('change', () => {
+  runtimeApiCommand('settings', { autoStart: !!runtimeAutoStartInput.checked })
 })
 runtimeVisionButton.addEventListener('click', () => {
   const vision = visionState()
@@ -88,8 +98,17 @@ runtimeWindowAutoInput.addEventListener('change', () => {
 runtimeWindowButton.addEventListener('click', () => {
   runtimeWindowCommand()
 })
-runtimeWindowPermissionButton.addEventListener('click', () => {
-  runtimeServiceCommand('window.permission', {})
+cameraPermissionButton.addEventListener('click', () => {
+  handlePermissionAction(cameraPermissionButton, 'requestCameraPermission', 'app')
+})
+notificationPermissionButton.addEventListener('click', () => {
+  handlePermissionAction(notificationPermissionButton, 'requestNotificationPermission', 'app')
+})
+overlayPermissionButton.addEventListener('click', () => {
+  handlePermissionAction(overlayPermissionButton, 'requestOverlayPermission', 'overlay')
+})
+batteryPermissionButton.addEventListener('click', () => {
+  handlePermissionAction(batteryPermissionButton, 'requestBatteryOptimizationExemption', 'battery')
 })
 
 // ---- Server settings ----
@@ -129,11 +148,6 @@ runtimeCpuThreadsInput.addEventListener('change', () => {
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {
   runtimeApiCommand('session.create', {})
-})
-
-// ---- Battery ----
-batteryOptimizationButton.addEventListener('click', () => {
-  runtimeServiceCommand('battery.requestExemption', {})
 })
 
 // ---- Language ----
@@ -241,3 +255,4 @@ loadScenes()
 loadModels()
 loadLocaleSetting()
 tick()
+window.setInterval(tick, 1000)

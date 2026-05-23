@@ -55,6 +55,15 @@ const runtimeServiceToggle =
   document.getElementById('runtimeServiceToggle')
 const runtimeServiceMessage =
   document.getElementById('runtimeServiceMessage')
+const runtimeAutoStartInput = document.getElementById('runtimeAutoStartInput')
+const cameraPermissionState = document.getElementById('cameraPermissionState')
+const notificationPermissionState = document.getElementById('notificationPermissionState')
+const overlayPermissionState = document.getElementById('overlayPermissionState')
+const batteryPermissionState = document.getElementById('batteryPermissionState')
+const cameraPermissionButton = document.getElementById('cameraPermissionButton')
+const notificationPermissionButton = document.getElementById('notificationPermissionButton')
+const overlayPermissionButton = document.getElementById('overlayPermissionButton')
+const batteryPermissionButton = document.getElementById('batteryPermissionButton')
 const runtimeServerButton = document.getElementById('runtimeServerButton')
 const runtimeServerState = document.getElementById('runtimeServerState')
 const runtimeServerPanel = document.getElementById('runtimeServerPanel')
@@ -75,32 +84,27 @@ const runtimeVisionButton = document.getElementById('runtimeVisionButton')
 const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
 const runtimeWindowAutoInput = document.getElementById('runtimeWindowAutoInput')
 const runtimeWindowButton = document.getElementById('runtimeWindowButton')
-const runtimeWindowPermissionButton = document.getElementById('runtimeWindowPermissionButton')
 const runtimeModelButton = document.getElementById('runtimeModelButton')
 const runtimeModelPanel = document.getElementById('runtimeModelPanel')
 const runtimeModelBack = document.getElementById('runtimeModelBack')
 const runtimeModelList = document.getElementById('runtimeModelList')
 const runtimeModelState = document.getElementById('runtimeModelState')
 const runtimeModelNote = document.getElementById('runtimeModelNote')
-const runtimeSessionsButton = document.getElementById('runtimeSessionsButton')
-const runtimeSessionsState = document.getElementById('runtimeSessionsState')
-const runtimeSessionsPanel = document.getElementById('runtimeSessionsPanel')
-const runtimeSessionsBack = document.getElementById('runtimeSessionsBack')
+const runtimeAdvancedButton = document.getElementById('runtimeAdvancedButton')
+const runtimeAdvancedState = document.getElementById('runtimeAdvancedState')
+const runtimeAdvancedPanel = document.getElementById('runtimeAdvancedPanel')
+const runtimeAdvancedBack = document.getElementById('runtimeAdvancedBack')
 const runtimeSessionCurrent = document.getElementById('runtimeSessionCurrent')
 const runtimeSessionList = document.getElementById('runtimeSessionList')
 const runtimeSessionNewButton = document.getElementById('runtimeSessionNewButton')
-const runtimeDiagnosticsButton = document.getElementById('runtimeDiagnosticsButton')
-const runtimeDiagnosticsState = document.getElementById('runtimeDiagnosticsState')
-const runtimeDiagnosticsPanel = document.getElementById('runtimeDiagnosticsPanel')
-const runtimeDiagnosticsBack = document.getElementById('runtimeDiagnosticsBack')
 const runtimeCpuThreadsInput = document.getElementById('runtimeCpuThreadsInput')
 const languageControl = document.getElementById('languageControl')
-const batteryOptimizationButton = document.getElementById('batteryOptimizationButton')
-const batteryOptimizationText = document.getElementById('batteryOptimizationText')
 const toast = document.getElementById('toast')
 const runtimeDefaultTokens = document.getElementById('runtimeDefaultTokens')
 const runtimeModelTokens = document.getElementById('runtimeModelTokens')
 const runtimeEffectiveTokens = document.getElementById('runtimeEffectiveTokens')
+const runtimeDeviceState = document.getElementById('runtimeDeviceState')
+const settingsHomePage = document.getElementById('settingsList')
 
 // ---- State variables ----
 let runtimeServiceState = null
@@ -112,6 +116,8 @@ let marketQuery = ''
 let marketInstallTimer = null
 let marketInstallingModelId = ''
 let marketSearchTimer = null
+let modelProgressLastPercent = 0
+let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
 let currentLocale = 'en'
 let activeAlert = null
@@ -130,6 +136,16 @@ function el(tag, className, text) {
 
 function emptyCard(text) {
   return el('div', 'empty-card', text)
+}
+
+function runtimeDetails() {
+  return [
+    runtimeSettingsPanel,
+    runtimeServerPanel,
+    runtimeCapabilitiesPanel,
+    runtimeModelPanel,
+    runtimeAdvancedPanel,
+  ].filter(Boolean)
 }
 
 const reliableTimers = new Map()
@@ -154,7 +170,18 @@ function showPanel(panel) {
 }
 
 function showPagePanel(page) {
+  if (page !== 'settings') {
+    closeSettingsDetails()
+    if (settingsHomePage) {
+      settingsHomePage.classList.remove('active')
+      settingsHomePage.setAttribute('aria-hidden', 'true')
+    }
+  }
   showPanel(document.getElementById('page-' + page))
+  if (page === 'settings' && settingsHomePage) {
+    settingsHomePage.classList.add('active')
+    settingsHomePage.setAttribute('aria-hidden', 'false')
+  }
 }
 
 function hidePanels() {

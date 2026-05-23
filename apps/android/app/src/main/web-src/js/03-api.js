@@ -20,6 +20,12 @@ function localApiBaseUrl() {
   return String(raw).replace('0.0.0.0', '127.0.0.1').replace(/\/$/, '')
 }
 
+function publicRuntimeUrl(state) {
+  const current = state || runtimeServiceState || {}
+  const raw = current.lanUrl || current.url || ('http://127.0.0.1:' + (current.port || 11434))
+  return String(raw).replace(/\/$/, '')
+}
+
 function apiUrl(path) {
   return localApiBaseUrl() + path
 }

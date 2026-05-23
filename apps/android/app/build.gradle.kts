@@ -40,21 +40,6 @@ android {
         }
     }
 
-    signingConfigs {
-        create("project-debug") {
-            storeFile = file("../lociant-debug.keystore")
-            storePassword = "android"
-            keyAlias = "lociant-debug"
-            keyPassword = "android"
-        }
-    }
-
-    buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("project-debug")
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

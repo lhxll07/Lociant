@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Monochrome: just the "L" outline, no fill background -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="48"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M174,176L174,316C174,329.807 185.193,341 199,341L324,341" />
+    <!-- Top-right node dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M354,154m-13,0a13,13 0 1,1 26,0a13,13 0 1,1 -26,0" />
+    <!-- Bottom-left node dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M160,349m-10,0a10,10 0 1,1 20,0a10,10 0 1,1 -20,0" />
+</vector>

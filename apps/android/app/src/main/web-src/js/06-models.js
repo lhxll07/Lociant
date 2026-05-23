@@ -159,6 +159,7 @@ function isMarketModelInstalled(model) {
 function installMarketModel(model) {
   if (!model || !model.id || isMarketModelInstalled(model)) return
   marketInstallingModelId = model.id
+  modelProgressLastPercent = 0
   setModelProgress({ state: 'installing', message: t('models.installing') + ': ' + (model.name || model.id) })
   apiPost('/v1/models/market/' + encodeURIComponent(model.id) + '/install', {})
     .then(result => {
@@ -180,37 +181,115 @@ function installMarketModel(model) {
 
 function pollMarketInstall(modelId) {
   if (marketInstallTimer) window.clearInterval(marketInstallTimer)
+  let retries = 0
   marketInstallTimer = window.setInterval(() => {
     apiGet('/v1/models/market/' + encodeURIComponent(modelId) + '/progress')
       .then(data => {
-        if (data && data.active) {
-          setModelProgress(data)
-        } else {
+        const next = normalizeMarketProgress(data, modelId)
+        if (next.state === 'done') {
           marketInstallingModelId = ''
-          setModelProgress({ state: 'done', message: t('toast.modelImported') })
+          setModelProgress(next)
           window.clearInterval(marketInstallTimer)
           marketInstallTimer = null
           loadModels()
           showToast(t('toast.modelImported'))
+          return
         }
+        if (next.state === 'error') {
+          marketInstallingModelId = ''
+          setModelProgress(next)
+          window.clearInterval(marketInstallTimer)
+          marketInstallTimer = null
+          return
+        }
+        retries = 0
+        setModelProgress(next)
       })
       .catch(() => {
-        marketInstallingModelId = ''
-        window.clearInterval(marketInstallTimer)
-        marketInstallTimer = null
+        retries += 1
+        setModelProgress({
+          state: 'installing',
+          active: true,
+          modelId: modelId,
+          progress: modelProgressLastPercent || 0,
+          message: t('models.installing') + ': ' + (marketInstallingModelId || modelId),
+        })
+        if (retries >= 20) {
+          marketInstallingModelId = ''
+          setModelProgress({ state: 'error', message: t('toast.modelImportFailed'), progress: modelProgressLastPercent || null })
+          window.clearInterval(marketInstallTimer)
+          marketInstallTimer = null
+        }
       })
-  }, 2000)
+  }, 800)
 }
 
 function setModelProgress(data) {
   if (!modelProgress) return
-  const state = data && data.state
-  modelProgress.classList.toggle('active', state === 'installing' || state === 'downloading')
+  const normalized = normalizeMarketProgress(data, marketInstallingModelId)
+  const state = normalized.state
+  window.clearTimeout(modelProgressHideTimer)
+  modelProgress.classList.toggle('active', state === 'installing' || state === 'downloading' || state === 'done')
   modelProgress.classList.toggle('error', state === 'error')
   modelProgress.classList.toggle('done', state === 'done')
-  modelProgressText.textContent = (data && data.message) || ''
-  modelProgressPercent.textContent = data && data.percent ? Math.round(data.percent) + '%' : ''
-  modelProgressFill.style.width = (data && data.percent ? Math.min(100, Math.round(data.percent)) : 0) + '%'
+  modelProgressText.textContent = normalized.message || ''
+  const percent = Number(normalized.percent)
+  if (Number.isFinite(percent)) {
+    modelProgressLastPercent = Math.max(modelProgressLastPercent, percent)
+  }
+  const showPercent = Number.isFinite(percent) && percent > 0
+  modelProgressPercent.textContent = showPercent ? Math.round(percent) + '%' : ''
+  const width = Number.isFinite(percent) ? percent : modelProgressLastPercent
+  modelProgressFill.style.width = Math.max(0, Math.min(100, Math.round(width || 0))) + '%'
+  if (state === 'installing' || state === 'downloading') {
+    marketInstallingModelId = marketInstallingModelId || normalized.modelId || ''
+  } else if (state === 'done') {
+    modelProgressHideTimer = window.setTimeout(() => {
+      if (!modelProgress) return
+      modelProgress.classList.remove('active')
+      modelProgress.classList.remove('done')
+    }, 1400)
+  } else if (state === 'error') {
+    modelProgressHideTimer = window.setTimeout(() => {
+      if (!modelProgress) return
+      modelProgress.classList.remove('active')
+      modelProgress.classList.remove('error')
+    }, 2400)
+  }
+}
+
+function normalizeMarketProgress(data, fallbackModelId) {
+  const payload = data || {}
+  const rawState = String(payload.state || '').toLowerCase()
+  const active = payload.active !== undefined ? !!payload.active : null
+  const ok = !!payload.ok
+  const modelId = payload.modelId || fallbackModelId || marketInstallingModelId || ''
+  const rawPercent = Number(payload.percent ?? payload.progress)
+  const hasPercent = Number.isFinite(rawPercent)
+  const percent = hasPercent ? (rawPercent <= 1 ? rawPercent * 100 : rawPercent) : null
+
+  let state = rawState
+  if (!state) {
+    if (ok && !active) state = 'done'
+    else if (active === false && hasPercent && percent >= 100) state = 'done'
+    else if (active === false && !hasPercent) state = 'installing'
+    else state = 'installing'
+  }
+
+  if (state === 'done' || (ok && percent !== null && percent >= 100)) {
+    state = 'done'
+  } else if (!['error', 'done', 'downloading', 'installing'].includes(state)) {
+    state = 'installing'
+  }
+
+  return {
+    state,
+    active: state === 'installing' || state === 'downloading',
+    modelId,
+    message: payload.message || (state === 'done' ? t('toast.modelImported') : t('models.installing') + ': ' + (modelId || marketInstallingModelId || '')),
+    percent: percent,
+    ok,
+  }
 }
 
 // ---- Model choice (settings panel) ----
