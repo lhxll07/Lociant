@@ -71,10 +71,12 @@ Lociant is a visible phone runtime, not an invisible daemon. Android background 
 
 - foreground service notification
 - Runtime Window overlay
-- clear Runtime settings
+- in-app WebView UI (Settings page) for runtime, server, vision, and tool exposure settings
 - battery optimization guidance
 
 Locked-screen and fully headless behavior remain best-effort system behavior, not a core guarantee.
+
+The in-app WebView UI (`assets/web/index.html`) is the primary UX surface for configuring server port, API Token, tool exposure level, default model, vision, and runtime window behavior. Scene Packs and LAN clients use the same HTTP API.
 
 ## Tool System
 
@@ -137,7 +139,7 @@ The product name can be Lociant while old internal identifiers remain until ther
 
 ## Next Work
 
-1. Keep LAN auth and remote tool visibility rules simple enough for normal users to understand.
+1. Keep LAN auth and remote tool visibility rules simple enough for normal users to understand. (The in-app WebView UI already exposes API Token and tool exposure level settings.)
 2. Keep model import and model-market metadata config-driven.
 3. Improve Runtime Window diagnostics and recovery.
 4. Keep `study-desk` as the only built-in Scene Pack until the scene model proves stable.
@@ -212,10 +214,12 @@ Lociant 是可见手机 runtime，不是隐藏 daemon。Android 后台执行高�
 
 - 前台服务通知
 - Runtime Window 悬浮窗
-- 清晰的 Runtime 设置
+- App 内 WebView UI（设置页）用于 runtime、server、vision 和工具暴露策略配置
 - 电池优化引导
 
 锁屏和完全 headless 行为只能视为系统层面的 best-effort，不作为核心保证。
+
+App 内 WebView UI（`assets/web/index.html`）是配置端口、API Token、工具暴露级别、默认模型、视觉和悬浮窗行为的主要 UX 界面。Scene Pack 和 LAN 客户端使用相同的 HTTP API。
 
 ## 工具系统
 
@@ -278,7 +282,7 @@ MNN 是当前 LLM/VLM 后端。NCNN 是当前视觉后端。两者都是 HTTP ca
 
 ## 下一步
 
-1. 保持 LAN auth 和远程工具可见性规则足够简单，让普通用户能理解。
+1. 保持 LAN auth 和远程工具可见性规则足够简单，让普通用户能理解。（App 内 WebView UI 已提供 API Token 和工具暴露级别的设置入口。）
 2. 保持模型导入和模型市场元数据由 config 驱动。
 3. 改进 Runtime Window 诊断和恢复能力。
 4. 在 scene 模型稳定前，只保留 `study-desk` 作为内置 Scene Pack。

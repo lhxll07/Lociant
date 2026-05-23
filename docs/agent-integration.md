@@ -62,7 +62,7 @@ Start vision, then call camera_capture.
 
 Adding the MCP server only installs the tool source. Most clients still require enabling those tools in each chat or assistant profile.
 
-Runtime settings can limit exposed tools:
+Runtime settings can limit exposed tools. Open the in-app WebView UI (Settings → Capabilities → Remote Tools) to configure:
 
 | Level | Exposes |
 |---|---|
@@ -299,7 +299,7 @@ Authorization: Bearer <token>
 
 添加 MCP server 只是安装工具源。大多数客户端还需要在每个对话或助手配置里启用这些工具。
 
-Runtime 设置可以限制暴露的工具：
+Runtime 设置可以限制暴露的工具。在 App 内 WebView UI 中操作：设置 → 能力 → 远程工具。
 
 | 级别 | 暴露能力 |
 |---|---|

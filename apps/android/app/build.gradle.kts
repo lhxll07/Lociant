@@ -1,7 +1,18 @@
-﻿plugins {
+plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
+}
+
+val buildWebUi by tasks.registering(Exec::class) {
+    workingDir = file("src/main/web-src")
+    commandLine("python", "build.py")
+    inputs.dir(file("src/main/web-src"))
+    outputs.files(
+        file("src/main/assets/web/app.js"),
+        file("src/main/assets/web/index.html"),
+        file("src/main/assets/web/styles.css"),
+    )
 }
 
 android {
@@ -26,6 +37,21 @@ android {
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    signingConfigs {
+        create("project-debug") {
+            storeFile = file("../lociant-debug.keystore")
+            storePassword = "android"
+            keyAlias = "lociant-debug"
+            keyPassword = "android"
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("project-debug")
         }
     }
 
@@ -75,6 +101,9 @@ android {
     }
 }
 
+tasks.named("preBuild") {
+    dependsOn(buildWebUi)
+}
 
 dependencies {
     val cameraxVersion = "1.4.2"
@@ -93,4 +122,3 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 }
-
