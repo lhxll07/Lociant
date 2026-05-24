@@ -127,6 +127,18 @@ const i18n = {
     'diagnostics.model': 'Model',
     'diagnostics.vision': 'Vision',
     'diagnostics.mcp': 'MCP',
+    'connection.title': 'Connection',
+    'connection.openaiUrl': 'OpenAI Base URL',
+    'connection.openaiUrlSub': 'Use this as the client base URL',
+    'connection.mcpUrl': 'MCP URL',
+    'connection.mcpUrlSub': 'Streamable HTTP endpoint',
+    'connection.authHeader': 'Auth header',
+    'connection.authHeaderSub': 'Bearer token for protected clients',
+    'connection.mcpConfig': 'MCP config',
+    'connection.mcpConfigSub': 'Paste into an MCP client profile',
+    'connection.testPrompt': 'Test prompt',
+    'connection.testPromptSub': 'Quick tool-call smoke test',
+    'connection.copy': 'Copy',
 
     'models.rescan': 'Rescan',
     'models.import': 'Import',
@@ -159,6 +171,8 @@ const i18n = {
     'toast.sceneUninstalled': 'Scene removed',
     'toast.sceneUninstallFailed': 'Remove failed',
     'toast.visionStarted': 'Vision started',
+    'toast.copied': 'Copied',
+    'toast.copyFailed': 'Copy failed',
   },
 
   zh: {
@@ -287,6 +301,18 @@ const i18n = {
     'diagnostics.model': '模型',
     'diagnostics.vision': '视觉',
     'diagnostics.mcp': 'MCP',
+    'connection.title': '连接',
+    'connection.openaiUrl': 'OpenAI Base URL',
+    'connection.openaiUrlSub': '客户端 base_url',
+    'connection.mcpUrl': 'MCP URL',
+    'connection.mcpUrlSub': 'Streamable HTTP 入口',
+    'connection.authHeader': 'Auth Header',
+    'connection.authHeaderSub': '受保护客户端使用',
+    'connection.mcpConfig': 'MCP 配置',
+    'connection.mcpConfigSub': '粘贴到 MCP 客户端',
+    'connection.testPrompt': '测试提示词',
+    'connection.testPromptSub': '快速验证工具调用',
+    'connection.copy': '复制',
 
     'models.rescan': '扫描',
     'models.import': '导入',
@@ -319,6 +345,8 @@ const i18n = {
     'toast.sceneUninstalled': '场景已移除',
     'toast.sceneUninstallFailed': '移除失败',
     'toast.visionStarted': '视觉已启动',
+    'toast.copied': '已复制',
+    'toast.copyFailed': '复制失败',
   }
 }
 

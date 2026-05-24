@@ -128,6 +128,18 @@ const i18n = {
     'diagnostics.model': 'Model',
     'diagnostics.vision': 'Vision',
     'diagnostics.mcp': 'MCP',
+    'connection.title': 'Connection',
+    'connection.openaiUrl': 'OpenAI Base URL',
+    'connection.openaiUrlSub': 'Use this as the client base URL',
+    'connection.mcpUrl': 'MCP URL',
+    'connection.mcpUrlSub': 'Streamable HTTP endpoint',
+    'connection.authHeader': 'Auth header',
+    'connection.authHeaderSub': 'Bearer token for protected clients',
+    'connection.mcpConfig': 'MCP config',
+    'connection.mcpConfigSub': 'Paste into an MCP client profile',
+    'connection.testPrompt': 'Test prompt',
+    'connection.testPromptSub': 'Quick tool-call smoke test',
+    'connection.copy': 'Copy',
 
     'models.rescan': 'Rescan',
     'models.import': 'Import',
@@ -160,6 +172,8 @@ const i18n = {
     'toast.sceneUninstalled': 'Scene removed',
     'toast.sceneUninstallFailed': 'Remove failed',
     'toast.visionStarted': 'Vision started',
+    'toast.copied': 'Copied',
+    'toast.copyFailed': 'Copy failed',
   },
 
   zh: {
@@ -288,6 +302,18 @@ const i18n = {
     'diagnostics.model': '模型',
     'diagnostics.vision': '视觉',
     'diagnostics.mcp': 'MCP',
+    'connection.title': '连接',
+    'connection.openaiUrl': 'OpenAI Base URL',
+    'connection.openaiUrlSub': '客户端 base_url',
+    'connection.mcpUrl': 'MCP URL',
+    'connection.mcpUrlSub': 'Streamable HTTP 入口',
+    'connection.authHeader': 'Auth Header',
+    'connection.authHeaderSub': '受保护客户端使用',
+    'connection.mcpConfig': 'MCP 配置',
+    'connection.mcpConfigSub': '粘贴到 MCP 客户端',
+    'connection.testPrompt': '测试提示词',
+    'connection.testPromptSub': '快速验证工具调用',
+    'connection.copy': '复制',
 
     'models.rescan': '扫描',
     'models.import': '导入',
@@ -320,6 +346,8 @@ const i18n = {
     'toast.sceneUninstalled': '场景已移除',
     'toast.sceneUninstallFailed': '移除失败',
     'toast.visionStarted': '视觉已启动',
+    'toast.copied': '已复制',
+    'toast.copyFailed': '复制失败',
   }
 }
 
@@ -414,6 +442,11 @@ const runtimeAuthGenerateButton = document.getElementById('runtimeAuthGenerateBu
 const runtimeAuthClearButton = document.getElementById('runtimeAuthClearButton')
 const diagUrl = document.getElementById('diagUrl')
 const diagApi = document.getElementById('diagApi')
+const copyOpenAiUrlButton = document.getElementById('copyOpenAiUrlButton')
+const copyMcpUrlButton = document.getElementById('copyMcpUrlButton')
+const copyAuthHeaderButton = document.getElementById('copyAuthHeaderButton')
+const copyMcpConfigButton = document.getElementById('copyMcpConfigButton')
+const copyTestPromptButton = document.getElementById('copyTestPromptButton')
 const runtimeCapabilitiesButton = document.getElementById('runtimeCapabilitiesButton')
 const runtimeCapabilitiesState = document.getElementById('runtimeCapabilitiesState')
 const runtimeCapabilitiesPanel = document.getElementById('runtimeCapabilitiesPanel')
@@ -564,6 +597,70 @@ function publicRuntimeUrl(state) {
   const current = state || runtimeServiceState || {}
   const raw = current.lanUrl || current.url || ('http://127.0.0.1:' + (current.port || 11434))
   return String(raw).replace(/\/$/, '')
+}
+
+function openAiBaseUrl() {
+  return publicRuntimeUrl(runtimeServiceState) + '/v1'
+}
+
+function mcpEndpointUrl() {
+  return publicRuntimeUrl(runtimeServiceState) + '/mcp'
+}
+
+function runtimeAuthToken() {
+  return (runtimeAuthTokenInput && runtimeAuthTokenInput.value.trim()) ||
+    (runtimeServiceState && runtimeServiceState.authToken) ||
+    ''
+}
+
+function authHeaderText() {
+  const token = runtimeAuthToken()
+  return token ? ('Authorization: Bearer ' + token) : 'Authorization disabled'
+}
+
+function mcpConfigText() {
+  const server = {
+    type: 'streamable-http',
+    url: mcpEndpointUrl()
+  }
+  const token = runtimeAuthToken()
+  if (token) server.headers = { Authorization: 'Bearer ' + token }
+  return JSON.stringify({ mcpServers: { lociant: server } }, null, 2)
+}
+
+function testPromptText() {
+  return 'Call runtime_status. Then call model_list. If vision is available, call vision_status.'
+}
+
+function copyText(text) {
+  const value = String(text || '')
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(value)
+  }
+  const input = document.createElement('textarea')
+  input.value = value
+  input.setAttribute('readonly', '')
+  input.style.position = 'fixed'
+  input.style.left = '-9999px'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  input.select()
+  input.setSelectionRange(0, input.value.length)
+  const ok = document.execCommand('copy')
+  document.body.removeChild(input)
+  return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'))
+}
+
+function copyConnectionText(factory) {
+  try {
+    copyText(factory()).then(() => {
+      showToast(t('toast.copied'))
+    }).catch(() => {
+      showToast(t('toast.copyFailed'))
+    })
+  } catch (error) {
+    showToast(t('toast.copyFailed'))
+  }
 }
 
 function apiUrl(path) {
@@ -1970,6 +2067,21 @@ runtimeAuthClearButton.addEventListener('click', () => {
   runtimeAuthTokenInput.value = ''
   runtimeApiCommand('settings', { authToken: '' })
 })
+if (copyOpenAiUrlButton) {
+  copyOpenAiUrlButton.addEventListener('click', () => copyConnectionText(openAiBaseUrl))
+}
+if (copyMcpUrlButton) {
+  copyMcpUrlButton.addEventListener('click', () => copyConnectionText(mcpEndpointUrl))
+}
+if (copyAuthHeaderButton) {
+  copyAuthHeaderButton.addEventListener('click', () => copyConnectionText(authHeaderText))
+}
+if (copyMcpConfigButton) {
+  copyMcpConfigButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+}
+if (copyTestPromptButton) {
+  copyTestPromptButton.addEventListener('click', () => copyConnectionText(testPromptText))
+}
 
 // ---- Capabilities settings ----
 runtimeToolExposureInput.addEventListener('change', () => {

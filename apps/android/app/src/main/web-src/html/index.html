@@ -246,6 +246,44 @@
             <div class="diagnostic-row"><span>URL</span><strong id="diagUrl">--</strong></div>
             <div class="diagnostic-row"><span>API</span><strong id="diagApi">--</strong></div>
           </div>
+          <h3 class="group-title" data-i18n="connection.title">连接</h3>
+          <div class="surface-list">
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="connection.openaiUrl">OpenAI Base URL</span>
+                <span class="settings-section-sub" data-i18n="connection.openaiUrlSub">客户端 base_url</span>
+              </span>
+              <button class="tonal-button pressable" id="copyOpenAiUrlButton" type="button" data-i18n="connection.copy">复制</button>
+            </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="connection.mcpUrl">MCP URL</span>
+                <span class="settings-section-sub" data-i18n="connection.mcpUrlSub">Streamable HTTP 入口</span>
+              </span>
+              <button class="tonal-button pressable" id="copyMcpUrlButton" type="button" data-i18n="connection.copy">复制</button>
+            </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="connection.authHeader">Auth Header</span>
+                <span class="settings-section-sub" data-i18n="connection.authHeaderSub">受保护客户端使用</span>
+              </span>
+              <button class="tonal-button pressable" id="copyAuthHeaderButton" type="button" data-i18n="connection.copy">复制</button>
+            </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="connection.mcpConfig">MCP Config</span>
+                <span class="settings-section-sub" data-i18n="connection.mcpConfigSub">粘贴到 MCP 客户端</span>
+              </span>
+              <button class="tonal-button pressable" id="copyMcpConfigButton" type="button" data-i18n="connection.copy">复制</button>
+            </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="connection.testPrompt">Test Prompt</span>
+                <span class="settings-section-sub" data-i18n="connection.testPromptSub">快速验证工具调用</span>
+              </span>
+              <button class="tonal-button pressable" id="copyTestPromptButton" type="button" data-i18n="connection.copy">复制</button>
+            </div>
+          </div>
         </section>
 
         <section class="settings-page" id="runtimeCapabilitiesPanel" aria-hidden="true">

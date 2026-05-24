@@ -26,6 +26,70 @@ function publicRuntimeUrl(state) {
   return String(raw).replace(/\/$/, '')
 }
 
+function openAiBaseUrl() {
+  return publicRuntimeUrl(runtimeServiceState) + '/v1'
+}
+
+function mcpEndpointUrl() {
+  return publicRuntimeUrl(runtimeServiceState) + '/mcp'
+}
+
+function runtimeAuthToken() {
+  return (runtimeAuthTokenInput && runtimeAuthTokenInput.value.trim()) ||
+    (runtimeServiceState && runtimeServiceState.authToken) ||
+    ''
+}
+
+function authHeaderText() {
+  const token = runtimeAuthToken()
+  return token ? ('Authorization: Bearer ' + token) : 'Authorization disabled'
+}
+
+function mcpConfigText() {
+  const server = {
+    type: 'streamable-http',
+    url: mcpEndpointUrl()
+  }
+  const token = runtimeAuthToken()
+  if (token) server.headers = { Authorization: 'Bearer ' + token }
+  return JSON.stringify({ mcpServers: { lociant: server } }, null, 2)
+}
+
+function testPromptText() {
+  return 'Call runtime_status. Then call model_list. If vision is available, call vision_status.'
+}
+
+function copyText(text) {
+  const value = String(text || '')
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(value)
+  }
+  const input = document.createElement('textarea')
+  input.value = value
+  input.setAttribute('readonly', '')
+  input.style.position = 'fixed'
+  input.style.left = '-9999px'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  input.select()
+  input.setSelectionRange(0, input.value.length)
+  const ok = document.execCommand('copy')
+  document.body.removeChild(input)
+  return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'))
+}
+
+function copyConnectionText(factory) {
+  try {
+    copyText(factory()).then(() => {
+      showToast(t('toast.copied'))
+    }).catch(() => {
+      showToast(t('toast.copyFailed'))
+    })
+  } catch (error) {
+    showToast(t('toast.copyFailed'))
+  }
+}
+
 function apiUrl(path) {
   return localApiBaseUrl() + path
 }

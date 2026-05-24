@@ -133,6 +133,21 @@ runtimeAuthClearButton.addEventListener('click', () => {
   runtimeAuthTokenInput.value = ''
   runtimeApiCommand('settings', { authToken: '' })
 })
+if (copyOpenAiUrlButton) {
+  copyOpenAiUrlButton.addEventListener('click', () => copyConnectionText(openAiBaseUrl))
+}
+if (copyMcpUrlButton) {
+  copyMcpUrlButton.addEventListener('click', () => copyConnectionText(mcpEndpointUrl))
+}
+if (copyAuthHeaderButton) {
+  copyAuthHeaderButton.addEventListener('click', () => copyConnectionText(authHeaderText))
+}
+if (copyMcpConfigButton) {
+  copyMcpConfigButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+}
+if (copyTestPromptButton) {
+  copyTestPromptButton.addEventListener('click', () => copyConnectionText(testPromptText))
+}
 
 // ---- Capabilities settings ----
 runtimeToolExposureInput.addEventListener('change', () => {
