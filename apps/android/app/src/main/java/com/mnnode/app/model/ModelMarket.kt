@@ -48,6 +48,12 @@ class ModelMarket(
             .put("progress", task.progress)
             .put("message", task.message)
             .put("active", task.active)
+            .put("state", when {
+                task.active -> if ((task.progress ?: 0.0) >= 0.999) "done" else "installing"
+                (task.progress ?: 0.0) >= 0.999 -> "done"
+                task.message.contains("fail", ignoreCase = true) || task.message.contains("error", ignoreCase = true) -> "error"
+                else -> "done"
+            })
     }
 
     fun installAsync(repoId: String): JSONObject {
@@ -197,6 +203,17 @@ class ModelMarket(
 
     private fun updateTask(modelId: String, progress: Double?, message: String, active: Boolean = true) {
         installTasks[normalizeId(modelId)] = InstallTask(progress, message, active)
+        if (!active) {
+            windowCleanup(modelId)
+        }
+    }
+
+    private fun windowCleanup(modelId: String) {
+        val key = normalizeId(modelId)
+        installExecutor.execute {
+            Thread.sleep(8_000)
+            installTasks.remove(key)
+        }
     }
 
     private fun repoFiles(repo: String): List<MarketFile> {

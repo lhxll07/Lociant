@@ -321,7 +321,7 @@
             </div>
           </div>
           <div class="surface-list">
-            <div class="settings-section">
+            <div class="settings-section settings-action-section">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.currentSession">当前</span>
                 <span class="settings-section-sub" id="runtimeSessionCurrent">--</span>
@@ -330,7 +330,18 @@
             </div>
             <div class="list-inset" id="runtimeSessionList"></div>
           </div>
-          <h3 class="group-title">Diagnostics</h3>
+          <h3 class="group-title" data-i18n="diagnostics.title">Agent Diagnostics</h3>
+          <div class="surface-list diagnostics-panel">
+            <div class="settings-section settings-action-section diagnostics-action-row">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="diagnostics.agentTitle">Agent connection</span>
+                <span class="settings-section-sub" id="runtimeDiagSummaryText" data-i18n="diagnostics.agentSub">Check runtime, tools, model, and vision readiness</span>
+              </span>
+              <button class="tonal-button pressable" id="runtimeDiagRunButton" type="button" data-i18n="diagnostics.run">Run check</button>
+            </div>
+            <div class="diagnostics-grid" id="runtimeDiagSummary"></div>
+          </div>
+          <h3 class="group-title" data-i18n="diagnostics.history">Recent API</h3>
           <div class="surface-list" id="runtimeDiagLog"></div>
         </section>
       </section>

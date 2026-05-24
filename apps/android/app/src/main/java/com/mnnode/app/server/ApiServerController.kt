@@ -10,6 +10,7 @@ import com.mnnode.app.model.ModelToolChoice
 import com.mnnode.app.model.ModelMarket
 import com.mnnode.app.model.MnnRuntime
 import com.mnnode.app.runtime.TriggerEngine
+import com.mnnode.app.runtime.DeviceInteraction
 import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.session.SessionStore
@@ -95,6 +96,10 @@ class ApiServerController(
 
     fun chatController() = chatController
     fun callTool(name: String, args: JSONObject): JSONObject = toolRegistry.call(name, args)
+    fun callToolResult(name: String, args: JSONObject = JSONObject()): JSONObject {
+        val response = toolRegistry.call(name, args)
+        return response.optJSONObject("result") ?: response
+    }
 
     init { loadSettings() }
 
@@ -534,6 +539,7 @@ class ApiServerController(
             .put("lastError", chatController.lastError ?: lastError ?: JSONObject.NULL)
             .put("message", message())
             .put("packageName", context.packageName)
+            .put("device", DeviceInteraction.snapshot(context))
         if (includeHistory) {
             json.put("sessions", sessionStore.recentModelSessions())
                 .put("requestCount", sessionStore.apiRequestCount())

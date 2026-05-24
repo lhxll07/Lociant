@@ -72,8 +72,128 @@ function renderSessions(sessions) {
 }
 
 // ---- Diagnostics ----
+let runtimeDiagLastResults = null
+
+function diagnosticCardsFromState(state, check) {
+  const current = state || {}
+  const vision = current.vision || {}
+  const tools = check && check.tools
+  const model = check && check.model
+  return [
+    {
+      key: 'runtime',
+      title: t('diagnostics.runtime'),
+      ok: !!current.running,
+      text: current.running ? publicRuntimeUrl(current) : (current.message || t('status.stopped'))
+    },
+    {
+      key: 'tools',
+      title: t('diagnostics.tools'),
+      ok: tools ? tools.ok : current.toolExposure !== undefined,
+      text: tools ? tools.text : ((current.toolExposure || 'action') + ' exposure')
+    },
+    {
+      key: 'model',
+      title: t('diagnostics.model'),
+      ok: model ? model.ok : !!current.modelLoaded,
+      text: model ? model.text : ((current.modelId || '--') + (current.modelLoaded ? ' ready' : ' not loaded'))
+    },
+    {
+      key: 'vision',
+      title: t('diagnostics.vision'),
+      ok: vision.running || String(vision.state || '').toLowerCase() === 'idle',
+      text: vision.message || visionStateLabel(vision)
+    },
+    {
+      key: 'mcp',
+      title: t('diagnostics.mcp'),
+      ok: !!current.running,
+      text: current.running ? (publicRuntimeUrl(current) + '/mcp') : t('status.stopped')
+    }
+  ]
+}
+
+function renderDiagnosticsSummary(check) {
+  if (!runtimeDiagSummary) return
+  runtimeDiagSummary.innerHTML = ''
+  const cards = diagnosticCardsFromState(runtimeServiceState || {}, check || runtimeDiagLastResults)
+  const issues = cards.filter(item => !item.ok).length
+  if (runtimeDiagSummaryText) {
+    runtimeDiagSummaryText.textContent = check && check.running
+      ? t('diagnostics.running')
+      : (issues ? (issues + ' ' + t('diagnostics.issue')) : t('diagnostics.ready'))
+  }
+  cards.forEach(item => {
+    const card = document.createElement('div')
+    card.className = 'settings-section diagnostic-card' + (item.ok ? ' ok' : ' issue')
+    card.innerHTML = '<span class="settings-section-main">' +
+      '<span class="settings-section-title">' + item.title + '</span>' +
+      '<span class="settings-section-sub diagnostic-card-text">' + (item.text || '--') + '</span>' +
+      '</span>' +
+      '<span class="status-pill diagnostic-card-state">' + (item.ok ? t('diagnostics.ready') : t('diagnostics.issue')) + '</span>'
+    runtimeDiagSummary.appendChild(card)
+  })
+}
+
+function toolResultText(result, fallback) {
+  if (!result) return fallback
+  if (result.ok === false) return result.message || fallback
+  return fallback
+}
+
+function runAgentDiagnostics() {
+  if (!runtimeDiagRunButton) return
+  runtimeDiagRunButton.disabled = true
+  runtimeDiagRunButton.textContent = t('diagnostics.running')
+  renderDiagnosticsSummary({ running: true })
+  const state = shellCommand('status', {})
+  updateRuntimeServiceState(state)
+  Promise.allSettled([
+    apiGet('/v1/tools'),
+    apiPost('/v1/tools/runtime_status/call', { arguments: {} }),
+    apiPost('/v1/tools/model_list/call', { arguments: {} }),
+    apiPost('/v1/tools/vision_status/call', { arguments: {} })
+  ]).then(results => {
+    const toolsResponse = results[0].status === 'fulfilled' ? results[0].value : null
+    const runtimeResponse = results[1].status === 'fulfilled' ? results[1].value : null
+    const modelResponse = results[2].status === 'fulfilled' ? results[2].value : null
+    const visionResponse = results[3].status === 'fulfilled' ? results[3].value : null
+    const toolCount = toolsResponse && toolsResponse.data ? toolsResponse.data.length : 0
+    const models = modelResponse && modelResponse.result && Array.isArray(modelResponse.result.models)
+      ? modelResponse.result.models
+      : []
+    const readyModels = models.filter(model => model.ready !== false).length
+    const vision = visionResponse && visionResponse.result ? visionResponse.result : null
+    runtimeDiagLastResults = {
+      tools: {
+        ok: toolCount > 0 && !!runtimeResponse,
+        text: toolCount ? (toolCount + ' tools exposed') : 'No tools visible'
+      },
+      model: {
+        ok: readyModels > 0 || !!(runtimeServiceState && runtimeServiceState.modelLoaded),
+        text: readyModels ? (readyModels + ' ready models') : ((runtimeServiceState && runtimeServiceState.modelId) || '--')
+      },
+      vision: {
+        ok: !!vision,
+        text: toolResultText(vision, vision ? visionStateLabel(vision) : '--')
+      }
+    }
+    renderDiagnosticsSummary(runtimeDiagLastResults)
+  }).catch(() => {
+    runtimeDiagLastResults = {
+      tools: { ok: false, text: 'Tool check failed' },
+      model: { ok: false, text: 'Model check failed' }
+    }
+    renderDiagnosticsSummary(runtimeDiagLastResults)
+  }).finally(() => {
+    runtimeDiagRunButton.disabled = false
+    runtimeDiagRunButton.textContent = t('diagnostics.run')
+  })
+}
+
 function updateDiagnostics(state) {
   const log = document.getElementById('runtimeDiagLog')
+  renderDiagnosticsSummary()
   if (!log) return
   log.innerHTML = ''
   const requests = Array.isArray(state.recentRequests) ? state.recentRequests : []

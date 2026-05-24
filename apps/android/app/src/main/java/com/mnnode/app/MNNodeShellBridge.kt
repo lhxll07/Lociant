@@ -7,6 +7,12 @@ class MNNodeShellBridge(private val host: Host) {
     interface Host {
         fun openScenePackPicker()
         fun openModelPackagePicker()
+        fun requestCameraPermission()
+        fun requestNotificationPermission()
+        fun requestOverlayPermission()
+        fun requestBatteryOptimizationExemption()
+        fun openAppSettings()
+        fun openPermissionSettings(kind: String)
         fun runtimeShellCommand(command: String, payloadJson: String?): String
     }
 
@@ -20,6 +26,42 @@ class MNNodeShellBridge(private val host: Host) {
     fun installModelPackage(): String {
         host.openModelPackagePicker()
         return ok("picker_opened")
+    }
+
+    @JavascriptInterface
+    fun requestCameraPermission(): String {
+        host.requestCameraPermission()
+        return ok("permission_requested")
+    }
+
+    @JavascriptInterface
+    fun requestNotificationPermission(): String {
+        host.requestNotificationPermission()
+        return ok("permission_requested")
+    }
+
+    @JavascriptInterface
+    fun requestOverlayPermission(): String {
+        host.requestOverlayPermission()
+        return ok("permission_requested")
+    }
+
+    @JavascriptInterface
+    fun requestBatteryOptimizationExemption(): String {
+        host.requestBatteryOptimizationExemption()
+        return ok("permission_requested")
+    }
+
+    @JavascriptInterface
+    fun openAppSettings(): String {
+        host.openAppSettings()
+        return ok("settings_opened")
+    }
+
+    @JavascriptInterface
+    fun openPermissionSettings(kind: String): String {
+        host.openPermissionSettings(kind)
+        return ok("settings_opened")
     }
 
     @JavascriptInterface

@@ -33,6 +33,7 @@ import com.mnnode.app.model.ModelManager
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.scene.ScenePackInstaller
 import com.mnnode.app.runtime.TriggerEngine
+import com.mnnode.app.runtime.DeviceInteraction
 import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.server.ApiServerController
 import com.mnnode.app.runtime.MNNodeRuntime
@@ -62,6 +63,8 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private var pendingVisionPayload = JSONObject()
     private var startRuntimeAfterNotificationPermission = false
     private var pendingRuntimePayload = JSONObject()
+    private var pendingVisionPermissionRefresh = false
+    private var pendingPermissionRefresh = false
     private var windowSettings = JSONObject()
 
     private val requestCameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -74,11 +77,12 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         if (startVisionAfterCameraPermission) {
             startVisionAfterCameraPermission = false
             if (granted) {
-                VisionRuntime.start(com.mnnode.app.vision.VisionConfig.fromJson(pendingVisionPayload.toString()))
-                startRuntimeService(JSONObject().put("floatingWindow", true))
+                apiServerController.callToolResult("vision_start", pendingVisionPayload)
             }
             pendingVisionPayload = JSONObject()
+            pendingVisionPermissionRefresh = true
         }
+        refreshRuntimeStateIfNeeded()
     }
 
     private val installScenePackage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -92,6 +96,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DeviceInteraction.setActivityForeground(true)
         enterImmersiveMode()
 
         sceneManager = MNNodeRuntime.sceneManager(this)
@@ -166,7 +171,9 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
 
     override fun onResume() {
         super.onResume()
+        DeviceInteraction.setActivityForeground(true)
         enterImmersiveMode()
+        if (::webView.isInitialized) refreshRuntimeStateIfNeeded()
     }
 
     override fun onUserLeaveHint() {
@@ -189,9 +196,12 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             startRuntimeAfterNotificationPermission = false
         }
         pendingRuntimePayload = JSONObject()
+        pendingPermissionRefresh = true
+        refreshRuntimeStateIfNeeded()
     }
 
     override fun onDestroy() {
+        DeviceInteraction.setActivityForeground(false)
         modelInstallExecutor.shutdown()
         webView.destroy()
         super.onDestroy()
@@ -203,6 +213,44 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
 
     override fun openModelPackagePicker() {
         runOnUiThread { installModelPackage.launch(PACKAGE_MIME_TYPES) }
+    }
+
+    override fun requestCameraPermission() {
+        runOnUiThread { requestCameraPermission.launch(Manifest.permission.CAMERA) }
+    }
+
+    override fun requestNotificationPermission() {
+        runOnUiThread {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                refreshRuntimeStateIfNeeded()
+            }
+        }
+    }
+
+    override fun requestOverlayPermission() {
+        runOnUiThread { launchOverlayPermissionSettings() }
+    }
+
+    override fun requestBatteryOptimizationExemption() {
+        runOnUiThread { launchBatteryOptimizationExemption() }
+    }
+
+    override fun openAppSettings() {
+        runOnUiThread {
+            openAppSettingsScreen()
+        }
+    }
+
+    override fun openPermissionSettings(kind: String) {
+        runOnUiThread {
+            when (kind) {
+                "overlay" -> launchOverlayPermissionSettings()
+                "battery" -> launchBatteryOptimizationSettings()
+                else -> openAppSettingsScreen()
+            }
+        }
     }
 
     private fun handleScenePackage(uri: Uri) {
@@ -256,7 +304,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                     .put("message", "Runtime stopped.")
             }
             "battery.requestExemption" -> {
-                requestBatteryOptimizationExemption()
+                launchBatteryOptimizationExemption()
                 runtimeSummaryWithWindow()
             }
             "window.show" -> {
@@ -277,12 +325,12 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                 runtimeSummaryWithWindow(windowState)
             }
             "window.permission" -> {
-                requestOverlayPermission()
+                launchOverlayPermissionSettings()
                 runtimeSummaryWithWindow()
             }
             "vision.start" -> startVisionFromShell(payload)
-            "vision.stop" -> runtimeSummaryWithWindow().put("vision", VisionRuntime.stop())
-            "vision.status" -> runtimeSummaryWithWindow()
+            "vision.stop" -> runtimeSummaryWithWindow().put("vision", apiServerController.callToolResult("vision_stop"))
+            "vision.status" -> runtimeSummaryWithWindow().put("vision", apiServerController.callToolResult("vision_status"))
             "settings" -> apiServerController.command(command, payload).toRuntimeUiState()
             "session.create", "session.select", "session.delete" -> apiServerController.command(command, payload).withRuntimeState()
             "status" -> runtimeSummaryWithWindow()
@@ -303,15 +351,23 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     }
 
     private fun startVisionFromShell(payload: JSONObject): JSONObject {
+        val deviceState = DeviceInteraction.snapshot(this)
+        if (!deviceState.optBoolean("visionInteractive", false)) {
+            return runtimeSummaryWithWindow()
+                .put("vision", VisionRuntime.status()
+                    .put("state", "locked")
+                    .put("running", false)
+                    .put("message", "Vision requires the screen to be on and the device unlocked."))
+        }
         if (!hasPermission(Manifest.permission.CAMERA)) {
             startVisionAfterCameraPermission = true
             pendingVisionPayload = JSONObject(payload.toString())
+            pendingVisionPermissionRefresh = true
             requestCameraPermission.launch(Manifest.permission.CAMERA)
             return runtimeSummaryWithWindow()
                 .put("vision", VisionRuntime.status().put("message", "Camera permission requested."))
         }
-        val vision = VisionRuntime.start(com.mnnode.app.vision.VisionConfig.fromJson(payload.toString()))
-        startRuntimeService(JSONObject().put("floatingWindow", true))
+        val vision = apiServerController.callToolResult("vision_start", payload)
         return runtimeSummaryWithWindow().put("vision", vision)
     }
 
@@ -329,13 +385,16 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             .put("runtimeModes", org.json.JSONArray(listOf("interactive", "service", "headless")))
             .put("headlessCapable", true)
             .put("vision", VisionRuntime.status())
+            .put("device", DeviceInteraction.snapshot(this@MainActivity))
             .put("triggers", triggerEngine.snapshot())
+            .put("cameraPermissionGranted", hasPermission(Manifest.permission.CAMERA))
             .put("windowSupported", isFloatingWindowSupported())
             .put("windowAutoShow", windowSettings.optBoolean("autoShow", false))
             .put("windowAllowed", canDrawOverlays())
             .put("windowVisible", window.optBoolean("visible"))
             .put("windowState", window.optString("state", "hidden"))
             .put("window", window)
+            .put("notificationPermissionGranted", notificationPermissionGranted())
             .put("batteryOptimizationIgnored", isIgnoringBatteryOptimizations())
     }
 
@@ -373,6 +432,10 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
 
+    private fun notificationPermissionGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+
     private fun showRuntimeWindowState(): JSONObject {
         if (!canDrawOverlays()) {
             return MNNodeRuntimeService.floatingWindowState(this)
@@ -402,11 +465,18 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         return result
     }
 
-    private fun requestOverlayPermission() {
+    private fun launchOverlayPermissionSettings() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         runCatching { startActivity(intent) }
             .onFailure { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) }
+            .also { refreshRuntimeStateIfNeeded() }
+    }
+
+    private fun openAppSettingsScreen() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+        runCatching { startActivity(intent) }
+            .also { refreshRuntimeStateIfNeeded() }
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {
@@ -414,7 +484,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         return powerManager?.isIgnoringBatteryOptimizations(packageName) == true
     }
 
-    private fun requestBatteryOptimizationExemption() {
+    private fun launchBatteryOptimizationExemption() {
         if (isIgnoringBatteryOptimizations()) return
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = Uri.parse("package:$packageName")
@@ -425,6 +495,31 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                     startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                 }
             }
+            .also { refreshRuntimeStateIfNeeded() }
+    }
+
+    private fun launchBatteryOptimizationSettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            .onFailure { openAppSettingsScreen() }
+            .also { refreshRuntimeStateIfNeeded() }
+    }
+
+    private fun refreshRuntimeStateIfNeeded() {
+        if (!pendingVisionPermissionRefresh && !startRuntimeAfterNotificationPermission && !pendingPermissionRefresh) {
+            webView.post {
+                runCatching {
+                    emitJs("onRuntimeMessage", apiServerController.uiState().withRuntimeState())
+                }
+            }
+        } else {
+            pendingVisionPermissionRefresh = false
+            pendingPermissionRefresh = false
+            webView.post {
+                runCatching {
+                    emitJs("onRuntimeMessage", apiServerController.uiState().withRuntimeState())
+                }
+            }
+        }
     }
 
     private fun notifySceneInstallResult(ok: Boolean, message: String, scene: JSONObject?) {

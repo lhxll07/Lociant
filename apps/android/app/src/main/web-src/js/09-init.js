@@ -149,6 +149,9 @@ runtimeCpuThreadsInput.addEventListener('change', () => {
 runtimeSessionNewButton.addEventListener('click', () => {
   runtimeApiCommand('session.create', {})
 })
+if (runtimeDiagRunButton) {
+  runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
+}
 
 // ---- Language ----
 languageControl.addEventListener('click', event => {

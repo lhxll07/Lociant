@@ -569,6 +569,12 @@ select {
   flex-wrap: wrap;
 }
 
+.settings-action-section > .tonal-button,
+.settings-action-section > .filled-button,
+.settings-action-section > .text-button {
+  flex-shrink: 0;
+}
+
 .runtime-service-section {
   align-items: flex-start;
 }
@@ -790,6 +796,38 @@ select {
   color: var(--primary);
   font-weight: 760;
   word-break: break-all;
+}
+
+.diagnostics-action-row {
+  min-height: 72px;
+}
+
+.diagnostics-grid {
+  display: grid;
+  gap: 0;
+}
+
+.diagnostic-card {
+  min-height: 62px;
+}
+
+.diagnostics-grid > * {
+  border-top: 1px solid var(--outline);
+}
+
+.diagnostic-card.issue .diagnostic-card-state {
+  color: var(--warning);
+  background: var(--warning-container);
+}
+
+.diagnostic-card.ok .diagnostic-card-state {
+  color: var(--success);
+  background: var(--success-container);
+}
+
+.diagnostic-card-text {
+  word-break: break-word;
+  white-space: normal;
 }
 
 .model-view {
@@ -1240,6 +1278,18 @@ select {
   .runtime-service-section #runtimeServiceToggle {
     width: 100%;
     min-height: 44px;
+  }
+
+  .settings-action-section {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-action-section > .tonal-button,
+  .settings-action-section > .filled-button,
+  .settings-action-section > .text-button {
+    width: 100%;
+    min-height: 42px;
   }
 
   .model-market-row {

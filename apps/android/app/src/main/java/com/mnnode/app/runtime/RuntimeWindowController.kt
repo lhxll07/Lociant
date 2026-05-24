@@ -16,7 +16,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.mnnode.app.MainActivity
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
@@ -28,7 +27,7 @@ class RuntimeWindowController private constructor(
     private var collapsed = false
     private var error = ""
     private val eventExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "lociant-window-events").apply { isDaemon = true }
+        Thread(runnable, "lociant-companion-events").apply { isDaemon = true }
     }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val refreshTicker = object : Runnable {
@@ -40,8 +39,8 @@ class RuntimeWindowController private constructor(
     }
 
     fun show(): JSONObject {
-        if (!isSupported()) return setError("Floating window is not supported")
-        if (!isAllowed()) return setError("Floating window permission is not granted")
+        if (!isSupported()) return setError("Companion window is not supported")
+        if (!isAllowed()) return setError("Companion window permission is not granted")
         view?.let {
             render(it)
             startRefreshLoop()
@@ -79,7 +78,7 @@ class RuntimeWindowController private constructor(
             persist(windowParams)
             startRefreshLoop()
             state()
-        }.getOrElse { setError(it.message ?: "Unable to show floating window") }
+        }.getOrElse { setError(it.message ?: "Unable to show companion window") }
     }
 
     fun hide(): JSONObject {
@@ -92,7 +91,7 @@ class RuntimeWindowController private constructor(
             params = null
             error = ""
             state()
-        }.getOrElse { setError(it.message ?: "Unable to hide floating window") }
+        }.getOrElse { setError(it.message ?: "Unable to hide companion window") }
     }
 
     fun collapse(): JSONObject = setCollapsed(true)
@@ -169,19 +168,14 @@ class RuntimeWindowController private constructor(
         root.addView(row().apply {
             addView(dotView(runtime))
             addView(label(statusLabel(runtime), 14f, Color.WHITE, Typeface.BOLD).withStartMargin(8.dp, weight = 1f))
-            addView(action("Open") { openMainActivity() })
-            addView(action(if (runtime.optBoolean("running") || runtime.optBoolean("starting")) "Stop" else "Start") { toggleRuntime() }.withStartMargin(6.dp))
+            addView(action(if (runtime.optBoolean("running") || runtime.optBoolean("starting")) "Stop" else "Start") { toggleRuntime() })
+            addView(action("Min") { collapse() }.withStartMargin(6.dp))
         })
-        root.addView(label(runtime.optString("modelId", "").ifBlank { "No model selected" }, 12f, 0xffd6d6d6.toInt(), Typeface.NORMAL).withTopMargin(7.dp))
-        root.addView(label(runtime.optString("lanUrl", "").ifBlank { "LAN API unavailable" }, 12f, 0xff8fb8ff.toInt(), Typeface.NORMAL).withTopMargin(3.dp))
+        root.addView(label(runtime.optString("lanUrl", "").ifBlank { "LAN API unavailable" }, 11f, 0xff8fb8ff.toInt(), Typeface.NORMAL).withTopMargin(6.dp))
         val vision = VisionRuntime.status()
         root.addView(row().withTopMargin(7.dp).apply {
             addView(label(visionLabel(vision), 11f, visionColor(vision), Typeface.NORMAL).withEndMargin(8.dp, weight = 1f))
-            addView(action(if (vision.optBoolean("running")) "Stop Vision" else "Start Vision") { toggleVision() })
-        })
-        root.addView(row().withTopMargin(7.dp).apply {
-            addView(label("${runtime.optInt("requestCount", 0)} requests", 11f, 0xffa8a8a8.toInt(), Typeface.NORMAL).withEndMargin(8.dp, weight = 1f))
-            addView(action("Min") { collapse() })
+            addView(action(if (vision.optBoolean("running")) "Stop" else "Start") { toggleVision() })
         })
         val message = error.ifBlank { runtime.optString("lastError", "") }
         if (message.isNotBlank()) root.addView(label(message, 11f, 0xffff8a8a.toInt(), Typeface.NORMAL).withTopMargin(6.dp))
@@ -201,10 +195,10 @@ class RuntimeWindowController private constructor(
             ?.optJSONArray("detections")
             ?.length() ?: 0
         return when (state) {
-            "running" -> "Vision On - ${"%.1f".format(java.util.Locale.US, fps)} fps - $detections detections"
-            "starting" -> "Vision Starting"
-            "error" -> "Vision Error"
-            "unavailable" -> "Vision Unavailable"
+            "running" -> "Vision · ${"%.1f".format(java.util.Locale.US, fps)} fps · $detections"
+            "starting" -> "Vision starting"
+            "error" -> "Vision error"
+            "unavailable" -> "Vision unavailable"
             else -> "Vision Off"
         }
     }
@@ -223,23 +217,15 @@ class RuntimeWindowController private constructor(
             runCatching { MNNodeRuntime.apiServer(context).stopForService() }
             MNNodeRuntimeService.stopRuntime(context)
         } else {
-            MNNodeRuntimeService.startRuntime(context, JSONObject().put("floatingWindow", true))
+            MNNodeRuntimeService.startRuntime(context)
         }
         refresh()
     }
 
     private fun toggleVision() {
-        if (VisionRuntime.status().optBoolean("running")) VisionRuntime.stop()
-        else {
-            VisionRuntime.start()
-            MNNodeRuntimeService.startRuntime(context, JSONObject().put("floatingWindow", true))
-        }
+        val tool = if (VisionRuntime.status().optBoolean("running")) "vision_stop" else "vision_start"
+        MNNodeRuntime.apiServer(context).callToolResult(tool)
         refresh()
-    }
-
-    private fun openMainActivity() {
-        context.startActivity(Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
     }
 
     private fun savedState(): JSONObject =
@@ -321,13 +307,19 @@ class RuntimeWindowController private constructor(
     private val Int.dp: Int get() = (this * context.resources.displayMetrics.density + 0.5f).toInt()
 
     private fun <T : View> T.withStartMargin(value: Int, weight: Float = 0f): T = apply {
-        layoutParams = LinearLayout.LayoutParams(0.takeIf { weight > 0f } ?: LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, weight)
-            .apply { marginStart = value }
+        layoutParams = LinearLayout.LayoutParams(
+            if (weight > 0f) 0 else LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            weight,
+        ).apply { marginStart = value }
     }
 
     private fun <T : View> T.withEndMargin(value: Int, weight: Float = 0f): T = apply {
-        layoutParams = LinearLayout.LayoutParams(0.takeIf { weight > 0f } ?: LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, weight)
-            .apply { marginEnd = value }
+        layoutParams = LinearLayout.LayoutParams(
+            if (weight > 0f) 0 else LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            weight,
+        ).apply { marginEnd = value }
     }
 
     private fun <T : View> T.withTopMargin(value: Int): T = apply {

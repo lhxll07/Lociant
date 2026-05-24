@@ -29,6 +29,7 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
     }
     private var visionController: VisionAnalysisController? = null
     @Volatile private var serviceMode = MODE_SERVICE
+    @Volatile private var visionEnabled = false
 
     override val lifecycle: Lifecycle
         get() = lifecycleRegistry
@@ -44,7 +45,7 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
         when (intent?.action ?: ACTION_START_RUNTIME) {
             ACTION_START_RUNTIME -> {
                 startRuntime(payload(intent))
-                attachVisionRuntime()
+                if (visionEnabled) attachVisionRuntime()
             }
             ACTION_STOP_RUNTIME -> stopRuntime()
         }
@@ -66,8 +67,12 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
 
     private fun startRuntime(payload: JSONObject) {
         serviceMode = payload.optString("mode", MODE_HEADLESS).ifBlank { MODE_HEADLESS }
+        visionEnabled = payload.optBoolean("visionEnabled", false)
         runCatching {
-            startForegroundCompat(notification("Starting Lociant runtime"))
+            startForegroundCompat(
+                notification("Starting Lociant runtime"),
+                includeCamera = visionEnabled && DeviceInteraction.snapshot(this).optBoolean("visionInteractive", false)
+            )
             recordLifecycle("runtime.start", payload)
             MNNodeRuntime.apiServer(this).startForService(payload)
             if (payload.optBoolean("floatingWindow", false)) runtimeWindow().show()
@@ -81,6 +86,8 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
 
     private fun attachVisionRuntime() {
         if (visionController != null) return
+        if (!visionEnabled) return
+        if (!DeviceInteraction.snapshot(this).optBoolean("visionInteractive", false)) return
         Log.i(tag, "attachVisionRuntime lifecycle=${lifecycle.currentState}")
         visionController = VisionAnalysisController(this, this).also {
             it.setCallbacks(
@@ -116,6 +123,7 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
     private fun stopRuntime() {
         recordLifecycle("runtime.stop", JSONObject().put("mode", serviceMode))
         runtimeWindow().hide()
+        visionEnabled = false
         runCatching { MNNodeRuntime.apiServer(this).stopForService() }
         stopForegroundCompat()
         stopSelf()
@@ -205,12 +213,16 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
         }
     }
 
-    private fun startForegroundCompat(notification: Notification) {
+    private fun startForegroundCompat(notification: Notification, includeCamera: Boolean = false) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA,
+                if (includeCamera) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                } else {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                },
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
