@@ -386,7 +386,41 @@
               <p data-i18n="settings.defaultModelIntro">请求未指定模型时使用</p>
             </div>
           </div>
+          <h3 class="group-title" data-i18n="settings.modelExperience">Model experience</h3>
           <div class="surface-list">
+            <div class="settings-section wrap">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.performanceMode">Performance mode</span>
+                <span class="settings-section-sub" id="runtimePerformanceText" data-i18n="settings.performanceBalancedSub">Balanced speed and battery</span>
+              </span>
+              <div class="segmented-control compact-segmented" id="runtimePerformanceControl">
+                <button class="segmented-option" data-performance-mode="eco" data-i18n="settings.performanceEco">Eco</button>
+                <button class="segmented-option" data-performance-mode="balanced" data-i18n="settings.performanceBalanced">Balanced</button>
+                <button class="segmented-option" data-performance-mode="fast" data-i18n="settings.performanceFast">Fast</button>
+              </div>
+            </div>
+            <div class="settings-section wrap">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.responseLength">Response length</span>
+                <span class="settings-section-sub" id="runtimeResponseLengthText">--</span>
+              </span>
+              <div class="segmented-control compact-segmented" id="runtimeResponseLengthControl">
+                <button class="segmented-option" data-output-tokens="256" data-i18n="settings.lengthShort">Short</button>
+                <button class="segmented-option" data-output-tokens="512" data-i18n="settings.lengthNormal">Normal</button>
+                <button class="segmented-option" data-output-tokens="1024" data-i18n="settings.lengthLong">Long</button>
+              </div>
+            </div>
+            <div class="settings-section wrap">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.contextMemory">Context memory</span>
+                <span class="settings-section-sub" id="runtimeContextText">--</span>
+              </span>
+              <div class="segmented-control compact-segmented" id="runtimeContextControl">
+                <button class="segmented-option" data-context-profile="light" data-i18n="settings.contextLight">Light</button>
+                <button class="segmented-option" data-context-profile="balanced" data-i18n="settings.contextBalanced">Balanced</button>
+                <button class="segmented-option" data-context-profile="deep" data-i18n="settings.contextDeep">Deep</button>
+              </div>
+            </div>
             <div class="settings-section">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.cpuThreads">CPU 线程</span>
@@ -394,6 +428,27 @@
               </span>
               <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
             </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.promptCache">Session acceleration</span>
+                <span class="settings-section-sub" id="runtimeCacheState">--</span>
+              </span>
+              <span class="status-pill" id="runtimeCacheBadge">--</span>
+            </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.releaseModel">Release model memory</span>
+                <span class="settings-section-sub" data-i18n="settings.releaseModelSub">Unload current model and clear active KV cache</span>
+              </span>
+              <button class="tonal-button pressable" id="runtimeReleaseModelButton" type="button" data-i18n="settings.release">Release</button>
+            </div>
+            <button class="settings-section settings-action-section pressable" id="runtimePerModelButton" type="button">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.perModelConfig">Per-model preferences</span>
+                <span class="settings-section-sub" data-i18n="settings.perModelConfigSub">Prepared for model-specific defaults</span>
+              </span>
+              <span class="status-pill" data-i18n="settings.soon">Soon</span>
+            </button>
             <div class="settings-section">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.defaultModelTitle">默认模型</span>

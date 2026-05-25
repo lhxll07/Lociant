@@ -236,6 +236,38 @@ runtimeCpuThreadsInput.addEventListener('change', () => {
   runtimeCpuThreadsInput.value = String(value)
   runtimeApiCommand('settings', { cpuThreads: value })
 })
+if (runtimePerformanceControl) {
+  runtimePerformanceControl.addEventListener('click', event => {
+    const button = event.target.closest('.segmented-option')
+    if (!button || !button.dataset.performanceMode) return
+    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(button.dataset.performanceMode) })
+  })
+}
+if (runtimeResponseLengthControl) {
+  runtimeResponseLengthControl.addEventListener('click', event => {
+    const button = event.target.closest('.segmented-option')
+    if (!button || !button.dataset.outputTokens) return
+    const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+    const value = Math.max(1, Math.min(hardMax, Number(button.dataset.outputTokens) || 512))
+    runtimeApiCommand('settings', { maxOutputTokens: value })
+  })
+}
+if (runtimeContextControl) {
+  runtimeContextControl.addEventListener('click', event => {
+    const button = event.target.closest('.segmented-option')
+    if (!button || !button.dataset.contextProfile) return
+    runtimeApiCommand('settings', { contextProfile: button.dataset.contextProfile })
+  })
+}
+if (runtimeReleaseModelButton) {
+  runtimeReleaseModelButton.addEventListener('click', () => {
+    runtimeApiCommand('model.release', {})
+    showToast(t('toast.modelReleased'))
+  })
+}
+if (runtimePerModelButton) {
+  runtimePerModelButton.addEventListener('click', () => showToast(t('settings.perModelConfigSub')))
+}
 
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {

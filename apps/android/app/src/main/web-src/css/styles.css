@@ -1278,6 +1278,11 @@ select {
   box-shadow: var(--shadow-soft);
 }
 
+.compact-segmented {
+  width: min(300px, 100%);
+  flex: 0 1 300px;
+}
+
 .settings-token-input,
 .settings-number-input,
 .settings-select-input,

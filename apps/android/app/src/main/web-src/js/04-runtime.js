@@ -8,7 +8,7 @@ function runtimeApiCommand(command, payload) {
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'session.create', 'session.select', 'session.delete', 'session.details'
+      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
     ].includes(command)
     if (runShell) {
       const next = shellCommand(command, body)
@@ -88,6 +88,7 @@ function updateRuntimeServiceState(state) {
   runtimeModelState.textContent = (runtimeServiceState && runtimeServiceState.modelId) || '--'
   runtimePortInput.value = runtimeServiceState.port || ''
   runtimeMaxTokensInput.value = runtimeServiceState.maxOutputTokens || ''
+  updateModelExperienceState()
   if (runtimeServiceState.authToken !== undefined) {
     if (runtimeAuthTokenInput.value !== runtimeServiceState.authToken) {
       runtimeAuthTokenInput.value = runtimeServiceState.authToken || ''
@@ -131,6 +132,68 @@ function updateRuntimeServiceState(state) {
   updateHomeState()
   updateNodeState()
   updateRuntimeStrip()
+}
+
+function updateModelExperienceState() {
+  const state = runtimeServiceState || {}
+  const maxThreads = Number(state.maxCpuThreads) || 16
+  const threads = Number(state.cpuThreads) || 4
+  const performance = performanceModeFromThreads(threads, maxThreads)
+  setSegmentedActive(runtimePerformanceControl, 'performanceMode', performance)
+  if (runtimePerformanceText) runtimePerformanceText.textContent = performanceSubText(performance)
+
+  const tokens = Number(state.maxOutputTokens) || 512
+  const responseMode = tokens <= 256 ? '256' : (tokens <= 768 ? '512' : '1024')
+  setSegmentedActive(runtimeResponseLengthControl, 'outputTokens', responseMode)
+  if (runtimeResponseLengthText) runtimeResponseLengthText.textContent = tokens + ' tokens'
+
+  const contextProfile = state.contextProfile || (state.sessionPolicy && state.sessionPolicy.contextProfile) || 'balanced'
+  setSegmentedActive(runtimeContextControl, 'contextProfile', contextProfile)
+  const historyLimit = state.sessionPolicy && state.sessionPolicy.historyLimit
+  if (runtimeContextText) runtimeContextText.textContent = contextSubText(contextProfile) + (historyLimit ? (' / ' + historyLimit) : '')
+
+  const cache = state.sessionPolicy && state.sessionPolicy.cache
+  const cacheOn = !!(cache && cache.promptCache)
+  if (runtimeCacheState) runtimeCacheState.textContent = cacheOn ? t('settings.promptCacheOnSub') : t('settings.promptCacheOffSub')
+  if (runtimeCacheBadge) {
+    runtimeCacheBadge.textContent = cacheOn ? t('diagnostics.ready') : t('status.stopped')
+    runtimeCacheBadge.classList.toggle('running', cacheOn)
+  }
+}
+
+function setSegmentedActive(root, datasetName, value) {
+  if (!root) return
+  Array.from(root.querySelectorAll('.segmented-option')).forEach(button => {
+    button.classList.toggle('active', button.dataset[datasetName] === String(value))
+  })
+}
+
+function performanceModeFromThreads(threads, maxThreads) {
+  const max = Math.max(1, maxThreads)
+  if (threads <= Math.max(1, Math.floor(max / 3))) return 'eco'
+  if (threads >= Math.max(2, Math.ceil(max * 0.75))) return 'fast'
+  return 'balanced'
+}
+
+function threadsForPerformanceMode(mode) {
+  const max = Number(runtimeServiceState && runtimeServiceState.maxCpuThreads) || 16
+  if (mode === 'eco') return Math.max(1, Math.floor(max / 3))
+  if (mode === 'fast') return Math.max(1, max)
+  return Math.max(1, Math.min(max, Math.round(max / 2)))
+}
+
+function performanceSubText(mode) {
+  return ({
+    eco: t('settings.performanceEcoSub'),
+    fast: t('settings.performanceFastSub'),
+  })[mode] || t('settings.performanceBalancedSub')
+}
+
+function contextSubText(profile) {
+  return ({
+    light: t('settings.contextLightSub'),
+    deep: t('settings.contextDeepSub'),
+  })[profile] || t('settings.contextBalancedSub')
 }
 
 function updateHomeState() {

@@ -34,6 +34,7 @@ class ChatController(
     private val sessionStore: SessionStore,
 ) {
     private val modelLoading = AtomicBoolean(false)
+    @Volatile private var historyLimit = RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT
     @Volatile var lastError: String? = null
 
     private val requestQueue = ChatRequestQueue()
@@ -55,6 +56,10 @@ class ChatController(
 
     fun contextWindowTokens(modelIdRaw: String): Int =
         chatCapability.contextWindowTokens(modelIdRaw)
+
+    fun configureHistoryLimit(limit: Int) {
+        historyLimit = limit.coerceIn(1, RuntimeDefaults.Sessions.MODEL_HISTORY_MAX_LIMIT)
+    }
 
     // ---- Preload ----
 
@@ -106,7 +111,7 @@ class ChatController(
         val explicitSession = request.sessionId.isNotBlank()
         val sessionId = sessionStore.normalizeModelSessionId(request.sessionId)
         val history = if (explicitSession && request.messages.size <= 1) {
-            sessionStore.modelHistory(sessionId, RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT)
+            sessionStore.modelHistory(sessionId, historyLimit)
         } else emptyList()
         val contextMessages = trimContextMessages(
             messages = history + request.messages,
@@ -146,6 +151,12 @@ class ChatController(
     fun queueSnapshot(): JSONObject = requestQueue.snapshot()
 
     fun cancelCurrent() = chatCapability.cancel()
+
+    fun releaseModel() {
+        cancelCurrent()
+        resetLoadedModel()
+        chatCapability.releaseModel()
+    }
 
     fun shutdown() {
         requestQueue.shutdown(); backgroundExecutor.shutdownNow()

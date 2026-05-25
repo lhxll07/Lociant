@@ -65,6 +65,7 @@ class ApiServerController(
     private var modelId = DEFAULT_MODEL_ID
     private var maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS
     private var cpuThreads = MnnRuntime.DEFAULT_CPU_THREADS
+    private var contextProfile = RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT
     private var autoStart = false
     private var currentSessionId = DEFAULT_SESSION_ID
     private var authToken = ""
@@ -115,6 +116,10 @@ class ApiServerController(
                 if (payload.optBoolean("generateAuthToken", false)) payload.put("authToken", newToken())
                 updateSettings(payload)
                 if (server != null) tryPreload()
+            }
+            "model.release" -> {
+                chatController.releaseModel()
+                lastError = null
             }
             "session.create" -> selectSession(sessionStore.createModelSession(modelId))
             "session.select" -> selectSession(payload.optString("sessionId", payload.optString("id")))
@@ -540,6 +545,7 @@ class ApiServerController(
             .put("hardMaxOutputTokens", HARD_MAX_OUTPUT_TOKENS)
             .put("cpuThreads", cpuThreads)
             .put("maxCpuThreads", maxCpuThreads())
+            .put("contextProfile", contextProfile)
             .put("modelMaxOutputTokens", modelManager.maxNewTokens(modelId) ?: JSONObject.NULL)
             .put("contextWindowTokens", chatController.contextWindowTokens(modelId))
             .put("contextStrategy", "token-budget")
@@ -590,7 +596,8 @@ class ApiServerController(
 
     private fun sessionPolicyJson(): JSONObject = JSONObject()
         .put("recentLimit", RuntimeDefaults.Sessions.RECENT_LIMIT)
-        .put("historyLimit", RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT)
+        .put("historyLimit", historyLimitForContextProfile(contextProfile))
+        .put("contextProfile", contextProfile)
         .put("lastTextLimit", RuntimeDefaults.Sessions.LAST_TEXT_LIMIT)
         .put("maxSystemMessages", RuntimeDefaults.Sessions.MAX_SYSTEM_MESSAGES)
         .put("defaultSessionId", RuntimeDefaults.Sessions.DEFAULT_CHAT_ID)
@@ -625,6 +632,7 @@ class ApiServerController(
             .put("port", port).put("modelId", modelId)
             .put("maxOutputTokens", maxOutputTokens)
             .put("cpuThreads", cpuThreads)
+            .put("contextProfile", contextProfile)
             .put("authToken", authToken)
             .put("toolExposure", toolExposure.id)
             .put("autoStart", autoStart).put("currentSessionId", currentSessionId))
@@ -646,6 +654,8 @@ class ApiServerController(
             cpuThreads = nextCpuThreads
             if (chatCapability.configureCpuThreads(cpuThreads)) chatController.resetLoadedModel()
         }
+        contextProfile = normalizeContextProfile(settings.optString("contextProfile", RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT))
+        chatController.configureHistoryLimit(historyLimitForContextProfile(contextProfile))
         autoStart = settings.optBoolean("autoStart", false)
         currentSessionId = sessionStore.normalizeModelSessionId(settings.optString("currentSessionId", DEFAULT_SESSION_ID))
         authToken = settings.optString("authToken").trim()
@@ -655,6 +665,22 @@ class ApiServerController(
     private fun maxCpuThreads() = Runtime.getRuntime().availableProcessors()
         .coerceAtLeast(MnnRuntime.MIN_CPU_THREADS)
         .coerceAtMost(MnnRuntime.MAX_CPU_THREADS)
+
+    private fun normalizeContextProfile(value: String): String {
+        return when (value.lowercase()) {
+            RuntimeDefaults.Sessions.CONTEXT_PROFILE_LIGHT -> RuntimeDefaults.Sessions.CONTEXT_PROFILE_LIGHT
+            RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEEP -> RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEEP
+            else -> RuntimeDefaults.Sessions.CONTEXT_PROFILE_BALANCED
+        }
+    }
+
+    private fun historyLimitForContextProfile(value: String): Int {
+        return when (normalizeContextProfile(value)) {
+            RuntimeDefaults.Sessions.CONTEXT_PROFILE_LIGHT -> RuntimeDefaults.Sessions.MODEL_HISTORY_LIGHT_LIMIT
+            RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEEP -> RuntimeDefaults.Sessions.MODEL_HISTORY_DEEP_LIMIT
+            else -> RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT
+        }
+    }
 
     // ---- Sessions ----
 

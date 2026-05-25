@@ -85,10 +85,38 @@ const i18n = {
     'settings.windowStateError': 'Error',
     'settings.windowStateWindow': 'Window',
     'settings.defaultModelTitle': 'Default model',
-    'settings.defaultModelSub': 'Model and CPU threads',
+    'settings.defaultModelSub': 'Model experience',
     'settings.defaultModelIntro': 'Used when requests omit model.',
     'settings.defaultModelNote': 'Ready models only.',
     'settings.selected': 'Selected',
+    'settings.modelExperience': 'Model experience',
+    'settings.performanceMode': 'Performance mode',
+    'settings.performanceEco': 'Eco',
+    'settings.performanceBalanced': 'Balanced',
+    'settings.performanceFast': 'Fast',
+    'settings.performanceEcoSub': 'Lower heat and longer battery life',
+    'settings.performanceBalancedSub': 'Balanced speed and battery',
+    'settings.performanceFastSub': 'Maximum local inference speed',
+    'settings.responseLength': 'Response length',
+    'settings.lengthShort': 'Short',
+    'settings.lengthNormal': 'Normal',
+    'settings.lengthLong': 'Long',
+    'settings.contextMemory': 'Context memory',
+    'settings.contextLight': 'Light',
+    'settings.contextBalanced': 'Balanced',
+    'settings.contextDeep': 'Deep',
+    'settings.contextLightSub': 'Keeps recent turns only',
+    'settings.contextBalancedSub': 'Default memory depth',
+    'settings.contextDeepSub': 'Keeps more conversation history',
+    'settings.promptCache': 'Session acceleration',
+    'settings.promptCacheOnSub': 'Native prompt cache is active for continuous chats',
+    'settings.promptCacheOffSub': 'Prompt cache is not active',
+    'settings.releaseModel': 'Release model memory',
+    'settings.releaseModelSub': 'Unload current model and clear active KV cache',
+    'settings.release': 'Release',
+    'settings.perModelConfig': 'Per-model preferences',
+    'settings.perModelConfigSub': 'Prepared for model-specific defaults',
+    'settings.soon': 'Soon',
     'settings.cpuThreads': 'CPU threads',
     'settings.cpuThreadsSub': 'Reloads current model',
     'settings.cpuThreadsShort': 'Threads',
@@ -190,6 +218,7 @@ const i18n = {
     'toast.modelImported': 'Model imported',
     'toast.modelImportFailed': 'Import failed',
     'toast.modelDeleted': 'Model deleted',
+    'toast.modelReleased': 'Model released',
     'toast.modelDeleteFailed': 'Delete failed',
     'toast.sceneUninstalled': 'Scene removed',
     'toast.sceneUninstallFailed': 'Remove failed',
@@ -281,10 +310,38 @@ const i18n = {
     'settings.windowStateError': '错误',
     'settings.windowStateWindow': '窗口',
     'settings.defaultModelTitle': '默认模型',
-    'settings.defaultModelSub': '模型与 CPU 线程',
+    'settings.defaultModelSub': '模型体验',
     'settings.defaultModelIntro': '请求未指定模型时使用',
     'settings.defaultModelNote': '仅显示已就绪模型',
     'settings.selected': '已选',
+    'settings.modelExperience': '模型体验',
+    'settings.performanceMode': '性能模式',
+    'settings.performanceEco': '省电',
+    'settings.performanceBalanced': '均衡',
+    'settings.performanceFast': '极速',
+    'settings.performanceEcoSub': '降低发热，延长续航',
+    'settings.performanceBalancedSub': '兼顾速度与续航',
+    'settings.performanceFastSub': '最大化本地推理速度',
+    'settings.responseLength': '回复长度',
+    'settings.lengthShort': '简短',
+    'settings.lengthNormal': '标准',
+    'settings.lengthLong': '较长',
+    'settings.contextMemory': '上下文记忆',
+    'settings.contextLight': '轻量',
+    'settings.contextBalanced': '均衡',
+    'settings.contextDeep': '深度',
+    'settings.contextLightSub': '仅保留最近对话',
+    'settings.contextBalancedSub': '默认记忆深度',
+    'settings.contextDeepSub': '保留更多对话历史',
+    'settings.promptCache': '会话加速',
+    'settings.promptCacheOnSub': '连续对话会启用本地提示词缓存',
+    'settings.promptCacheOffSub': '提示词缓存未启用',
+    'settings.releaseModel': '释放模型内存',
+    'settings.releaseModelSub': '卸载当前模型并清空活跃 KV 缓存',
+    'settings.release': '释放',
+    'settings.perModelConfig': '单模型偏好',
+    'settings.perModelConfigSub': '预留单模型默认值入口',
+    'settings.soon': '待接入',
     'settings.cpuThreads': 'CPU 线程',
     'settings.cpuThreadsSub': '会重新加载当前模型',
     'settings.cpuThreadsShort': '线程',
@@ -386,6 +443,7 @@ const i18n = {
     'toast.modelImported': '模型已导入',
     'toast.modelImportFailed': '导入失败',
     'toast.modelDeleted': '模型已删除',
+    'toast.modelReleased': '模型已释放',
     'toast.modelDeleteFailed': '删除失败',
     'toast.sceneUninstalled': '场景已移除',
     'toast.sceneUninstallFailed': '移除失败',
@@ -508,6 +566,16 @@ const runtimeModelBack = document.getElementById('runtimeModelBack')
 const runtimeModelList = document.getElementById('runtimeModelList')
 const runtimeModelState = document.getElementById('runtimeModelState')
 const runtimeModelNote = document.getElementById('runtimeModelNote')
+const runtimePerformanceControl = document.getElementById('runtimePerformanceControl')
+const runtimePerformanceText = document.getElementById('runtimePerformanceText')
+const runtimeResponseLengthControl = document.getElementById('runtimeResponseLengthControl')
+const runtimeResponseLengthText = document.getElementById('runtimeResponseLengthText')
+const runtimeContextControl = document.getElementById('runtimeContextControl')
+const runtimeContextText = document.getElementById('runtimeContextText')
+const runtimeCacheState = document.getElementById('runtimeCacheState')
+const runtimeCacheBadge = document.getElementById('runtimeCacheBadge')
+const runtimeReleaseModelButton = document.getElementById('runtimeReleaseModelButton')
+const runtimePerModelButton = document.getElementById('runtimePerModelButton')
 const runtimeAdvancedButton = document.getElementById('runtimeAdvancedButton')
 const runtimeAdvancedState = document.getElementById('runtimeAdvancedState')
 const runtimeAdvancedPanel = document.getElementById('runtimeAdvancedPanel')
@@ -852,7 +920,7 @@ function runtimeApiCommand(command, payload) {
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'session.create', 'session.select', 'session.delete', 'session.details'
+      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
     ].includes(command)
     if (runShell) {
       const next = shellCommand(command, body)
@@ -932,6 +1000,7 @@ function updateRuntimeServiceState(state) {
   runtimeModelState.textContent = (runtimeServiceState && runtimeServiceState.modelId) || '--'
   runtimePortInput.value = runtimeServiceState.port || ''
   runtimeMaxTokensInput.value = runtimeServiceState.maxOutputTokens || ''
+  updateModelExperienceState()
   if (runtimeServiceState.authToken !== undefined) {
     if (runtimeAuthTokenInput.value !== runtimeServiceState.authToken) {
       runtimeAuthTokenInput.value = runtimeServiceState.authToken || ''
@@ -975,6 +1044,68 @@ function updateRuntimeServiceState(state) {
   updateHomeState()
   updateNodeState()
   updateRuntimeStrip()
+}
+
+function updateModelExperienceState() {
+  const state = runtimeServiceState || {}
+  const maxThreads = Number(state.maxCpuThreads) || 16
+  const threads = Number(state.cpuThreads) || 4
+  const performance = performanceModeFromThreads(threads, maxThreads)
+  setSegmentedActive(runtimePerformanceControl, 'performanceMode', performance)
+  if (runtimePerformanceText) runtimePerformanceText.textContent = performanceSubText(performance)
+
+  const tokens = Number(state.maxOutputTokens) || 512
+  const responseMode = tokens <= 256 ? '256' : (tokens <= 768 ? '512' : '1024')
+  setSegmentedActive(runtimeResponseLengthControl, 'outputTokens', responseMode)
+  if (runtimeResponseLengthText) runtimeResponseLengthText.textContent = tokens + ' tokens'
+
+  const contextProfile = state.contextProfile || (state.sessionPolicy && state.sessionPolicy.contextProfile) || 'balanced'
+  setSegmentedActive(runtimeContextControl, 'contextProfile', contextProfile)
+  const historyLimit = state.sessionPolicy && state.sessionPolicy.historyLimit
+  if (runtimeContextText) runtimeContextText.textContent = contextSubText(contextProfile) + (historyLimit ? (' / ' + historyLimit) : '')
+
+  const cache = state.sessionPolicy && state.sessionPolicy.cache
+  const cacheOn = !!(cache && cache.promptCache)
+  if (runtimeCacheState) runtimeCacheState.textContent = cacheOn ? t('settings.promptCacheOnSub') : t('settings.promptCacheOffSub')
+  if (runtimeCacheBadge) {
+    runtimeCacheBadge.textContent = cacheOn ? t('diagnostics.ready') : t('status.stopped')
+    runtimeCacheBadge.classList.toggle('running', cacheOn)
+  }
+}
+
+function setSegmentedActive(root, datasetName, value) {
+  if (!root) return
+  Array.from(root.querySelectorAll('.segmented-option')).forEach(button => {
+    button.classList.toggle('active', button.dataset[datasetName] === String(value))
+  })
+}
+
+function performanceModeFromThreads(threads, maxThreads) {
+  const max = Math.max(1, maxThreads)
+  if (threads <= Math.max(1, Math.floor(max / 3))) return 'eco'
+  if (threads >= Math.max(2, Math.ceil(max * 0.75))) return 'fast'
+  return 'balanced'
+}
+
+function threadsForPerformanceMode(mode) {
+  const max = Number(runtimeServiceState && runtimeServiceState.maxCpuThreads) || 16
+  if (mode === 'eco') return Math.max(1, Math.floor(max / 3))
+  if (mode === 'fast') return Math.max(1, max)
+  return Math.max(1, Math.min(max, Math.round(max / 2)))
+}
+
+function performanceSubText(mode) {
+  return ({
+    eco: t('settings.performanceEcoSub'),
+    fast: t('settings.performanceFastSub'),
+  })[mode] || t('settings.performanceBalancedSub')
+}
+
+function contextSubText(profile) {
+  return ({
+    light: t('settings.contextLightSub'),
+    deep: t('settings.contextDeepSub'),
+  })[profile] || t('settings.contextBalancedSub')
 }
 
 function updateHomeState() {
@@ -2634,6 +2765,38 @@ runtimeCpuThreadsInput.addEventListener('change', () => {
   runtimeCpuThreadsInput.value = String(value)
   runtimeApiCommand('settings', { cpuThreads: value })
 })
+if (runtimePerformanceControl) {
+  runtimePerformanceControl.addEventListener('click', event => {
+    const button = event.target.closest('.segmented-option')
+    if (!button || !button.dataset.performanceMode) return
+    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(button.dataset.performanceMode) })
+  })
+}
+if (runtimeResponseLengthControl) {
+  runtimeResponseLengthControl.addEventListener('click', event => {
+    const button = event.target.closest('.segmented-option')
+    if (!button || !button.dataset.outputTokens) return
+    const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+    const value = Math.max(1, Math.min(hardMax, Number(button.dataset.outputTokens) || 512))
+    runtimeApiCommand('settings', { maxOutputTokens: value })
+  })
+}
+if (runtimeContextControl) {
+  runtimeContextControl.addEventListener('click', event => {
+    const button = event.target.closest('.segmented-option')
+    if (!button || !button.dataset.contextProfile) return
+    runtimeApiCommand('settings', { contextProfile: button.dataset.contextProfile })
+  })
+}
+if (runtimeReleaseModelButton) {
+  runtimeReleaseModelButton.addEventListener('click', () => {
+    runtimeApiCommand('model.release', {})
+    showToast(t('toast.modelReleased'))
+  })
+}
+if (runtimePerModelButton) {
+  runtimePerModelButton.addEventListener('click', () => showToast(t('settings.perModelConfigSub')))
+}
 
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {

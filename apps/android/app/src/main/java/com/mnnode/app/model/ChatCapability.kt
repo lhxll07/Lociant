@@ -100,6 +100,12 @@ class ChatCapability(
         mnnRuntime.cancel()
     }
 
+    fun releaseModel() {
+        mnnRuntime.cancel()
+        mnnRuntime.close()
+        loadedModelId = null
+    }
+
     private fun run(
         request: ModelChatRequest,
         block: (File, String, Int, List<ModelChatPart.Image>) -> ModelChatResult,
