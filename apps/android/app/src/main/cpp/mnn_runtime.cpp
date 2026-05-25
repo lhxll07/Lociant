@@ -19,8 +19,8 @@
 namespace {
 
 constexpr const char* LOG_TAG = "MNNodeMnnNative";
-constexpr int MIN_OUTPUT_TOKENS = 8;
-constexpr int MAX_OUTPUT_TOKENS = 32768;
+constexpr int FALLBACK_MIN_OUTPUT_TOKENS = 8;
+constexpr int FALLBACK_MAX_OUTPUT_TOKENS = 32768;
 
 #define MNNODE_LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define MNNODE_LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
@@ -50,13 +50,37 @@ std::string bool_json(bool value) {
     return value ? "true" : "false";
 }
 
-int clamp_max_tokens(int value) {
-    return std::max(MIN_OUTPUT_TOKENS, std::min(MAX_OUTPUT_TOKENS, value));
+int parse_int_config(const std::string& config_json, const std::string& key, int fallback) {
+    const auto marker = "\"" + key + "\"";
+    const auto key_pos = config_json.find(marker);
+    if (key_pos == std::string::npos) return fallback;
+    const auto colon = config_json.find(':', key_pos + marker.size());
+    if (colon == std::string::npos) return fallback;
+    auto pos = colon + 1;
+    while (pos < config_json.size() && std::isspace(static_cast<unsigned char>(config_json[pos]))) {
+        ++pos;
+    }
+    size_t end = pos;
+    while (end < config_json.size() && std::isdigit(static_cast<unsigned char>(config_json[end]))) {
+        ++end;
+    }
+    if (end == pos) return fallback;
+    try {
+        return std::stoi(config_json.substr(pos, end - pos));
+    } catch (...) {
+        return fallback;
+    }
+}
+
+int clamp_max_tokens(int value, const std::string& config_json) {
+    const int min_tokens = std::max(1, parse_int_config(config_json, "min_output_tokens", FALLBACK_MIN_OUTPUT_TOKENS));
+    const int max_tokens = std::max(min_tokens, parse_int_config(config_json, "max_output_tokens", FALLBACK_MAX_OUTPUT_TOKENS));
+    return std::max(min_tokens, std::min(max_tokens, value));
 }
 
 std::string runtime_config_json(const std::string& config_json) {
     if (config_json.empty()) {
-        return "{\"async\":false,\"prompt_cache\":true}";
+        return "{}";
     }
     return config_json;
 }
@@ -510,8 +534,8 @@ std::string MnnRuntimeNative::chat_text(
         return "{\"ok\":false,\"message\":\"messages are required\"}";
     }
 
-    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
+    const int tokens = clamp_max_tokens(max_tokens, runtime_config);
     MNN::Transformer::ChatMessages chat_messages;
     for (const auto& message : messages) {
         if (!message.second.empty()) {
@@ -594,8 +618,8 @@ std::string MnnRuntimeNative::chat_text_stream(
         return "{\"ok\":false,\"message\":\"messages are required\"}";
     }
 
-    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
+    const int tokens = clamp_max_tokens(max_tokens, runtime_config);
     MNN::Transformer::ChatMessages chat_messages;
     for (const auto& message : messages) {
         if (!message.second.empty()) {
@@ -674,8 +698,8 @@ std::string MnnRuntimeNative::chat_image(JNIEnv* env, jobject bitmap, const std:
         return "{\"ok\":false,\"message\":\"invalid bitmap\"}";
     }
 
-    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
+    const int tokens = clamp_max_tokens(max_tokens, runtime_config);
     MNN::Transformer::MultimodalPrompt input;
     input.prompt_template =
         "<img>image_0</img>\n" +
@@ -743,8 +767,8 @@ std::string MnnRuntimeNative::chat_image_stream(
         return "{\"ok\":false,\"message\":\"invalid bitmap\"}";
     }
 
-    const int tokens = clamp_max_tokens(max_tokens);
     const auto runtime_config = runtime_config_json(config_json);
+    const int tokens = clamp_max_tokens(max_tokens, runtime_config);
     MNN::Transformer::MultimodalPrompt input;
     input.prompt_template =
         "<img>image_0</img>\n" +

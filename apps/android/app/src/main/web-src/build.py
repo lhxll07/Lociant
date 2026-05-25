@@ -69,6 +69,16 @@ def build() -> None:
     else:
         print(f"[build] WARNING: {html_src} not found, index.html unchanged")
 
+    # 4. Copy vendored browser libraries
+    vendor_src = src / "vendor"
+    if vendor_src.is_dir():
+        vendor_out = out / "vendor"
+        if vendor_out.exists():
+            shutil.rmtree(vendor_out)
+        shutil.copytree(vendor_src, vendor_out)
+        count = len(list(vendor_out.glob("*")))
+        print(f"[build] copied vendor ({count} files)")
+
     print(f"[build] done. Output: {out.resolve()}")
 
 

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import com.mnnode.app.config.RuntimeDefaults
 import com.mnnode.app.storage.LocalStore
 import org.json.JSONObject
 
@@ -27,9 +28,9 @@ class BootReceiver : BroadcastReceiver() {
     private fun localStore(context: Context): LocalStore = MNNodeRuntime.localStore(context)
 
     companion object {
-        private const val SERVER_SETTINGS_NAMESPACE = "runtime/model-server/settings"
-        private const val SERVER_SETTINGS_KEY = "server"
-        private const val WINDOW_SETTINGS_NAMESPACE = "runtime/settings"
-        private const val WINDOW_SETTINGS_KEY = "window"
+        private const val SERVER_SETTINGS_NAMESPACE = RuntimeDefaults.Settings.SERVER_NAMESPACE
+        private const val SERVER_SETTINGS_KEY = RuntimeDefaults.Settings.SERVER_KEY
+        private const val WINDOW_SETTINGS_NAMESPACE = RuntimeDefaults.Settings.WINDOW_NAMESPACE
+        private const val WINDOW_SETTINGS_KEY = RuntimeDefaults.Settings.WINDOW_KEY
     }
 }

@@ -30,11 +30,13 @@ const i18n = {
     'home.modelLabel': 'Model',
     'home.nodeLabel': 'Node',
     'home.historyTitle': 'Recent chats',
-    'home.noChats': 'No recent chats',
     'home.readyModels': 'ready models',
     'home.emptyReply': 'No reply.',
     'home.thinking': 'Thinking...',
     'home.deleteChat': 'Delete chat',
+    'home.uploadImage': 'Upload photo',
+    'home.removeImage': 'Remove photo',
+    'home.imageAttached': 'Photo attached',
 
     'page.scenesTitle': 'Scenes',
     'page.scenesSub': 'Run phone-side workflows and capability packs.',
@@ -224,11 +226,13 @@ const i18n = {
     'home.modelLabel': '模型',
     'home.nodeLabel': '节点',
     'home.historyTitle': '最近对话',
-    'home.noChats': '暂无对话',
     'home.readyModels': '个就绪模型',
     'home.emptyReply': '没有回复。',
     'home.thinking': '思考中...',
     'home.deleteChat': '删除对话',
+    'home.uploadImage': '上传照片',
+    'home.removeImage': '移除照片',
+    'home.imageAttached': '已添加照片',
 
     'page.scenesTitle': '场景',
     'page.scenesSub': '运行手机侧工作流与能力包',
@@ -532,6 +536,11 @@ const homeChatForm = document.getElementById('homeChatForm')
 const homeChatInput = document.getElementById('homeChatInput')
 const homeChatSendButton = document.getElementById('homeChatSendButton')
 const homeChatFeed = document.getElementById('homeChatFeed')
+const homeImageInput = document.getElementById('homeImageInput')
+const homeImagePreview = document.getElementById('homeImagePreview')
+const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
+const homeImagePreviewName = document.getElementById('homeImagePreviewName')
+const homeImageRemoveButton = document.getElementById('homeImageRemoveButton')
 const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
 const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
 const nodeLocalState = document.getElementById('nodeLocalState')
@@ -557,6 +566,7 @@ const localeStorePath = '/v1/store/runtime-settings/locale'
 let scenes = []
 let activeScene = null
 let cameraPreviewRect = null
+let homeAttachedImage = null
 
 // ---- DOM helpers ----
 function el(tag, className, text) {
@@ -1681,6 +1691,9 @@ function applyLocale() {
   document.querySelectorAll('[data-i18n-placeholder]').forEach(node => {
     node.setAttribute('placeholder', t(node.dataset.i18nPlaceholder))
   })
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(node => {
+    node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel))
+  })
   Array.from(languageControl.querySelectorAll('.segmented-option')).forEach(button => {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
@@ -1730,11 +1743,9 @@ function renderSessions(sessions) {
 function renderHomeSessions(sessions) {
   if (!homeSessionList) return
   homeSessionList.innerHTML = ''
-  const items = Array.isArray(sessions) ? sessions.slice(0, 8) : []
-  if (!items.length) {
-    homeSessionList.appendChild(el('div', 'chat-session-empty', t('home.noChats')))
-    return
-  }
+  const policyLimit = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.recentLimit)
+  const items = Array.isArray(sessions) && policyLimit > 0 ? sessions.slice(0, policyLimit) : (Array.isArray(sessions) ? sessions : [])
+  if (!items.length) return
   items.forEach(session => {
     const row = document.createElement('button')
     row.type = 'button'
@@ -1766,11 +1777,11 @@ function renderHomeSessions(sessions) {
     const deleteSession = event => {
       event.preventDefault()
       event.stopPropagation()
+      const deletingCurrent = session.id === (runtimeServiceState && runtimeServiceState.currentSessionId)
       Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
         .then(state => {
           updateRuntimeServiceState(state || {})
-          if (state && state.currentSessionId) loadHomeConversation(state.currentSessionId)
-          else clearHomeMessages()
+          restoreHomeConversation({ forceLatest: deletingCurrent })
           showToast(t('home.deleteChat'))
         })
         .catch(error => showToast((error && error.message) || t('toast.modelDeleteFailed')))
@@ -1786,6 +1797,8 @@ function renderHomeSessions(sessions) {
 function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   if (!sessionId) return
   const now = Date.now()
+  const policyLastTextLimit = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.lastTextLimit)
+  const lastTextLimit = policyLastTextLimit > 0 ? policyLastTextLimit : Number.POSITIVE_INFINITY
   const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions)
     ? runtimeServiceState.sessions.slice()
     : []
@@ -1798,7 +1811,7 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
-    lastText: String(titleText || existing.lastText || '').slice(0, 120),
+    lastText: String(titleText || existing.lastText || '').slice(0, lastTextLimit),
   })
   if (index >= 0) sessions.splice(index, 1)
   sessions.unshift(next)
@@ -1810,7 +1823,9 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
 }
 
 function homeCurrentSessionId() {
-  return (runtimeServiceState && runtimeServiceState.currentSessionId) || 'model-server/chat/default'
+  return (runtimeServiceState && runtimeServiceState.currentSessionId) ||
+    (runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.defaultSessionId) ||
+    ''
 }
 
 function appendChatBubble(role, text, meta) {
@@ -1818,10 +1833,33 @@ function appendChatBubble(role, text, meta) {
   const node = document.createElement('div')
   node.className = 'chat-message ' + (role || 'assistant')
   if (meta && meta.active) node.dataset.activeSession = 'true'
-  node.textContent = text
+  renderChatMarkdown(node, text)
   homeChatFeed.appendChild(node)
   homeChatFeed.scrollTop = homeChatFeed.scrollHeight
   return node
+}
+
+function renderChatMarkdown(target, text) {
+  const source = String(text || '')
+  if (!window.marked || !window.DOMPurify) {
+    target.textContent = source
+    return
+  }
+  window.marked.setOptions({
+    breaks: true,
+    gfm: true,
+    mangle: false,
+    headerIds: false,
+  })
+  const html = window.marked.parse(source)
+  target.innerHTML = window.DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+  })
+  target.querySelectorAll('a[href]').forEach(link => {
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+  })
 }
 
 function clearHomeMessages() {
@@ -1833,16 +1871,48 @@ function renderHomeConversation(sessionId, messages) {
   if (!homeChatFeed) return
   clearHomeMessages()
   const items = Array.isArray(messages) ? messages : []
-  if (!items.length) {
-    appendChatBubble('assistant', t('home.noChats'))
-    return
-  }
+  if (!items.length) return
   items.forEach(item => {
     const role = item && item.role ? item.role : 'assistant'
     const text = item && (item.text || item.content || item.message || '')
     if (text) appendChatBubble(role, text, { active: sessionId === homeCurrentSessionId() })
   })
   homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+}
+
+function latestHomeSession(state) {
+  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  return sessions.find(session => session && session.id && Number(session.messageCount || 0) > 0) ||
+    sessions.find(session => session && session.id) ||
+    null
+}
+
+function shouldPreferLatestHomeSession(state, currentId) {
+  if (!currentId) return true
+  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  const current = sessions.find(session => session && session.id === currentId)
+  return !current || Number(current.messageCount || 0) <= 0
+}
+
+function restoreHomeConversation(options) {
+  const forceLatest = !!(options && options.forceLatest)
+  const state = runtimeServiceState || runtimeState()
+  updateRuntimeServiceState(state)
+  const latest = latestHomeSession(state)
+  const currentId = state && state.currentSessionId
+  const target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
+    ? (latest && latest.id)
+    : currentId
+  if (!target) {
+    clearHomeMessages()
+    return null
+  }
+  if (target !== currentId) {
+    const selected = runtimeApiCommand('session.select', { sessionId: target })
+    updateRuntimeServiceState(selected || Object.assign({}, state, { currentSessionId: target }))
+  }
+  loadHomeConversation(target, { silent: true })
+  return target
 }
 
 // ---- Diagnostics ----
@@ -2060,6 +2130,7 @@ function openRuntimeAdvancedSettings() {
 
 // ---- Sidebar ----
 let sidebarBusy = false
+let nativeKeyboardInset = 0
 
 function clearPress(target) {
   if (target) target.classList.remove('is-pressed')
@@ -2067,7 +2138,16 @@ function clearPress(target) {
 
 function toggleSidebar(event) {
   if (event) event.preventDefault()
-  if (window.matchMedia('(orientation: portrait), (max-width: 760px)').matches) return
+  if (window.matchMedia('(orientation: portrait), (max-width: 760px)').matches) {
+    app.classList.toggle('mobile-nav-open')
+    menuButton.classList.toggle('is-active', app.classList.contains('mobile-nav-open'))
+    if (app.classList.contains('mobile-nav-open') && homeSidebar && homeRailToggle) {
+      homeSidebar.classList.remove('open')
+      homeRailToggle.setAttribute('aria-expanded', 'false')
+      homeRailToggle.classList.remove('is-active')
+    }
+    return
+  }
   if (sidebarBusy) return
   sidebarBusy = true
   menuButton.classList.add('is-busy')
@@ -2089,6 +2169,9 @@ function showToast(text) {
 // ---- Navigation ----
 function navigateTo(page) {
   navItems.forEach(i => i.classList.toggle('active', i.dataset.page === page))
+  app.classList.remove('mobile-nav-open')
+  menuButton.classList.remove('is-active')
+  setKeyboardOffset(0)
   unloadSceneFrame()
   backButton.classList.remove('active')
   activeScene = null
@@ -2107,6 +2190,32 @@ function navigateTo(page) {
 function openRuntimeServerFromHome() {
   navigateTo('settings')
   openRuntimeServerSettings()
+}
+
+function syncKeyboardOffset() {
+  const chatFocused = document.activeElement === homeChatInput
+  if (!document.documentElement || !chatFocused) {
+    setKeyboardOffset(0)
+    return
+  }
+  const viewport = window.visualViewport
+  const viewportHidden = viewport
+    ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+    : 0
+  const hidden = Math.max(nativeKeyboardInset, viewportHidden)
+  const offset = hidden > 80 ? Math.min(hidden, 320) : 0
+  setKeyboardOffset(offset)
+  if (offset && homeChatFeed) homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+}
+
+function setKeyboardOffset(offset) {
+  document.documentElement.style.setProperty('--keyboard-offset', offset + 'px')
+  app.classList.toggle('keyboard-active', offset > 0)
+}
+
+window.__lociantKeyboardInset = function(insetPx) {
+  nativeKeyboardInset = Math.max(0, Number(insetPx) || 0)
+  syncKeyboardOffset()
 }
 
 function showHomeConversationLoading(text) {
@@ -2131,32 +2240,68 @@ function handleHomeAction(action) {
   }
 }
 
+function setHomeImageAttachment(file, dataUrl) {
+  homeAttachedImage = file && dataUrl ? {
+    name: file.name || t('home.imageAttached'),
+    url: dataUrl,
+  } : null
+  if (!homeImagePreview) return
+  const active = !!homeAttachedImage
+  homeImagePreview.classList.toggle('active', active)
+  homeImagePreview.setAttribute('aria-hidden', active ? 'false' : 'true')
+  if (homeImagePreviewImg) homeImagePreviewImg.src = active ? homeAttachedImage.url : ''
+  if (homeImagePreviewName) homeImagePreviewName.textContent = active ? homeAttachedImage.name : ''
+}
+
+function clearHomeImageAttachment() {
+  setHomeImageAttachment(null, '')
+  if (homeImageInput) homeImageInput.value = ''
+}
+
+function readHomeImage(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return
+  const reader = new FileReader()
+  reader.onload = () => setHomeImageAttachment(file, String(reader.result || ''))
+  reader.onerror = () => showToast(t('toast.modelImportFailed'))
+  reader.readAsDataURL(file)
+}
+
+function homeChatMessages(prompt, image) {
+  if (!image) return [{ role: 'user', content: prompt }]
+  const content = []
+  if (prompt) content.push({ type: 'text', text: prompt })
+  content.push({ type: 'image_url', image_url: { url: image.url } })
+  return [{ role: 'user', content }]
+}
+
 function submitHomeChat(text) {
   const prompt = String(text || '').trim()
-  if (!prompt) return
-  appendChatBubble('user', prompt)
+  const image = homeAttachedImage
+  if (!prompt && !image) return
+  appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
+  clearHomeImageAttachment()
   if (homeChatSendButton) homeChatSendButton.disabled = true
   const pending = appendChatBubble('assistant', t('home.thinking'))
   const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
   const sessionId = homeCurrentSessionId()
-  upsertHomeSessionPreview(sessionId, prompt, 'user')
+  upsertHomeSessionPreview(sessionId, prompt || t('home.imageAttached'), 'user')
   apiPost('/v1/chat/completions', {
     model: modelId,
     stream: false,
     sessionId,
-    messages: [{ role: 'user', content: prompt }]
+    messages: homeChatMessages(prompt, image)
   }).then(result => {
     const reply = chatResponseText(result)
-    if (pending) pending.textContent = reply || t('home.emptyReply')
+    if (pending) renderChatMarkdown(pending, reply || t('home.emptyReply'))
     else appendChatBubble('assistant', reply || t('home.emptyReply'))
     if (result && result.sessionId) {
       runtimeServiceState = Object.assign({}, runtimeServiceState || {}, { currentSessionId: result.sessionId })
     }
-    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt, 'assistant')
+    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
     refreshRuntimeServiceState()
   }).catch(error => {
-    if (pending) pending.textContent = (error && error.message) || t('toast.modelImportFailed')
+    if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
     else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
   }).finally(() => {
     if (homeChatSendButton) homeChatSendButton.disabled = false
@@ -2176,17 +2321,19 @@ function chatResponseText(result) {
   ).trim()
 }
 
-function loadHomeConversation(sessionId) {
+function loadHomeConversation(sessionId, options) {
   const target = sessionId || homeCurrentSessionId()
-  showHomeConversationLoading(t('home.thinking'))
+  const silent = !!(options && options.silent)
+  if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
     const state = runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
+    updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: target }))
     renderHomeConversation(target, messages)
   } catch (error) {
     clearHomeMessages()
-    appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+    if (!silent) appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
   }
 }
 
@@ -2261,6 +2408,11 @@ sceneFrame.addEventListener('load', () => {
 })
 
 window.addEventListener('resize', resizeSceneFrame)
+window.addEventListener('resize', syncKeyboardOffset)
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncKeyboardOffset)
+  window.visualViewport.addEventListener('scroll', syncKeyboardOffset)
+}
 sceneHost.addEventListener('scroll', () => syncCameraPreviewRect(), { passive: true })
 app.addEventListener('transitionend', () => syncCameraPreviewRect())
 
@@ -2277,6 +2429,10 @@ menuButton.addEventListener('mouseleave', () => clearPress(menuButton))
 document.addEventListener('pointerdown', event => {
   const target = event.target.closest('.pressable')
   if (target && target !== menuButton) target.classList.add('is-pressed')
+  if (app.classList.contains('mobile-nav-open') && !event.target.closest('.sidebar')) {
+    app.classList.remove('mobile-nav-open')
+    menuButton.classList.remove('is-active')
+  }
 }, { passive: true })
 
 document.addEventListener('pointerup', event => {
@@ -2317,6 +2473,11 @@ if (homeRailToggle && homeSidebar) {
   homeRailToggle.addEventListener('click', () => {
     const open = homeSidebar.classList.toggle('open')
     homeRailToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    homeRailToggle.classList.toggle('is-active', open)
+    if (open) {
+      app.classList.remove('mobile-nav-open')
+      menuButton.classList.remove('is-active')
+    }
     if (open) refreshRuntimeServiceState()
   })
   document.addEventListener('pointerdown', event => {
@@ -2324,6 +2485,7 @@ if (homeRailToggle && homeSidebar) {
     if (!homeSidebar.contains(event.target) && !homeRailToggle.contains(event.target)) {
       homeSidebar.classList.remove('open')
       homeRailToggle.setAttribute('aria-expanded', 'false')
+      homeRailToggle.classList.remove('is-active')
     }
   })
 }
@@ -2346,17 +2508,31 @@ if (homeChatForm) {
     submitHomeChat(homeChatInput && homeChatInput.value)
   })
 }
+if (homeChatInput) {
+  homeChatInput.addEventListener('focus', () => {
+    window.setTimeout(syncKeyboardOffset, 80)
+    window.setTimeout(syncKeyboardOffset, 260)
+  })
+  homeChatInput.addEventListener('blur', () => {
+    setKeyboardOffset(0)
+    window.setTimeout(syncKeyboardOffset, 120)
+  })
+}
+if (homeImageInput) {
+  homeImageInput.addEventListener('change', () => {
+    const file = homeImageInput.files && homeImageInput.files[0]
+    readHomeImage(file)
+  })
+}
+if (homeImageRemoveButton) {
+  homeImageRemoveButton.addEventListener('click', clearHomeImageAttachment)
+}
 if (homeChatFeed) {
   homeChatFeed.addEventListener('click', event => {
     const button = event.target.closest('[data-home-action]')
     if (button) handleHomeAction(button.dataset.homeAction)
   })
 }
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    loadHomeConversation()
-  }
-})
 
 // ---- Settings navigation ----
 runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
@@ -2553,7 +2729,10 @@ window.MNNodeEvents = {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) refreshRuntimeServiceState()
+  if (!document.hidden) {
+    refreshRuntimeServiceState()
+    restoreHomeConversation()
+  }
 })
 
 const messageHandlers = {
@@ -2574,6 +2753,7 @@ window.addEventListener('message', event => {
 
 // ---- Bootstrap ----
 refreshRuntimeServiceState()
+restoreHomeConversation()
 loadScenes()
 loadModels()
 loadLocaleSetting()

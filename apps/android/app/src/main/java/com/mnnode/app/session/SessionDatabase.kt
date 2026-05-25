@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.mnnode.app.config.RuntimeDefaults
 
 @Database(
     entities = [
@@ -27,10 +28,9 @@ abstract class SessionDatabase : RoomDatabase() {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     SessionDatabase::class.java,
-                    "mnnode-sessions.db",
+                    RuntimeDefaults.Sessions.DATABASE_NAME,
                 ).build().also { instance = it }
             }
         }
     }
 }
-

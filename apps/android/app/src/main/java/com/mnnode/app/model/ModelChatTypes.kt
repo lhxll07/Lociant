@@ -1,6 +1,7 @@
 package com.mnnode.app.model
 
 import android.util.Base64
+import com.mnnode.app.config.RuntimeDefaults
 
 data class ModelChatRequest(
     val modelId: String,
@@ -114,7 +115,7 @@ data class NativeChatMessage(
     val content: String,
 )
 
-const val DEFAULT_MODEL_ID = "qwen3.5-2b-mnn"
-const val DEFAULT_OUTPUT_TOKENS = 512
-const val MIN_OUTPUT_TOKENS = 8
-const val HARD_MAX_OUTPUT_TOKENS = 32768
+const val DEFAULT_MODEL_ID = RuntimeDefaults.MODEL_ID
+const val DEFAULT_OUTPUT_TOKENS = RuntimeDefaults.Tokens.OUTPUT_DEFAULT
+const val MIN_OUTPUT_TOKENS = RuntimeDefaults.Tokens.OUTPUT_MIN
+const val HARD_MAX_OUTPUT_TOKENS = RuntimeDefaults.Tokens.OUTPUT_MAX

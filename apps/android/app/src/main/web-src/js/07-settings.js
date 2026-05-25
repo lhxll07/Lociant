@@ -25,6 +25,9 @@ function applyLocale() {
   document.querySelectorAll('[data-i18n-placeholder]').forEach(node => {
     node.setAttribute('placeholder', t(node.dataset.i18nPlaceholder))
   })
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(node => {
+    node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel))
+  })
   Array.from(languageControl.querySelectorAll('.segmented-option')).forEach(button => {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
@@ -74,11 +77,9 @@ function renderSessions(sessions) {
 function renderHomeSessions(sessions) {
   if (!homeSessionList) return
   homeSessionList.innerHTML = ''
-  const items = Array.isArray(sessions) ? sessions.slice(0, 8) : []
-  if (!items.length) {
-    homeSessionList.appendChild(el('div', 'chat-session-empty', t('home.noChats')))
-    return
-  }
+  const policyLimit = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.recentLimit)
+  const items = Array.isArray(sessions) && policyLimit > 0 ? sessions.slice(0, policyLimit) : (Array.isArray(sessions) ? sessions : [])
+  if (!items.length) return
   items.forEach(session => {
     const row = document.createElement('button')
     row.type = 'button'
@@ -110,11 +111,11 @@ function renderHomeSessions(sessions) {
     const deleteSession = event => {
       event.preventDefault()
       event.stopPropagation()
+      const deletingCurrent = session.id === (runtimeServiceState && runtimeServiceState.currentSessionId)
       Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
         .then(state => {
           updateRuntimeServiceState(state || {})
-          if (state && state.currentSessionId) loadHomeConversation(state.currentSessionId)
-          else clearHomeMessages()
+          restoreHomeConversation({ forceLatest: deletingCurrent })
           showToast(t('home.deleteChat'))
         })
         .catch(error => showToast((error && error.message) || t('toast.modelDeleteFailed')))
@@ -130,6 +131,8 @@ function renderHomeSessions(sessions) {
 function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   if (!sessionId) return
   const now = Date.now()
+  const policyLastTextLimit = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.lastTextLimit)
+  const lastTextLimit = policyLastTextLimit > 0 ? policyLastTextLimit : Number.POSITIVE_INFINITY
   const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions)
     ? runtimeServiceState.sessions.slice()
     : []
@@ -142,7 +145,7 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
-    lastText: String(titleText || existing.lastText || '').slice(0, 120),
+    lastText: String(titleText || existing.lastText || '').slice(0, lastTextLimit),
   })
   if (index >= 0) sessions.splice(index, 1)
   sessions.unshift(next)
@@ -154,7 +157,9 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
 }
 
 function homeCurrentSessionId() {
-  return (runtimeServiceState && runtimeServiceState.currentSessionId) || 'model-server/chat/default'
+  return (runtimeServiceState && runtimeServiceState.currentSessionId) ||
+    (runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.defaultSessionId) ||
+    ''
 }
 
 function appendChatBubble(role, text, meta) {
@@ -162,10 +167,33 @@ function appendChatBubble(role, text, meta) {
   const node = document.createElement('div')
   node.className = 'chat-message ' + (role || 'assistant')
   if (meta && meta.active) node.dataset.activeSession = 'true'
-  node.textContent = text
+  renderChatMarkdown(node, text)
   homeChatFeed.appendChild(node)
   homeChatFeed.scrollTop = homeChatFeed.scrollHeight
   return node
+}
+
+function renderChatMarkdown(target, text) {
+  const source = String(text || '')
+  if (!window.marked || !window.DOMPurify) {
+    target.textContent = source
+    return
+  }
+  window.marked.setOptions({
+    breaks: true,
+    gfm: true,
+    mangle: false,
+    headerIds: false,
+  })
+  const html = window.marked.parse(source)
+  target.innerHTML = window.DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+  })
+  target.querySelectorAll('a[href]').forEach(link => {
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+  })
 }
 
 function clearHomeMessages() {
@@ -177,16 +205,48 @@ function renderHomeConversation(sessionId, messages) {
   if (!homeChatFeed) return
   clearHomeMessages()
   const items = Array.isArray(messages) ? messages : []
-  if (!items.length) {
-    appendChatBubble('assistant', t('home.noChats'))
-    return
-  }
+  if (!items.length) return
   items.forEach(item => {
     const role = item && item.role ? item.role : 'assistant'
     const text = item && (item.text || item.content || item.message || '')
     if (text) appendChatBubble(role, text, { active: sessionId === homeCurrentSessionId() })
   })
   homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+}
+
+function latestHomeSession(state) {
+  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  return sessions.find(session => session && session.id && Number(session.messageCount || 0) > 0) ||
+    sessions.find(session => session && session.id) ||
+    null
+}
+
+function shouldPreferLatestHomeSession(state, currentId) {
+  if (!currentId) return true
+  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  const current = sessions.find(session => session && session.id === currentId)
+  return !current || Number(current.messageCount || 0) <= 0
+}
+
+function restoreHomeConversation(options) {
+  const forceLatest = !!(options && options.forceLatest)
+  const state = runtimeServiceState || runtimeState()
+  updateRuntimeServiceState(state)
+  const latest = latestHomeSession(state)
+  const currentId = state && state.currentSessionId
+  const target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
+    ? (latest && latest.id)
+    : currentId
+  if (!target) {
+    clearHomeMessages()
+    return null
+  }
+  if (target !== currentId) {
+    const selected = runtimeApiCommand('session.select', { sessionId: target })
+    updateRuntimeServiceState(selected || Object.assign({}, state, { currentSessionId: target }))
+  }
+  loadHomeConversation(target, { silent: true })
+  return target
 }
 
 // ---- Diagnostics ----

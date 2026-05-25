@@ -11,6 +11,7 @@ import com.mnnode.app.model.ModelMarket
 import com.mnnode.app.model.MnnRuntime
 import com.mnnode.app.runtime.TriggerEngine
 import com.mnnode.app.runtime.DeviceInteraction
+import com.mnnode.app.config.RuntimeDefaults
 import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.session.SessionStore
@@ -271,7 +272,7 @@ class ApiServerController(
                 return
             }
             val result = withContext(Dispatchers.IO) {
-                chatController.submitSync(request, ChatController.CHAT_TIMEOUT_MS)
+                chatController.submitSync(request, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
             }
             chatController.saveModelTurn(turnRequest, result)
             val status = if (result.ok) HttpStatusCode.OK else HttpStatusCode.BadRequest
@@ -306,7 +307,7 @@ class ApiServerController(
         )
         val sessionRequest = chatController.sessionRequest(followUp)
         val result = withContext(Dispatchers.IO) {
-            chatController.submitSync(sessionRequest, ChatController.CHAT_TIMEOUT_MS)
+            chatController.submitSync(sessionRequest, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
         }
         chatController.saveModelTurn(followUp.copy(sessionId = sessionRequest.sessionId, modelId = sessionRequest.modelId, persistSession = sessionRequest.persistSession), result)
         return (if (result.ok) HttpStatusCode.OK else HttpStatusCode.BadRequest) to responseJson(ChatProtocol.OPENAI, result, sessionRequest.sessionId)
@@ -543,6 +544,7 @@ class ApiServerController(
             .put("contextWindowTokens", chatController.contextWindowTokens(modelId))
             .put("contextStrategy", "token-budget")
             .put("effectiveMaxOutputTokens", chatController.effectiveMaxTokens(modelId, maxOutputTokens))
+            .put("sessionPolicy", sessionPolicyJson())
             .put("autoStart", autoStart)
             .put("currentSessionId", currentSessionId)
             .put("lastError", chatController.lastError ?: lastError ?: JSONObject.NULL)
@@ -585,6 +587,17 @@ class ApiServerController(
         }
         return JSONObject().put("object", "list").put("data", models)
     }
+
+    private fun sessionPolicyJson(): JSONObject = JSONObject()
+        .put("recentLimit", RuntimeDefaults.Sessions.RECENT_LIMIT)
+        .put("historyLimit", RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT)
+        .put("lastTextLimit", RuntimeDefaults.Sessions.LAST_TEXT_LIMIT)
+        .put("maxSystemMessages", RuntimeDefaults.Sessions.MAX_SYSTEM_MESSAGES)
+        .put("defaultSessionId", RuntimeDefaults.Sessions.DEFAULT_CHAT_ID)
+        .put("cache", JSONObject()
+            .put("promptCache", RuntimeDefaults.NativeRuntime.PROMPT_CACHE_ENABLED)
+            .put("singleActiveSession", true)
+            .put("mode", "native-prompt-cache"))
 
     private fun isApiModel(model: JSONObject): Boolean {
         val runtime = model.optString("runtime")
@@ -707,14 +720,14 @@ class ApiServerController(
 
     companion object {
         private const val TAG = "MNNodeApi"
-        private const val DEFAULT_PORT = 11434
-        private const val DEFAULT_MODEL_ID = "qwen3.5-2b-mnn"
-        private const val DEFAULT_SESSION_ID = "model-server/chat/default"
+        private const val DEFAULT_PORT = RuntimeDefaults.PORT
+        private const val DEFAULT_MODEL_ID = RuntimeDefaults.MODEL_ID
+        private const val DEFAULT_SESSION_ID = RuntimeDefaults.Sessions.DEFAULT_CHAT_ID
         private const val DEFAULT_MAX_OUTPUT_TOKENS = com.mnnode.app.model.DEFAULT_OUTPUT_TOKENS
         private const val MIN_OUTPUT_TOKENS = com.mnnode.app.model.MIN_OUTPUT_TOKENS
         private const val HARD_MAX_OUTPUT_TOKENS = com.mnnode.app.model.HARD_MAX_OUTPUT_TOKENS
-        private const val SETTINGS_NAMESPACE = "runtime/model-server/settings"
-        private const val SETTINGS_KEY = "server"
+        private const val SETTINGS_NAMESPACE = RuntimeDefaults.Settings.SERVER_NAMESPACE
+        private const val SETTINGS_KEY = RuntimeDefaults.Settings.SERVER_KEY
         private val JsonContentType = ContentType.Application.Json.withParameter("charset", "utf-8")
         fun newToken(): String {
             val bytes = ByteArray(18)

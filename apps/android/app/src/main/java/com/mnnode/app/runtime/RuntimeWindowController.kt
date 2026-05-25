@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.mnnode.app.config.RuntimeDefaults
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
@@ -375,8 +376,8 @@ class RuntimeWindowController private constructor(
     }
 
     companion object {
-        private const val SETTINGS_NAMESPACE = "runtime/settings"
-        private const val SETTINGS_KEY = "floating-window"
+        private const val SETTINGS_NAMESPACE = RuntimeDefaults.Settings.WINDOW_NAMESPACE
+        private const val SETTINGS_KEY = RuntimeDefaults.Settings.FLOATING_WINDOW_KEY
         private const val LONG_PRESS_MS = 550L
         private const val REFRESH_INTERVAL_MS = 1000L
         @Volatile private var instance: RuntimeWindowController? = null

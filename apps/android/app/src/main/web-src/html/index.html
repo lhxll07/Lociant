@@ -10,7 +10,7 @@
 <body>
   <div class="app" id="app">
     <aside class="sidebar">
-      <button class="menu-button pressable" id="menuButton" aria-label="toggle sidebar">
+      <button class="menu-button pressable floating-glass-button" id="menuButton" aria-label="toggle sidebar">
         <span class="hamburger"></span>
       </button>
 
@@ -31,6 +31,10 @@
           <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
           <span class="nav-label" data-i18n="nav.models">模型</span>
         </button>
+        <button class="nav-item pressable mobile-only" data-page="nodes">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8 15.8 7.2"/><path d="M8.2 13.2 15.8 16.8"/></svg></span>
+          <span class="nav-label" data-i18n="nav.nodes">节点</span>
+        </button>
       </nav>
 
       <div class="version">v0.3</div>
@@ -42,7 +46,8 @@
         <button class="scene-settings-button pressable" id="sceneSettingsButton" data-i18n="nav.settings">设置</button>
         <div class="top-spacer"></div>
         <div class="top-history">
-          <button class="home-rail-toggle pressable" id="homeRailToggle" type="button">
+          <button class="home-rail-toggle pressable floating-glass-button" id="homeRailToggle" type="button">
+            <span class="home-rail-toggle-icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-5 5v-5.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg></span>
             <span class="home-rail-toggle-dot"></span>
             <span data-i18n="home.historyTitle">最近对话</span>
             <span class="home-rail-toggle-count" id="homeSessionCount">0</span>
@@ -93,16 +98,22 @@
       <section class="panel active home-panel" id="page-home">
         <div class="home-chat-layout">
           <section class="chat-surface">
-            <header class="chat-head">
-              <span class="status-pill" id="homeRuntimePill" data-i18n="status.stopped">已停止</span>
-            </header>
             <div class="chat-feed" id="homeChatFeed"></div>
             <div class="chat-suggestions">
               <button class="suggestion-chip pressable" type="button" data-home-action="diagnostics" data-i18n="home.quickDiagnostics">运行诊断</button>
               <button class="suggestion-chip pressable" type="button" data-home-action="copy-config" data-i18n="home.quickConnection">复制连接配置</button>
               <button class="suggestion-chip pressable" type="button" data-home-action="scenes" data-i18n="home.quickScenes">打开场景</button>
             </div>
+            <div class="chat-attachment-preview" id="homeImagePreview" aria-hidden="true">
+              <img id="homeImagePreviewImg" alt="">
+              <span id="homeImagePreviewName"></span>
+              <button class="chat-attachment-remove pressable" id="homeImageRemoveButton" type="button" data-i18n-aria-label="home.removeImage">移除图片</button>
+            </div>
             <form class="chat-composer" id="homeChatForm">
+              <label class="chat-upload-button pressable" for="homeImageInput" data-i18n-aria-label="home.uploadImage" aria-label="上传照片">
+                <svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><path d="m8 14 2.2-2.2a1 1 0 0 1 1.4 0L16 16"/><path d="m14 13 1-1a1 1 0 0 1 1.4 0L20 15.6"/><circle cx="8.5" cy="8.5" r="1"/></svg>
+              </label>
+              <input class="visually-hidden" id="homeImageInput" type="file" accept="image/*">
               <input id="homeChatInput" type="text" autocomplete="off" data-i18n-placeholder="home.placeholder" placeholder="问问 Lociant，或输入一个工具调用任务">
               <button class="filled-button pressable" id="homeChatSendButton" type="submit" data-i18n="home.send">发送</button>
             </form>
@@ -531,6 +542,8 @@
     </main>
   </div>
 
+  <script src="vendor/marked.umd.js"></script>
+  <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

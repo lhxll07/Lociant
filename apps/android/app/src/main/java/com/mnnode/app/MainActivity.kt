@@ -13,10 +13,12 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.webkit.PermissionRequest
 import android.webkit.WebSettings
 import android.webkit.WebChromeClient
+import android.webkit.ValueCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -24,10 +26,12 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.WebViewAssetLoader
+import com.mnnode.app.config.RuntimeDefaults
 import com.mnnode.app.model.ModelInstaller
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.scene.SceneManager
@@ -66,6 +70,8 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private var pendingVisionPermissionRefresh = false
     private var pendingPermissionRefresh = false
     private var windowSettings = JSONObject()
+    private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
+    private var lastKeyboardInset = -1
 
     private val requestCameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val webPermissionRequest = pendingWebPermissionRequest
@@ -93,10 +99,17 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         if (uri == null) notifyModelInstallResult(false, "cancelled", null) else handleModelPackage(uri)
     }
 
+    private val pickWebFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        pendingFileChooser?.onReceiveValue(uri?.let { arrayOf(it) } ?: emptyArray())
+        pendingFileChooser = null
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DeviceInteraction.setActivityForeground(true)
+        @Suppress("DEPRECATION")
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         enterImmersiveMode()
 
         sceneManager = MNNodeRuntime.sceneManager(this)
@@ -143,6 +156,27 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                 override fun onPermissionRequestCanceled(request: PermissionRequest) {
                     if (pendingWebPermissionRequest == request) pendingWebPermissionRequest = null
                 }
+
+                override fun onShowFileChooser(
+                    webView: WebView,
+                    filePathCallback: ValueCallback<Array<Uri>>,
+                    fileChooserParams: FileChooserParams,
+                ): Boolean {
+                    pendingFileChooser?.onReceiveValue(emptyArray())
+                    pendingFileChooser = filePathCallback
+                    val types = fileChooserParams.acceptTypes
+                        .filter { it.isNotBlank() }
+                        .ifEmpty { listOf("image/*") }
+                        .toTypedArray()
+                    runOnUiThread {
+                        runCatching { pickWebFile.launch(types) }
+                            .onFailure {
+                                pendingFileChooser?.onReceiveValue(emptyArray())
+                                pendingFileChooser = null
+                            }
+                    }
+                    return true
+                }
             }
             setBackgroundColor(Color.TRANSPARENT)
 
@@ -165,6 +199,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             setBackgroundColor(Color.BLACK)
             addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
+        installKeyboardInsetBridge()
 
         setContentView(root)
     }
@@ -185,7 +220,36 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) enterImmersiveMode()
+        if (hasFocus) {
+            enterImmersiveMode()
+            ViewCompat.requestApplyInsets(root)
+        }
+    }
+
+    private fun installKeyboardInsetBridge() {
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navigation = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val keyboardInset = (ime - navigation).coerceAtLeast(0)
+            if (keyboardInset != lastKeyboardInset) {
+                lastKeyboardInset = keyboardInset
+                dispatchKeyboardInset(keyboardInset)
+            }
+            insets
+        }
+        root.post { ViewCompat.requestApplyInsets(root) }
+    }
+
+    private fun dispatchKeyboardInset(insetPx: Int) {
+        if (!::webView.isInitialized) return
+        val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
+        val insetCssPx = (insetPx / density).toInt()
+        runOnUiThread {
+            webView.evaluateJavascript(
+                "window.__lociantKeyboardInset && window.__lociantKeyboardInset($insetCssPx);",
+                null,
+            )
+        }
     }
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -552,7 +616,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             "application/x-zip-compressed",
             "*/*",
         )
-        private const val RUNTIME_SETTINGS_NAMESPACE = "runtime/settings"
-        private const val WINDOW_SETTINGS_KEY = "window"
+        private const val RUNTIME_SETTINGS_NAMESPACE = RuntimeDefaults.Settings.WINDOW_NAMESPACE
+        private const val WINDOW_SETTINGS_KEY = RuntimeDefaults.Settings.WINDOW_KEY
     }
 }

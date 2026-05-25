@@ -9,6 +9,7 @@ import com.mnnode.app.model.ModelChatRequest
 import com.mnnode.app.model.ModelChatResult
 import com.mnnode.app.model.ModelToolCall
 import com.mnnode.app.model.ToolTemplateContract
+import com.mnnode.app.config.RuntimeDefaults
 import com.mnnode.app.session.SessionStore
 import io.ktor.http.ContentType
 import io.ktor.http.content.OutgoingContent
@@ -104,7 +105,9 @@ class ChatController(
     fun sessionRequest(request: ModelChatRequest): ModelChatRequest {
         val explicitSession = request.sessionId.isNotBlank()
         val sessionId = sessionStore.normalizeModelSessionId(request.sessionId)
-        val history = if (explicitSession && request.messages.size <= 1) sessionStore.modelHistory(sessionId, MAX_HISTORY_MESSAGES) else emptyList()
+        val history = if (explicitSession && request.messages.size <= 1) {
+            sessionStore.modelHistory(sessionId, RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT)
+        } else emptyList()
         val contextMessages = trimContextMessages(
             messages = history + request.messages,
             contextBudget = contextWindowTokens(request.modelId),
@@ -197,7 +200,7 @@ class ChatController(
         var lastActivityAt = System.currentTimeMillis()
         try {
             while (!done) {
-                when (val event = withContext(Dispatchers.IO) { queue.poll(STREAM_HEARTBEAT_MS, TimeUnit.MILLISECONDS) }) {
+                when (val event = withContext(Dispatchers.IO) { queue.poll(RuntimeDefaults.Queue.STREAM_HEARTBEAT_MS, TimeUnit.MILLISECONDS) }) {
                     is StreamEvent.Chunk -> {
                         lastActivityAt = System.currentTimeMillis()
                         if (bufferToolCandidate) {
@@ -214,8 +217,8 @@ class ChatController(
                     is StreamEvent.Done -> { lastActivityAt = System.currentTimeMillis(); done = true }
                     is StreamEvent.Error -> { channel.writeEvent(format.error(request.modelId, event.message)); done = true }
                     null -> {
-                        if (System.currentTimeMillis() - lastActivityAt > STREAM_IDLE_TIMEOUT_MS) {
-                            lastError = "Chat stream idle timed out after ${STREAM_IDLE_TIMEOUT_MS}ms"
+                        if (System.currentTimeMillis() - lastActivityAt > RuntimeDefaults.Queue.CHAT_TIMEOUT_MS) {
+                            lastError = "Chat stream idle timed out after ${RuntimeDefaults.Queue.CHAT_TIMEOUT_MS}ms"
                             abortReason = lastError
                             aborted = true
                             cancelStream(job, abortReason!!)
@@ -319,10 +322,6 @@ class ChatController(
 
     companion object {
         private const val TAG = "MNNodeChat"
-        const val CHAT_TIMEOUT_MS = 300_000L
-        private const val STREAM_HEARTBEAT_MS = 10_000L
-        private const val STREAM_IDLE_TIMEOUT_MS = CHAT_TIMEOUT_MS
-        const val MAX_HISTORY_MESSAGES = 64
         val EventStreamContentType = ContentType.Text.EventStream.withParameter("charset", "utf-8")
         val NdjsonContentType = ContentType.parse("application/x-ndjson").withParameter("charset", "utf-8")
     }
@@ -334,8 +333,8 @@ private fun trimContextMessages(
     outputBudget: Int,
 ): List<ModelChatRequestMessageAlias> {
     if (messages.isEmpty()) return emptyList()
-    val inputBudget = (contextBudget - outputBudget.coerceAtLeast(0) - CONTEXT_SAFETY_MARGIN_TOKENS)
-        .coerceAtLeast(MIN_INPUT_BUDGET_TOKENS)
+    val inputBudget = (contextBudget - outputBudget.coerceAtLeast(0) - RuntimeDefaults.Tokens.CONTEXT_SAFETY_MARGIN)
+        .coerceAtLeast(RuntimeDefaults.Tokens.INPUT_BUDGET_MIN)
     val system = messages.filter { it.role.equals("system", ignoreCase = true) }
     val nonSystem = messages.filterNot { it.role.equals("system", ignoreCase = true) }
     val selected = ArrayDeque<ModelChatRequestMessageAlias>()
@@ -348,22 +347,16 @@ private fun trimContextMessages(
         used += cost
     }
 
-    return (system.takeLast(MAX_SYSTEM_MESSAGES) + selected).ifEmpty { messages.takeLast(1) }
+    return (system.takeLast(RuntimeDefaults.Sessions.MAX_SYSTEM_MESSAGES) + selected).ifEmpty { messages.takeLast(1) }
 }
 
 private typealias ModelChatRequestMessageAlias = com.mnnode.app.model.ModelChatMessage
 
 private fun estimateMessageTokens(message: ModelChatRequestMessageAlias): Int {
     val textTokens = (message.text().length + 3) / 4
-    val imageTokens = message.parts.count { it is com.mnnode.app.model.ModelChatPart.Image } * IMAGE_TOKEN_ESTIMATE
-    return MESSAGE_OVERHEAD_TOKENS + textTokens + imageTokens
+    val imageTokens = message.parts.count { it is com.mnnode.app.model.ModelChatPart.Image } * RuntimeDefaults.Tokens.IMAGE_ESTIMATE
+    return RuntimeDefaults.Tokens.MESSAGE_OVERHEAD + textTokens + imageTokens
 }
-
-private const val CONTEXT_SAFETY_MARGIN_TOKENS = 256
-private const val MIN_INPUT_BUDGET_TOKENS = 512
-private const val MESSAGE_OVERHEAD_TOKENS = 8
-private const val IMAGE_TOKEN_ESTIMATE = 512
-private const val MAX_SYSTEM_MESSAGES = 4
 
 private data class StreamMeta(val id: String, val created: Long, val modelId: String)
 private data class StreamJob(val id: String, val future: CompletableFuture<ModelChatResult>)
@@ -441,7 +434,7 @@ private fun ollamaDoneLine(modelId: String, result: ModelChatResult?): String {
 }
 
 private class ChatRequestQueue(
-    private val maxQueuedRequests: Int = DEFAULT_MAX_QUEUED_REQUESTS,
+    private val maxQueuedRequests: Int = RuntimeDefaults.Queue.MAX_QUEUED_REQUESTS,
 ) {
     private val queue = LinkedBlockingQueue<Job>()
     private val tasks = ConcurrentHashMap<String, Task>()
@@ -548,7 +541,7 @@ private class ChatRequestQueue(
         return true
     }
 
-    private fun cleanup(olderThanMs: Long = 300_000) {
+    private fun cleanup(olderThanMs: Long = RuntimeDefaults.Queue.TASK_RETENTION_MS) {
         val cutoff = System.currentTimeMillis() - olderThanMs
         tasks.values.removeIf { task ->
             task.status.get().terminal && (task.completedAt ?: task.createdAt) < cutoff
@@ -654,7 +647,4 @@ private class ChatRequestQueue(
         CANCELLED(true),
     }
 
-    companion object {
-        private const val DEFAULT_MAX_QUEUED_REQUESTS = 16
-    }
 }

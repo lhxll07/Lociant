@@ -2,6 +2,7 @@
 
 // ---- Sidebar ----
 let sidebarBusy = false
+let nativeKeyboardInset = 0
 
 function clearPress(target) {
   if (target) target.classList.remove('is-pressed')
@@ -9,7 +10,16 @@ function clearPress(target) {
 
 function toggleSidebar(event) {
   if (event) event.preventDefault()
-  if (window.matchMedia('(orientation: portrait), (max-width: 760px)').matches) return
+  if (window.matchMedia('(orientation: portrait), (max-width: 760px)').matches) {
+    app.classList.toggle('mobile-nav-open')
+    menuButton.classList.toggle('is-active', app.classList.contains('mobile-nav-open'))
+    if (app.classList.contains('mobile-nav-open') && homeSidebar && homeRailToggle) {
+      homeSidebar.classList.remove('open')
+      homeRailToggle.setAttribute('aria-expanded', 'false')
+      homeRailToggle.classList.remove('is-active')
+    }
+    return
+  }
   if (sidebarBusy) return
   sidebarBusy = true
   menuButton.classList.add('is-busy')
@@ -31,6 +41,9 @@ function showToast(text) {
 // ---- Navigation ----
 function navigateTo(page) {
   navItems.forEach(i => i.classList.toggle('active', i.dataset.page === page))
+  app.classList.remove('mobile-nav-open')
+  menuButton.classList.remove('is-active')
+  setKeyboardOffset(0)
   unloadSceneFrame()
   backButton.classList.remove('active')
   activeScene = null
@@ -49,6 +62,32 @@ function navigateTo(page) {
 function openRuntimeServerFromHome() {
   navigateTo('settings')
   openRuntimeServerSettings()
+}
+
+function syncKeyboardOffset() {
+  const chatFocused = document.activeElement === homeChatInput
+  if (!document.documentElement || !chatFocused) {
+    setKeyboardOffset(0)
+    return
+  }
+  const viewport = window.visualViewport
+  const viewportHidden = viewport
+    ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+    : 0
+  const hidden = Math.max(nativeKeyboardInset, viewportHidden)
+  const offset = hidden > 80 ? Math.min(hidden, 320) : 0
+  setKeyboardOffset(offset)
+  if (offset && homeChatFeed) homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+}
+
+function setKeyboardOffset(offset) {
+  document.documentElement.style.setProperty('--keyboard-offset', offset + 'px')
+  app.classList.toggle('keyboard-active', offset > 0)
+}
+
+window.__lociantKeyboardInset = function(insetPx) {
+  nativeKeyboardInset = Math.max(0, Number(insetPx) || 0)
+  syncKeyboardOffset()
 }
 
 function showHomeConversationLoading(text) {
@@ -73,32 +112,68 @@ function handleHomeAction(action) {
   }
 }
 
+function setHomeImageAttachment(file, dataUrl) {
+  homeAttachedImage = file && dataUrl ? {
+    name: file.name || t('home.imageAttached'),
+    url: dataUrl,
+  } : null
+  if (!homeImagePreview) return
+  const active = !!homeAttachedImage
+  homeImagePreview.classList.toggle('active', active)
+  homeImagePreview.setAttribute('aria-hidden', active ? 'false' : 'true')
+  if (homeImagePreviewImg) homeImagePreviewImg.src = active ? homeAttachedImage.url : ''
+  if (homeImagePreviewName) homeImagePreviewName.textContent = active ? homeAttachedImage.name : ''
+}
+
+function clearHomeImageAttachment() {
+  setHomeImageAttachment(null, '')
+  if (homeImageInput) homeImageInput.value = ''
+}
+
+function readHomeImage(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return
+  const reader = new FileReader()
+  reader.onload = () => setHomeImageAttachment(file, String(reader.result || ''))
+  reader.onerror = () => showToast(t('toast.modelImportFailed'))
+  reader.readAsDataURL(file)
+}
+
+function homeChatMessages(prompt, image) {
+  if (!image) return [{ role: 'user', content: prompt }]
+  const content = []
+  if (prompt) content.push({ type: 'text', text: prompt })
+  content.push({ type: 'image_url', image_url: { url: image.url } })
+  return [{ role: 'user', content }]
+}
+
 function submitHomeChat(text) {
   const prompt = String(text || '').trim()
-  if (!prompt) return
-  appendChatBubble('user', prompt)
+  const image = homeAttachedImage
+  if (!prompt && !image) return
+  appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
+  clearHomeImageAttachment()
   if (homeChatSendButton) homeChatSendButton.disabled = true
   const pending = appendChatBubble('assistant', t('home.thinking'))
   const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
   const sessionId = homeCurrentSessionId()
-  upsertHomeSessionPreview(sessionId, prompt, 'user')
+  upsertHomeSessionPreview(sessionId, prompt || t('home.imageAttached'), 'user')
   apiPost('/v1/chat/completions', {
     model: modelId,
     stream: false,
     sessionId,
-    messages: [{ role: 'user', content: prompt }]
+    messages: homeChatMessages(prompt, image)
   }).then(result => {
     const reply = chatResponseText(result)
-    if (pending) pending.textContent = reply || t('home.emptyReply')
+    if (pending) renderChatMarkdown(pending, reply || t('home.emptyReply'))
     else appendChatBubble('assistant', reply || t('home.emptyReply'))
     if (result && result.sessionId) {
       runtimeServiceState = Object.assign({}, runtimeServiceState || {}, { currentSessionId: result.sessionId })
     }
-    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt, 'assistant')
+    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
     refreshRuntimeServiceState()
   }).catch(error => {
-    if (pending) pending.textContent = (error && error.message) || t('toast.modelImportFailed')
+    if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
     else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
   }).finally(() => {
     if (homeChatSendButton) homeChatSendButton.disabled = false
@@ -118,17 +193,19 @@ function chatResponseText(result) {
   ).trim()
 }
 
-function loadHomeConversation(sessionId) {
+function loadHomeConversation(sessionId, options) {
   const target = sessionId || homeCurrentSessionId()
-  showHomeConversationLoading(t('home.thinking'))
+  const silent = !!(options && options.silent)
+  if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
     const state = runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
+    updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: target }))
     renderHomeConversation(target, messages)
   } catch (error) {
     clearHomeMessages()
-    appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+    if (!silent) appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
   }
 }
 

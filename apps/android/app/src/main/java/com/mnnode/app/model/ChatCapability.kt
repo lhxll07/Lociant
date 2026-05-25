@@ -1,6 +1,7 @@
 package com.mnnode.app.model
 
 import android.util.Log
+import com.mnnode.app.config.RuntimeDefaults
 import java.io.File
 
 class ChatCapability(
@@ -35,8 +36,8 @@ class ChatCapability(
 
     fun contextWindowTokens(modelIdRaw: String): Int {
         return modelManager.contextWindowTokens(normalize(modelIdRaw))
-            ?.coerceIn(MIN_CONTEXT_TOKENS, HARD_MAX_CONTEXT_TOKENS)
-            ?: DEFAULT_CONTEXT_TOKENS
+            ?.coerceIn(RuntimeDefaults.Tokens.CONTEXT_MIN, RuntimeDefaults.Tokens.CONTEXT_MAX)
+            ?: RuntimeDefaults.Tokens.CONTEXT_DEFAULT
     }
 
     fun clampTokens(modelIdRaw: String, requested: Int, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int {
@@ -214,8 +215,5 @@ class ChatCapability(
 
     companion object {
         private const val TAG = "MNNodeChatCapability"
-        private const val MIN_CONTEXT_TOKENS = 1024
-        private const val DEFAULT_CONTEXT_TOKENS = 4096
-        private const val HARD_MAX_CONTEXT_TOKENS = 32768
     }
 }

@@ -10,6 +10,11 @@ sceneFrame.addEventListener('load', () => {
 })
 
 window.addEventListener('resize', resizeSceneFrame)
+window.addEventListener('resize', syncKeyboardOffset)
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncKeyboardOffset)
+  window.visualViewport.addEventListener('scroll', syncKeyboardOffset)
+}
 sceneHost.addEventListener('scroll', () => syncCameraPreviewRect(), { passive: true })
 app.addEventListener('transitionend', () => syncCameraPreviewRect())
 
@@ -26,6 +31,10 @@ menuButton.addEventListener('mouseleave', () => clearPress(menuButton))
 document.addEventListener('pointerdown', event => {
   const target = event.target.closest('.pressable')
   if (target && target !== menuButton) target.classList.add('is-pressed')
+  if (app.classList.contains('mobile-nav-open') && !event.target.closest('.sidebar')) {
+    app.classList.remove('mobile-nav-open')
+    menuButton.classList.remove('is-active')
+  }
 }, { passive: true })
 
 document.addEventListener('pointerup', event => {
@@ -66,6 +75,11 @@ if (homeRailToggle && homeSidebar) {
   homeRailToggle.addEventListener('click', () => {
     const open = homeSidebar.classList.toggle('open')
     homeRailToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    homeRailToggle.classList.toggle('is-active', open)
+    if (open) {
+      app.classList.remove('mobile-nav-open')
+      menuButton.classList.remove('is-active')
+    }
     if (open) refreshRuntimeServiceState()
   })
   document.addEventListener('pointerdown', event => {
@@ -73,6 +87,7 @@ if (homeRailToggle && homeSidebar) {
     if (!homeSidebar.contains(event.target) && !homeRailToggle.contains(event.target)) {
       homeSidebar.classList.remove('open')
       homeRailToggle.setAttribute('aria-expanded', 'false')
+      homeRailToggle.classList.remove('is-active')
     }
   })
 }
@@ -95,17 +110,31 @@ if (homeChatForm) {
     submitHomeChat(homeChatInput && homeChatInput.value)
   })
 }
+if (homeChatInput) {
+  homeChatInput.addEventListener('focus', () => {
+    window.setTimeout(syncKeyboardOffset, 80)
+    window.setTimeout(syncKeyboardOffset, 260)
+  })
+  homeChatInput.addEventListener('blur', () => {
+    setKeyboardOffset(0)
+    window.setTimeout(syncKeyboardOffset, 120)
+  })
+}
+if (homeImageInput) {
+  homeImageInput.addEventListener('change', () => {
+    const file = homeImageInput.files && homeImageInput.files[0]
+    readHomeImage(file)
+  })
+}
+if (homeImageRemoveButton) {
+  homeImageRemoveButton.addEventListener('click', clearHomeImageAttachment)
+}
 if (homeChatFeed) {
   homeChatFeed.addEventListener('click', event => {
     const button = event.target.closest('[data-home-action]')
     if (button) handleHomeAction(button.dataset.homeAction)
   })
 }
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    loadHomeConversation()
-  }
-})
 
 // ---- Settings navigation ----
 runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
@@ -302,7 +331,10 @@ window.MNNodeEvents = {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) refreshRuntimeServiceState()
+  if (!document.hidden) {
+    refreshRuntimeServiceState()
+    restoreHomeConversation()
+  }
 })
 
 const messageHandlers = {
@@ -323,6 +355,7 @@ window.addEventListener('message', event => {
 
 // ---- Bootstrap ----
 refreshRuntimeServiceState()
+restoreHomeConversation()
 loadScenes()
 loadModels()
 loadLocaleSetting()

@@ -7,6 +7,7 @@ import android.util.Log
 import com.mnnode.app.model.HARD_MAX_OUTPUT_TOKENS
 import com.mnnode.app.model.MIN_OUTPUT_TOKENS
 import com.mnnode.app.model.NativeChatResult
+import com.mnnode.app.config.RuntimeDefaults
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -134,7 +135,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         if (handle != 0L && loadedConfigPath == configPath) return true to "already loaded"
 
         val raw = nativeLoad(handle, configPath,
-            File(appContext.cacheDir, "mnn-chat").apply { mkdirs() }.absolutePath,
+            File(appContext.cacheDir, RuntimeDefaults.NativeRuntime.CHAT_CACHE_DIR).apply { mkdirs() }.absolutePath,
             runtimeConfigJson())
         val loaded = JSONObject(raw).optBoolean("ok", false)
         if (loaded) loadedConfigPath = configPath
@@ -142,14 +143,16 @@ class MnnRuntime(context: Context) : AutoCloseable {
     }
 
     private fun runtimeConfigJson(toolsJson: String = ""): String {
-        val context = JSONObject().put("enable_thinking", false)
+        val context = JSONObject().put("enable_thinking", RuntimeDefaults.NativeRuntime.THINKING_ENABLED)
         runCatching {
             if (toolsJson.isNotBlank()) context.put("tools", org.json.JSONArray(toolsJson))
         }
         return JSONObject()
             .put("async", false)
-            .put("prompt_cache", true)
+            .put("prompt_cache", RuntimeDefaults.NativeRuntime.PROMPT_CACHE_ENABLED)
             .put("thread_num", cpuThreads)
+            .put("min_output_tokens", MIN_OUTPUT_TOKENS)
+            .put("max_output_tokens", HARD_MAX_OUTPUT_TOKENS)
             .put("mllm", JSONObject().put("thread_num", cpuThreads))
             .put("jinja", JSONObject()
                 .put("context", context))
@@ -165,10 +168,10 @@ class MnnRuntime(context: Context) : AutoCloseable {
         mllm.put("thread_num", cpuThreads)
         val jinja = config.optJSONObject("jinja") ?: JSONObject().also { config.put("jinja", it) }
         val context = jinja.optJSONObject("context") ?: JSONObject().also { jinja.put("context", it) }
-        context.put("enable_thinking", false)
+        context.put("enable_thinking", RuntimeDefaults.NativeRuntime.THINKING_ENABLED)
 
         val name = "config-${sha1(modelDir.absolutePath)}-$cpuThreads.json"
-        val target = File(File(appContext.cacheDir, "mnn-chat-config").apply { mkdirs() }, name)
+        val target = File(File(appContext.cacheDir, RuntimeDefaults.NativeRuntime.CONFIG_CACHE_DIR).apply { mkdirs() }, name)
         val text = config.toString()
         if (!target.isFile || target.readText(Charsets.UTF_8) != text) {
             target.writeText(text, Charsets.UTF_8)

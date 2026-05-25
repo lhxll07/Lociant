@@ -125,6 +125,11 @@ const homeChatForm = document.getElementById('homeChatForm')
 const homeChatInput = document.getElementById('homeChatInput')
 const homeChatSendButton = document.getElementById('homeChatSendButton')
 const homeChatFeed = document.getElementById('homeChatFeed')
+const homeImageInput = document.getElementById('homeImageInput')
+const homeImagePreview = document.getElementById('homeImagePreview')
+const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
+const homeImagePreviewName = document.getElementById('homeImagePreviewName')
+const homeImageRemoveButton = document.getElementById('homeImageRemoveButton')
 const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
 const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
 const nodeLocalState = document.getElementById('nodeLocalState')
@@ -150,6 +155,7 @@ const localeStorePath = '/v1/store/runtime-settings/locale'
 let scenes = []
 let activeScene = null
 let cameraPreviewRect = null
+let homeAttachedImage = null
 
 // ---- DOM helpers ----
 function el(tag, className, text) {

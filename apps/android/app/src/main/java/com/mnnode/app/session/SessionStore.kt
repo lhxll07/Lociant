@@ -3,6 +3,7 @@ package com.mnnode.app.session
 import android.content.Context
 import com.mnnode.app.model.ModelChatMessage
 import com.mnnode.app.model.ModelChatPart
+import com.mnnode.app.config.RuntimeDefaults
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -18,7 +19,7 @@ class SessionStore(context: Context) {
 
     fun createModelSession(modelId: String?, title: String? = null): String {
         val now = System.currentTimeMillis()
-        val id = "$CHAT_SESSION_PREFIX$now"
+        val id = "${RuntimeDefaults.Sessions.CHAT_PREFIX}$now"
         upsertModelSession(id, modelId.orEmpty(), now, title?.takeIf { it.isNotBlank() } ?: "Chat ${now % 100000}")
         return id
     }
@@ -31,14 +32,15 @@ class SessionStore(context: Context) {
 
     fun deleteModelSession(sessionId: String): Boolean {
         val id = normalizeModelSessionId(sessionId)
-        if (!id.startsWith(CHAT_SESSION_PREFIX)) return false
+        val session = dao.session(id) ?: return false
+        if (session.kind != RuntimeDefaults.Sessions.MODEL_CHAT_KIND) return false
         dao.deleteSession(id)
         return true
     }
 
-    fun recentModelSessions(limit: Int = 8): JSONArray {
+    fun recentModelSessions(limit: Int = RuntimeDefaults.Sessions.RECENT_LIMIT): JSONArray {
         val result = JSONArray()
-        dao.recentSessions(MODEL_SERVER_SCENE_ID, "model-chat", limit).forEach { session ->
+        dao.recentSessions(RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID, RuntimeDefaults.Sessions.MODEL_CHAT_KIND, limit).forEach { session ->
             val latest = dao.latestMessage(session.id)
             result.put(
                 JSONObject()
@@ -48,7 +50,7 @@ class SessionStore(context: Context) {
                     .put("updatedAt", session.updatedAt)
                     .put("messageCount", dao.messageCount(session.id))
                     .put("lastRole", latest?.role ?: JSONObject.NULL)
-                    .put("lastText", latest?.text?.take(120) ?: "")
+                    .put("lastText", latest?.text?.take(RuntimeDefaults.Sessions.LAST_TEXT_LIMIT) ?: "")
             )
         }
         return result
@@ -90,7 +92,7 @@ class SessionStore(context: Context) {
         message: String? = null,
     ) {
         val now = System.currentTimeMillis()
-        val sessionId = MODEL_SERVER_SESSION_ID
+        val sessionId = RuntimeDefaults.Sessions.MODEL_SERVER_SESSION_ID
         val statusText = status.toString()
         val payload = JSONObject()
             .put("method", method)
@@ -103,8 +105,8 @@ class SessionStore(context: Context) {
         dao.upsertSession(
             SessionEntity(
                 id = sessionId,
-                sceneId = MODEL_SERVER_SCENE_ID,
-                kind = "model-server",
+                sceneId = RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID,
+                kind = RuntimeDefaults.Sessions.MODEL_SERVER_KIND,
                 title = "Model Server",
                 modelId = modelId,
                 createdAt = dao.session(sessionId)?.createdAt ?: now,
@@ -115,7 +117,7 @@ class SessionStore(context: Context) {
         dao.insertEvent(
             EventEntity(
                 sessionId = sessionId,
-                sceneId = MODEL_SERVER_SCENE_ID,
+                sceneId = RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID,
                 type = "api.request",
                 level = if (status in 200..399) "info" else "error",
                 payloadJson = payload.toString(),
@@ -134,9 +136,9 @@ class SessionStore(context: Context) {
         )
     }
 
-    fun recentApiRequests(limit: Int = 12): JSONArray {
+    fun recentApiRequests(limit: Int = RuntimeDefaults.Sessions.API_REQUEST_LIMIT): JSONArray {
         val result = JSONArray()
-        dao.recentEventsBySceneAndType(MODEL_SERVER_SCENE_ID, "api.request", limit).forEach { event ->
+        dao.recentEventsBySceneAndType(RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID, "api.request", limit).forEach { event ->
             val payload = runCatching { JSONObject(event.payloadJson) }.getOrDefault(JSONObject())
             result.put(
                 JSONObject()
@@ -151,7 +153,7 @@ class SessionStore(context: Context) {
     }
 
     fun apiRequestCount(): Int {
-        return dao.eventCountBySceneAndType(MODEL_SERVER_SCENE_ID, "api.request")
+        return dao.eventCountBySceneAndType(RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID, "api.request")
     }
 
     fun recordRuntimeEvent(sceneId: String, type: String, level: String = "info", payload: JSONObject = JSONObject()) {
@@ -185,7 +187,7 @@ class SessionStore(context: Context) {
         return result
     }
 
-    fun modelHistory(sessionId: String, limit: Int = 16): List<ModelChatMessage> {
+    fun modelHistory(sessionId: String, limit: Int = RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT): List<ModelChatMessage> {
         return dao.messages(sessionId)
             .filter { it.role == "user" || it.role == "assistant" || it.role == "system" }
             .takeLast(limit.coerceAtLeast(1))
@@ -235,8 +237,8 @@ class SessionStore(context: Context) {
         dao.upsertSession(
             SessionEntity(
                 id = sessionId,
-                sceneId = MODEL_SERVER_SCENE_ID,
-                kind = "model-chat",
+                sceneId = RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID,
+                kind = RuntimeDefaults.Sessions.MODEL_CHAT_KIND,
                 title = title ?: existing?.title ?: sessionId.substringAfterLast('/').ifBlank { "Default Chat" },
                 modelId = modelId,
                 createdAt = existing?.createdAt ?: now,
@@ -248,9 +250,5 @@ class SessionStore(context: Context) {
 
     companion object {
         private val SAFE_SESSION_ID = Regex("^[\\w.:/@\\-]+$")
-        private const val MODEL_SERVER_SCENE_ID = "model-server"
-        private const val MODEL_SERVER_SESSION_ID = "model-server/default"
-        private const val CHAT_SESSION_PREFIX = "model-server/chat/"
-        private const val DEFAULT_CHAT_SESSION_ID = "${CHAT_SESSION_PREFIX}default"
     }
 }
