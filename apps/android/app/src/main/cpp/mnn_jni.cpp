@@ -210,3 +210,9 @@ Java_com_mnnode_app_model_MnnRuntime_nativeCancel(JNIEnv*, jclass, jlong handle)
     auto* runtime = from_handle(handle);
     if (runtime) runtime->cancel();
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_mnnode_app_model_MnnRuntime_nativeResetSessionCache(JNIEnv*, jclass, jlong handle) {
+    auto* runtime = from_handle(handle);
+    if (runtime) runtime->reset_session_cache();
+}

@@ -66,6 +66,7 @@ class ApiServerController(
     private var maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS
     private var cpuThreads = MnnRuntime.DEFAULT_CPU_THREADS
     private var contextProfile = RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT
+    private var historyLimit = RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT
     private var autoStart = false
     private var currentSessionId = DEFAULT_SESSION_ID
     private var authToken = ""
@@ -546,6 +547,7 @@ class ApiServerController(
             .put("cpuThreads", cpuThreads)
             .put("maxCpuThreads", maxCpuThreads())
             .put("contextProfile", contextProfile)
+            .put("historyLimit", historyLimit)
             .put("modelMaxOutputTokens", modelManager.maxNewTokens(modelId) ?: JSONObject.NULL)
             .put("contextWindowTokens", chatController.contextWindowTokens(modelId))
             .put("contextStrategy", "token-budget")
@@ -596,8 +598,9 @@ class ApiServerController(
 
     private fun sessionPolicyJson(): JSONObject = JSONObject()
         .put("recentLimit", RuntimeDefaults.Sessions.RECENT_LIMIT)
-        .put("historyLimit", historyLimitForContextProfile(contextProfile))
+        .put("historyLimit", historyLimit)
         .put("contextProfile", contextProfile)
+        .put("maxHistoryLimit", RuntimeDefaults.Sessions.MODEL_HISTORY_MAX_LIMIT)
         .put("lastTextLimit", RuntimeDefaults.Sessions.LAST_TEXT_LIMIT)
         .put("maxSystemMessages", RuntimeDefaults.Sessions.MAX_SYSTEM_MESSAGES)
         .put("defaultSessionId", RuntimeDefaults.Sessions.DEFAULT_CHAT_ID)
@@ -633,6 +636,7 @@ class ApiServerController(
             .put("maxOutputTokens", maxOutputTokens)
             .put("cpuThreads", cpuThreads)
             .put("contextProfile", contextProfile)
+            .put("historyLimit", historyLimit)
             .put("authToken", authToken)
             .put("toolExposure", toolExposure.id)
             .put("autoStart", autoStart).put("currentSessionId", currentSessionId))
@@ -655,7 +659,9 @@ class ApiServerController(
             if (chatCapability.configureCpuThreads(cpuThreads)) chatController.resetLoadedModel()
         }
         contextProfile = normalizeContextProfile(settings.optString("contextProfile", RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT))
-        chatController.configureHistoryLimit(historyLimitForContextProfile(contextProfile))
+        historyLimit = settings.optInt("historyLimit", historyLimitForContextProfile(contextProfile))
+            .coerceIn(1, RuntimeDefaults.Sessions.MODEL_HISTORY_MAX_LIMIT)
+        chatController.configureHistoryLimit(historyLimit)
         autoStart = settings.optBoolean("autoStart", false)
         currentSessionId = sessionStore.normalizeModelSessionId(settings.optString("currentSessionId", DEFAULT_SESSION_ID))
         authToken = settings.optString("authToken").trim()
@@ -685,14 +691,20 @@ class ApiServerController(
     // ---- Sessions ----
 
     private fun selectSession(rawSessionId: String) {
+        val previousSessionId = currentSessionId
         currentSessionId = sessionStore.ensureModelSession(rawSessionId, modelId)
+        if (currentSessionId != previousSessionId) {
+            chatController.resetSessionCache()
+        }
         saveSettings()
     }
 
     private fun deleteSession(rawSessionId: String) {
         val deletedId = sessionStore.normalizeModelSessionId(rawSessionId)
         if (sessionStore.deleteModelSession(deletedId) && deletedId == currentSessionId) {
-            currentSessionId = DEFAULT_SESSION_ID; saveSettings()
+            currentSessionId = DEFAULT_SESSION_ID
+            chatController.resetSessionCache()
+            saveSettings()
         }
     }
 

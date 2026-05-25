@@ -100,6 +100,10 @@ class ChatCapability(
         mnnRuntime.cancel()
     }
 
+    fun resetSessionCache() {
+        mnnRuntime.resetSessionCache()
+    }
+
     fun releaseModel() {
         mnnRuntime.cancel()
         mnnRuntime.close()

@@ -33,7 +33,7 @@ object RuntimeDefaults {
         const val MODEL_HISTORY_LIGHT_LIMIT = 16
         const val MODEL_HISTORY_LIMIT = 64
         const val MODEL_HISTORY_DEEP_LIMIT = 128
-        const val MODEL_HISTORY_MAX_LIMIT = MODEL_HISTORY_DEEP_LIMIT
+        const val MODEL_HISTORY_MAX_LIMIT = 256
         const val LAST_TEXT_LIMIT = 120
         const val MAX_SYSTEM_MESSAGES = 4
         const val DATABASE_NAME = "mnnode-sessions.db"

@@ -126,6 +126,17 @@ bool can_use_text_session_cache(
     return normalize_role(message.first) == "user" && !message.second.empty();
 }
 
+void reset_text_session_cache(
+    MNN::Transformer::Llm* llm,
+    std::string& active_runtime_config,
+    std::string& active_cache_session_id) {
+    if (llm) {
+        llm->reset();
+    }
+    active_runtime_config.clear();
+    active_cache_session_id.clear();
+}
+
 void boost_current_thread_for_inference() {
     // Best-effort only. Some Android builds reject this for app UIDs.
     pthread_setname_np(pthread_self(), "mnnode-mnn-infer");
@@ -481,6 +492,8 @@ std::string MnnRuntimeNative::load(
     loaded_ = false;
     config_path_ = config_path;
     last_error_.clear();
+    active_runtime_config_.clear();
+    active_cache_session_id_.clear();
 
     if (config_path.empty()) {
         last_error_ = "empty config path";
@@ -549,7 +562,7 @@ std::string MnnRuntimeNative::chat_text(
     const bool cache_capable = can_use_text_session_cache(messages, use_session_cache);
     const bool session_changed = active_cache_session_id_ != session_id;
     if (!cache_capable || config_changed || session_changed) {
-        llm_->reset();
+        reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
     }
     active_runtime_config_ = runtime_config;
     active_cache_session_id_ = cache_capable ? session_id : "";
@@ -633,7 +646,7 @@ std::string MnnRuntimeNative::chat_text_stream(
     const bool cache_capable = can_use_text_session_cache(messages, use_session_cache);
     const bool session_changed = active_cache_session_id_ != session_id;
     if (!cache_capable || config_changed || session_changed) {
-        llm_->reset();
+        reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
     }
     active_runtime_config_ = runtime_config;
     active_cache_session_id_ = cache_capable ? session_id : "";
@@ -713,9 +726,7 @@ std::string MnnRuntimeNative::chat_image(JNIEnv* env, jobject bitmap, const std:
     part.height = height;
     input.images["image_0"] = part;
 
-    llm_->reset();
-    active_runtime_config_.clear();
-    active_cache_session_id_.clear();
+    reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
     MNNODE_LOGI("chat_image stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
     if (!runtime_config.empty()) {
         llm_->set_config(runtime_config);
@@ -782,9 +793,7 @@ std::string MnnRuntimeNative::chat_image_stream(
     part.height = height;
     input.images["image_0"] = part;
 
-    llm_->reset();
-    active_runtime_config_.clear();
-    active_cache_session_id_.clear();
+    reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
     MNNODE_LOGI("chat_image_stream stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
     if (!runtime_config.empty()) {
         llm_->set_config(runtime_config);
@@ -815,6 +824,12 @@ std::string MnnRuntimeNative::chat_image_stream(
 
 void MnnRuntimeNative::cancel() {
     cancel_requested_.store(true);
+}
+
+void MnnRuntimeNative::reset_session_cache() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
+    MNNODE_LOGI("session cache reset");
 }
 
 std::string MnnRuntimeNative::state_json() const {

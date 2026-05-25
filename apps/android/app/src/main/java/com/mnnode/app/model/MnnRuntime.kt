@@ -93,6 +93,11 @@ class MnnRuntime(context: Context) : AutoCloseable {
         if (currentHandle != 0L) nativeCancel(currentHandle)
     }
 
+    fun resetSessionCache() {
+        val currentHandle = handle
+        if (currentHandle != 0L) nativeResetSessionCache(currentHandle)
+    }
+
     @Synchronized
     override fun close() { releaseHandle() }
 
@@ -215,6 +220,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         @JvmStatic private external fun nativeChatImageStream(handle: Long, bitmap: Bitmap, prompt: String, maxTokens: Int, configJson: String, callback: StreamCallback): String
         @JvmStatic private external fun nativeState(handle: Long): String
         @JvmStatic private external fun nativeCancel(handle: Long)
+        @JvmStatic private external fun nativeResetSessionCache(handle: Long)
 
         const val DEFAULT_CPU_THREADS = 4
         const val MIN_CPU_THREADS = 1

@@ -37,7 +37,7 @@
         </button>
       </nav>
 
-      <div class="version">v0.3</div>
+      <div class="version">v0.4</div>
     </aside>
 
     <main class="main">
@@ -283,7 +283,7 @@
               </span>
               <input class="settings-number-input" id="runtimeMaxTokensInput" type="number" min="1" max="32768" step="1" inputmode="numeric">
             </div>
-            <div class="settings-section wrap">
+            <div class="settings-section model-experience-card">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.apiToken">API 令牌</span>
                 <span class="settings-section-sub" data-i18n="settings.apiTokenSub">局域网访问认证</span>
@@ -388,45 +388,48 @@
           </div>
           <h3 class="group-title" data-i18n="settings.modelExperience">Model experience</h3>
           <div class="surface-list">
-            <div class="settings-section wrap">
+            <div class="settings-section model-experience-card">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.performanceMode">Performance mode</span>
                 <span class="settings-section-sub" id="runtimePerformanceText" data-i18n="settings.performanceBalancedSub">Balanced speed and battery</span>
               </span>
-              <div class="segmented-control compact-segmented" id="runtimePerformanceControl">
-                <button class="segmented-option" data-performance-mode="eco" data-i18n="settings.performanceEco">Eco</button>
-                <button class="segmented-option" data-performance-mode="balanced" data-i18n="settings.performanceBalanced">Balanced</button>
-                <button class="segmented-option" data-performance-mode="fast" data-i18n="settings.performanceFast">Fast</button>
+              <div class="model-experience-control">
+                <select class="settings-select-input" id="runtimePerformanceModeInput">
+                  <option value="eco" data-i18n="settings.performanceEco">Eco</option>
+                  <option value="balanced" data-i18n="settings.performanceBalanced">Balanced</option>
+                  <option value="fast" data-i18n="settings.performanceFast">Fast</option>
+                </select>
               </div>
             </div>
-            <div class="settings-section wrap">
+            <div class="settings-section model-experience-card">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.responseLength">Response length</span>
-                <span class="settings-section-sub" id="runtimeResponseLengthText">--</span>
+                <span class="settings-section-sub" id="runtimeResponseLengthText" data-i18n="settings.responseLengthCustom">Preset or custom token cap</span>
               </span>
-              <div class="segmented-control compact-segmented" id="runtimeResponseLengthControl">
-                <button class="segmented-option" data-output-tokens="256" data-i18n="settings.lengthShort">Short</button>
-                <button class="segmented-option" data-output-tokens="512" data-i18n="settings.lengthNormal">Normal</button>
-                <button class="segmented-option" data-output-tokens="1024" data-i18n="settings.lengthLong">Long</button>
+              <div class="model-experience-control">
+                <select class="settings-select-input" id="runtimeResponseLengthInput">
+                  <option value="256" data-i18n="settings.lengthShort">Short</option>
+                  <option value="512" data-i18n="settings.lengthNormal">Normal</option>
+                  <option value="1024" data-i18n="settings.lengthLong">Long</option>
+                  <option value="custom" data-i18n="settings.custom">Custom</option>
+                </select>
+                <input class="settings-number-input" id="runtimeResponseTokensInput" type="number" min="1" max="32768" step="64" inputmode="numeric" aria-label="response tokens">
               </div>
             </div>
-            <div class="settings-section wrap">
+            <div class="settings-section model-experience-card">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.contextMemory">Context memory</span>
-                <span class="settings-section-sub" id="runtimeContextText">--</span>
+                <span class="settings-section-sub" id="runtimeContextText" data-i18n="settings.contextMemoryCustom">Preset or custom history depth</span>
               </span>
-              <div class="segmented-control compact-segmented" id="runtimeContextControl">
-                <button class="segmented-option" data-context-profile="light" data-i18n="settings.contextLight">Light</button>
-                <button class="segmented-option" data-context-profile="balanced" data-i18n="settings.contextBalanced">Balanced</button>
-                <button class="segmented-option" data-context-profile="deep" data-i18n="settings.contextDeep">Deep</button>
+              <div class="model-experience-control">
+                <select class="settings-select-input" id="runtimeContextMemoryInput">
+                  <option value="light" data-i18n="settings.contextLight">Light</option>
+                  <option value="balanced" data-i18n="settings.contextBalanced">Balanced</option>
+                  <option value="deep" data-i18n="settings.contextDeep">Deep</option>
+                  <option value="custom" data-i18n="settings.custom">Custom</option>
+                </select>
+                <input class="settings-number-input" id="runtimeHistoryLimitInput" type="number" min="1" max="256" step="8" inputmode="numeric" aria-label="history messages">
               </div>
-            </div>
-            <div class="settings-section">
-              <span class="settings-section-main">
-                <span class="settings-section-title" data-i18n="settings.cpuThreads">CPU 线程</span>
-                <span class="settings-section-sub" data-i18n="settings.cpuThreadsSub">会重新加载当前模型</span>
-              </span>
-              <input class="settings-number-input" id="runtimeCpuThreadsInput" type="number" min="1" max="16" step="1" inputmode="numeric">
             </div>
             <div class="settings-section settings-action-section">
               <span class="settings-section-main">

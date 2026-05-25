@@ -26,6 +26,7 @@ public:
     std::string chat_image(JNIEnv* env, jobject bitmap, const std::string& prompt, int max_tokens, const std::string& config_json);
     std::string chat_image_stream(JNIEnv* env, jobject bitmap, const std::string& prompt, int max_tokens, const std::string& config_json, const std::function<void(const std::string&, bool)>& on_chunk);
     void cancel();
+    void reset_session_cache();
     std::string state_json() const;
 
 private:

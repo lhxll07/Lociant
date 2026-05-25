@@ -118,9 +118,12 @@ class ChatController(
             contextBudget = contextWindowTokens(request.modelId),
             outputBudget = request.maxTokens ?: HARD_MAX_OUTPUT_TOKENS,
         )
+        val canReuseNativeSessionCache = explicitSession &&
+            request.messages.size <= 1 &&
+            request.messages.lastOrNull()?.role == "user"
         return request.copy(
             sessionId = sessionId, persistSession = explicitSession,
-            useSessionCache = request.messages.lastOrNull()?.role == "user",
+            useSessionCache = canReuseNativeSessionCache,
             messages = contextMessages,
         )
     }
@@ -151,6 +154,8 @@ class ChatController(
     fun queueSnapshot(): JSONObject = requestQueue.snapshot()
 
     fun cancelCurrent() = chatCapability.cancel()
+
+    fun resetSessionCache() = chatCapability.resetSessionCache()
 
     fun releaseModel() {
         cancelCurrent()

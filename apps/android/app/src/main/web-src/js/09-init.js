@@ -230,33 +230,52 @@ if (copyTestPromptButton) {
 runtimeToolExposureInput.addEventListener('change', () => {
   runtimeApiCommand('settings', { toolExposure: runtimeToolExposureInput.value || 'action' })
 })
-runtimeCpuThreadsInput.addEventListener('change', () => {
-  const max = Number(runtimeServiceState && runtimeServiceState.maxCpuThreads) || 16
-  const value = Math.max(1, Math.min(max, Math.round(Number(runtimeCpuThreadsInput.value) || 4)))
-  runtimeCpuThreadsInput.value = String(value)
-  runtimeApiCommand('settings', { cpuThreads: value })
-})
-if (runtimePerformanceControl) {
-  runtimePerformanceControl.addEventListener('click', event => {
-    const button = event.target.closest('.segmented-option')
-    if (!button || !button.dataset.performanceMode) return
-    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(button.dataset.performanceMode) })
+if (runtimePerformanceModeInput) {
+  runtimePerformanceModeInput.addEventListener('change', () => {
+    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
   })
 }
-if (runtimeResponseLengthControl) {
-  runtimeResponseLengthControl.addEventListener('click', event => {
-    const button = event.target.closest('.segmented-option')
-    if (!button || !button.dataset.outputTokens) return
+if (runtimeResponseLengthInput) {
+  runtimeResponseLengthInput.addEventListener('change', () => {
+    if (runtimeResponseLengthInput.value === 'custom') {
+      if (runtimeResponseTokensInput) {
+        runtimeResponseTokensInput.classList.remove('is-hidden')
+        runtimeResponseTokensInput.focus()
+      }
+      return
+    }
     const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
-    const value = Math.max(1, Math.min(hardMax, Number(button.dataset.outputTokens) || 512))
+    const value = Math.max(1, Math.min(hardMax, Number(runtimeResponseLengthInput.value) || 512))
     runtimeApiCommand('settings', { maxOutputTokens: value })
   })
 }
-if (runtimeContextControl) {
-  runtimeContextControl.addEventListener('click', event => {
-    const button = event.target.closest('.segmented-option')
-    if (!button || !button.dataset.contextProfile) return
-    runtimeApiCommand('settings', { contextProfile: button.dataset.contextProfile })
+if (runtimeResponseTokensInput) {
+  runtimeResponseTokensInput.addEventListener('change', () => {
+    const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+    const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeResponseTokensInput.value) || 512)))
+    runtimeResponseTokensInput.value = String(value)
+    runtimeApiCommand('settings', { maxOutputTokens: value })
+  })
+}
+if (runtimeContextMemoryInput) {
+  runtimeContextMemoryInput.addEventListener('change', () => {
+    if (runtimeContextMemoryInput.value === 'custom') {
+      if (runtimeHistoryLimitInput) {
+        runtimeHistoryLimitInput.classList.remove('is-hidden')
+        runtimeHistoryLimitInput.focus()
+      }
+      return
+    }
+    const profile = runtimeContextMemoryInput.value || 'balanced'
+    runtimeApiCommand('settings', { contextProfile: profile, historyLimit: historyLimitForContextProfile(profile) })
+  })
+}
+if (runtimeHistoryLimitInput) {
+  runtimeHistoryLimitInput.addEventListener('change', () => {
+    const maxHistory = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.maxHistoryLimit) || 256
+    const value = Math.max(1, Math.min(maxHistory, Math.round(Number(runtimeHistoryLimitInput.value) || 64)))
+    runtimeHistoryLimitInput.value = String(value)
+    runtimeApiCommand('settings', { contextProfile: contextPresetForHistoryLimit(value), historyLimit: value })
   })
 }
 if (runtimeReleaseModelButton) {

@@ -1136,6 +1136,41 @@ select {
   flex-wrap: wrap;
 }
 
+.model-experience-card {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 16px;
+}
+
+.model-experience-card .settings-section-main {
+  width: 100%;
+}
+
+.model-experience-card .settings-section-sub {
+  white-space: normal;
+}
+
+.model-experience-card .model-experience-control {
+  width: 100%;
+}
+
+.model-experience-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.model-experience-control .settings-select-input {
+  flex: 1 1 180px;
+}
+
+.model-experience-control .settings-number-input {
+  flex: 0 0 132px;
+  width: 132px;
+}
+
 .settings-action-section > .tonal-button,
 .settings-action-section > .filled-button,
 .settings-action-section > .text-button {
@@ -1280,7 +1315,7 @@ select {
 
 .compact-segmented {
   width: min(300px, 100%);
-  flex: 0 1 300px;
+  flex: none;
 }
 
 .settings-token-input,
@@ -1307,6 +1342,10 @@ select {
 
 .settings-select-input {
   min-width: 118px;
+}
+
+.is-hidden {
+  display: none !important;
 }
 
 .switch-input {
@@ -1710,6 +1749,8 @@ select {
 @media (orientation: portrait), (max-width: 760px) {
   .app,
   .app.collapsed {
+    --mobile-control-top: max(12px, env(safe-area-inset-top, 0px));
+    --mobile-edge-left: max(14px, env(safe-area-inset-left, 0px));
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     width: 100vw;
@@ -1729,8 +1770,8 @@ select {
 
   .sidebar {
     position: fixed;
-    left: max(14px, env(safe-area-inset-left, 0px));
-    top: max(12px, env(safe-area-inset-top, 0px));
+    left: var(--mobile-edge-left);
+    top: var(--mobile-control-top);
     z-index: 80;
     width: 92px;
     height: 42px;
@@ -1838,9 +1879,9 @@ select {
   .top-bar {
     width: 100%;
     max-width: 100vw;
-    min-height: 58px;
+    min-height: calc(var(--mobile-control-top) + 50px);
     gap: 6px;
-    padding: 12px 12px 4px 116px;
+    padding: var(--mobile-control-top) 12px 4px 116px;
     overflow: visible;
   }
 
@@ -1854,14 +1895,18 @@ select {
 
   .top-history {
     position: fixed;
-    left: calc(max(14px, env(safe-area-inset-left, 0px)) + 50px);
-    top: max(12px, env(safe-area-inset-top, 0px));
+    left: calc(var(--mobile-edge-left) + 50px);
+    top: var(--mobile-control-top);
     z-index: 81;
     min-width: 0;
     flex: none;
   }
 
   .top-status {
+    position: fixed;
+    top: calc(var(--mobile-control-top) + 4px);
+    right: calc(env(safe-area-inset-right, 0px) + 82px);
+    z-index: 79;
     flex: 0 1 auto;
     min-width: 0;
     padding: 0 9px;
@@ -1884,6 +1929,10 @@ select {
   }
 
   .clock {
+    position: fixed;
+    top: calc(var(--mobile-control-top) + 14px);
+    right: calc(env(safe-area-inset-right, 0px) + 12px);
+    z-index: 79;
     flex-shrink: 0;
     font-size: 12px;
   }
@@ -1898,7 +1947,7 @@ select {
   }
 
   .home-panel {
-    padding: 0 14px 18px;
+    padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 8px);
   }
 
   .app.keyboard-active .home-panel.active .chat-feed {
@@ -1967,9 +2016,9 @@ select {
   .chat-sidebar {
     display: grid;
     position: fixed;
-    left: max(14px, env(safe-area-inset-left, 0px));
+    left: var(--mobile-edge-left);
     right: 12px;
-    top: calc(max(12px, env(safe-area-inset-top, 0px)) + 52px);
+    top: calc(var(--mobile-control-top) + 52px);
     z-index: 30;
     width: min(320px, calc(100vw - 28px));
     max-height: min(390px, calc(100dvh - 168px));
@@ -2017,6 +2066,7 @@ select {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr) auto;
     gap: 8px;
+    margin-bottom: 0;
     padding: 12px;
   }
 
@@ -2132,6 +2182,12 @@ select {
 
   .settings-number-input {
     width: 86px;
+  }
+
+  .model-experience-control .settings-number-input,
+  .model-experience-control .settings-select-input {
+    flex: 1 1 100%;
+    width: 100%;
   }
 
   .market-search {

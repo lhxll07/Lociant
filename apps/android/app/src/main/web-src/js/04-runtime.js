@@ -95,7 +95,6 @@ function updateRuntimeServiceState(state) {
     }
   }
   if (runtimeServiceState.toolExposure) runtimeToolExposureInput.value = runtimeServiceState.toolExposure
-  if (runtimeServiceState.cpuThreads) runtimeCpuThreadsInput.value = runtimeServiceState.cpuThreads
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }
@@ -139,18 +138,34 @@ function updateModelExperienceState() {
   const maxThreads = Number(state.maxCpuThreads) || 16
   const threads = Number(state.cpuThreads) || 4
   const performance = performanceModeFromThreads(threads, maxThreads)
-  setSegmentedActive(runtimePerformanceControl, 'performanceMode', performance)
+  if (runtimePerformanceModeInput) runtimePerformanceModeInput.value = performance
   if (runtimePerformanceText) runtimePerformanceText.textContent = performanceSubText(performance)
 
   const tokens = Number(state.maxOutputTokens) || 512
-  const responseMode = tokens <= 256 ? '256' : (tokens <= 768 ? '512' : '1024')
-  setSegmentedActive(runtimeResponseLengthControl, 'outputTokens', responseMode)
+  const responseMode = responsePresetForTokens(tokens)
+  if (runtimeResponseLengthInput) runtimeResponseLengthInput.value = responseMode || 'custom'
   if (runtimeResponseLengthText) runtimeResponseLengthText.textContent = tokens + ' tokens'
+  if (runtimeResponseTokensInput && document.activeElement !== runtimeResponseTokensInput) {
+    runtimeResponseTokensInput.max = String(Number(state.hardMaxOutputTokens) || 32768)
+    runtimeResponseTokensInput.value = String(tokens)
+  }
+  if (runtimeResponseTokensInput) {
+    runtimeResponseTokensInput.classList.toggle('is-hidden', !!responseMode)
+  }
 
-  const contextProfile = state.contextProfile || (state.sessionPolicy && state.sessionPolicy.contextProfile) || 'balanced'
-  setSegmentedActive(runtimeContextControl, 'contextProfile', contextProfile)
-  const historyLimit = state.sessionPolicy && state.sessionPolicy.historyLimit
+  const historyLimit = Number((state.sessionPolicy && state.sessionPolicy.historyLimit) || state.historyLimit) || 64
+  const contextProfile = state.contextProfile || (state.sessionPolicy && state.sessionPolicy.contextProfile) || contextPresetForHistoryLimit(historyLimit)
+  const contextMode = contextSelectValue(contextProfile, historyLimit)
+  if (runtimeContextMemoryInput) runtimeContextMemoryInput.value = contextMode
   if (runtimeContextText) runtimeContextText.textContent = contextSubText(contextProfile) + (historyLimit ? (' / ' + historyLimit) : '')
+  if (runtimeHistoryLimitInput && document.activeElement !== runtimeHistoryLimitInput) {
+    const maxHistory = Number(state.sessionPolicy && state.sessionPolicy.maxHistoryLimit) || 256
+    runtimeHistoryLimitInput.max = String(maxHistory)
+    runtimeHistoryLimitInput.value = String(historyLimit)
+  }
+  if (runtimeHistoryLimitInput) {
+    runtimeHistoryLimitInput.classList.toggle('is-hidden', contextMode !== 'custom')
+  }
 
   const cache = state.sessionPolicy && state.sessionPolicy.cache
   const cacheOn = !!(cache && cache.promptCache)
@@ -159,13 +174,6 @@ function updateModelExperienceState() {
     runtimeCacheBadge.textContent = cacheOn ? t('diagnostics.ready') : t('status.stopped')
     runtimeCacheBadge.classList.toggle('running', cacheOn)
   }
-}
-
-function setSegmentedActive(root, datasetName, value) {
-  if (!root) return
-  Array.from(root.querySelectorAll('.segmented-option')).forEach(button => {
-    button.classList.toggle('active', button.dataset[datasetName] === String(value))
-  })
 }
 
 function performanceModeFromThreads(threads, maxThreads) {
@@ -180,6 +188,27 @@ function threadsForPerformanceMode(mode) {
   if (mode === 'eco') return Math.max(1, Math.floor(max / 3))
   if (mode === 'fast') return Math.max(1, max)
   return Math.max(1, Math.min(max, Math.round(max / 2)))
+}
+
+function responsePresetForTokens(tokens) {
+  const value = Number(tokens)
+  if (value === 256 || value === 512 || value === 1024) return String(value)
+  return ''
+}
+
+function contextPresetForHistoryLimit(limit) {
+  if (limit <= 24) return 'light'
+  if (limit >= 96) return 'deep'
+  return 'balanced'
+}
+
+function historyLimitForContextProfile(profile) {
+  return ({ light: 16, balanced: 64, deep: 128 })[profile] || 64
+}
+
+function contextSelectValue(profile, historyLimit) {
+  const normalized = ['light', 'balanced', 'deep'].includes(profile) ? profile : contextPresetForHistoryLimit(historyLimit)
+  return Number(historyLimit) === historyLimitForContextProfile(normalized) ? normalized : 'custom'
 }
 
 function performanceSubText(mode) {

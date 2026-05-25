@@ -12,6 +12,7 @@ const i18n = {
     'common.open': 'Open',
     'common.refresh': 'Refresh',
     'common.install': 'Install',
+    'settings.custom': 'Custom',
     'common.start': 'Start',
     'common.stop': 'Stop',
     'state.idle': 'Idle',
@@ -98,10 +99,12 @@ const i18n = {
     'settings.performanceBalancedSub': 'Balanced speed and battery',
     'settings.performanceFastSub': 'Maximum local inference speed',
     'settings.responseLength': 'Response length',
+    'settings.responseLengthCustom': 'Preset or custom token cap',
     'settings.lengthShort': 'Short',
     'settings.lengthNormal': 'Normal',
     'settings.lengthLong': 'Long',
     'settings.contextMemory': 'Context memory',
+    'settings.contextMemoryCustom': 'Preset or custom history depth',
     'settings.contextLight': 'Light',
     'settings.contextBalanced': 'Balanced',
     'settings.contextDeep': 'Deep',
@@ -237,6 +240,7 @@ const i18n = {
     'common.open': '打开',
     'common.refresh': '刷新',
     'common.install': '安装',
+    'settings.custom': '自定义',
     'common.start': '启动',
     'common.stop': '停止',
     'state.idle': '待机',
@@ -323,10 +327,12 @@ const i18n = {
     'settings.performanceBalancedSub': '兼顾速度与续航',
     'settings.performanceFastSub': '最大化本地推理速度',
     'settings.responseLength': '回复长度',
+    'settings.responseLengthCustom': '可选预设，也可自定义 token 上限',
     'settings.lengthShort': '简短',
     'settings.lengthNormal': '标准',
     'settings.lengthLong': '较长',
     'settings.contextMemory': '上下文记忆',
+    'settings.contextMemoryCustom': '可选预设，也可自定义历史深度',
     'settings.contextLight': '轻量',
     'settings.contextBalanced': '均衡',
     'settings.contextDeep': '深度',
@@ -566,12 +572,14 @@ const runtimeModelBack = document.getElementById('runtimeModelBack')
 const runtimeModelList = document.getElementById('runtimeModelList')
 const runtimeModelState = document.getElementById('runtimeModelState')
 const runtimeModelNote = document.getElementById('runtimeModelNote')
-const runtimePerformanceControl = document.getElementById('runtimePerformanceControl')
+const runtimePerformanceModeInput = document.getElementById('runtimePerformanceModeInput')
 const runtimePerformanceText = document.getElementById('runtimePerformanceText')
-const runtimeResponseLengthControl = document.getElementById('runtimeResponseLengthControl')
+const runtimeResponseLengthInput = document.getElementById('runtimeResponseLengthInput')
 const runtimeResponseLengthText = document.getElementById('runtimeResponseLengthText')
-const runtimeContextControl = document.getElementById('runtimeContextControl')
+const runtimeResponseTokensInput = document.getElementById('runtimeResponseTokensInput')
+const runtimeContextMemoryInput = document.getElementById('runtimeContextMemoryInput')
 const runtimeContextText = document.getElementById('runtimeContextText')
+const runtimeHistoryLimitInput = document.getElementById('runtimeHistoryLimitInput')
 const runtimeCacheState = document.getElementById('runtimeCacheState')
 const runtimeCacheBadge = document.getElementById('runtimeCacheBadge')
 const runtimeReleaseModelButton = document.getElementById('runtimeReleaseModelButton')
@@ -586,7 +594,6 @@ const runtimeSessionNewButton = document.getElementById('runtimeSessionNewButton
 const runtimeDiagRunButton = document.getElementById('runtimeDiagRunButton')
 const runtimeDiagSummary = document.getElementById('runtimeDiagSummary')
 const runtimeDiagSummaryText = document.getElementById('runtimeDiagSummaryText')
-const runtimeCpuThreadsInput = document.getElementById('runtimeCpuThreadsInput')
 const languageControl = document.getElementById('languageControl')
 const toast = document.getElementById('toast')
 const runtimeDefaultTokens = document.getElementById('runtimeDefaultTokens')
@@ -1007,7 +1014,6 @@ function updateRuntimeServiceState(state) {
     }
   }
   if (runtimeServiceState.toolExposure) runtimeToolExposureInput.value = runtimeServiceState.toolExposure
-  if (runtimeServiceState.cpuThreads) runtimeCpuThreadsInput.value = runtimeServiceState.cpuThreads
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }
@@ -1051,18 +1057,34 @@ function updateModelExperienceState() {
   const maxThreads = Number(state.maxCpuThreads) || 16
   const threads = Number(state.cpuThreads) || 4
   const performance = performanceModeFromThreads(threads, maxThreads)
-  setSegmentedActive(runtimePerformanceControl, 'performanceMode', performance)
+  if (runtimePerformanceModeInput) runtimePerformanceModeInput.value = performance
   if (runtimePerformanceText) runtimePerformanceText.textContent = performanceSubText(performance)
 
   const tokens = Number(state.maxOutputTokens) || 512
-  const responseMode = tokens <= 256 ? '256' : (tokens <= 768 ? '512' : '1024')
-  setSegmentedActive(runtimeResponseLengthControl, 'outputTokens', responseMode)
+  const responseMode = responsePresetForTokens(tokens)
+  if (runtimeResponseLengthInput) runtimeResponseLengthInput.value = responseMode || 'custom'
   if (runtimeResponseLengthText) runtimeResponseLengthText.textContent = tokens + ' tokens'
+  if (runtimeResponseTokensInput && document.activeElement !== runtimeResponseTokensInput) {
+    runtimeResponseTokensInput.max = String(Number(state.hardMaxOutputTokens) || 32768)
+    runtimeResponseTokensInput.value = String(tokens)
+  }
+  if (runtimeResponseTokensInput) {
+    runtimeResponseTokensInput.classList.toggle('is-hidden', !!responseMode)
+  }
 
-  const contextProfile = state.contextProfile || (state.sessionPolicy && state.sessionPolicy.contextProfile) || 'balanced'
-  setSegmentedActive(runtimeContextControl, 'contextProfile', contextProfile)
-  const historyLimit = state.sessionPolicy && state.sessionPolicy.historyLimit
+  const historyLimit = Number((state.sessionPolicy && state.sessionPolicy.historyLimit) || state.historyLimit) || 64
+  const contextProfile = state.contextProfile || (state.sessionPolicy && state.sessionPolicy.contextProfile) || contextPresetForHistoryLimit(historyLimit)
+  const contextMode = contextSelectValue(contextProfile, historyLimit)
+  if (runtimeContextMemoryInput) runtimeContextMemoryInput.value = contextMode
   if (runtimeContextText) runtimeContextText.textContent = contextSubText(contextProfile) + (historyLimit ? (' / ' + historyLimit) : '')
+  if (runtimeHistoryLimitInput && document.activeElement !== runtimeHistoryLimitInput) {
+    const maxHistory = Number(state.sessionPolicy && state.sessionPolicy.maxHistoryLimit) || 256
+    runtimeHistoryLimitInput.max = String(maxHistory)
+    runtimeHistoryLimitInput.value = String(historyLimit)
+  }
+  if (runtimeHistoryLimitInput) {
+    runtimeHistoryLimitInput.classList.toggle('is-hidden', contextMode !== 'custom')
+  }
 
   const cache = state.sessionPolicy && state.sessionPolicy.cache
   const cacheOn = !!(cache && cache.promptCache)
@@ -1071,13 +1093,6 @@ function updateModelExperienceState() {
     runtimeCacheBadge.textContent = cacheOn ? t('diagnostics.ready') : t('status.stopped')
     runtimeCacheBadge.classList.toggle('running', cacheOn)
   }
-}
-
-function setSegmentedActive(root, datasetName, value) {
-  if (!root) return
-  Array.from(root.querySelectorAll('.segmented-option')).forEach(button => {
-    button.classList.toggle('active', button.dataset[datasetName] === String(value))
-  })
 }
 
 function performanceModeFromThreads(threads, maxThreads) {
@@ -1092,6 +1107,27 @@ function threadsForPerformanceMode(mode) {
   if (mode === 'eco') return Math.max(1, Math.floor(max / 3))
   if (mode === 'fast') return Math.max(1, max)
   return Math.max(1, Math.min(max, Math.round(max / 2)))
+}
+
+function responsePresetForTokens(tokens) {
+  const value = Number(tokens)
+  if (value === 256 || value === 512 || value === 1024) return String(value)
+  return ''
+}
+
+function contextPresetForHistoryLimit(limit) {
+  if (limit <= 24) return 'light'
+  if (limit >= 96) return 'deep'
+  return 'balanced'
+}
+
+function historyLimitForContextProfile(profile) {
+  return ({ light: 16, balanced: 64, deep: 128 })[profile] || 64
+}
+
+function contextSelectValue(profile, historyLimit) {
+  const normalized = ['light', 'balanced', 'deep'].includes(profile) ? profile : contextPresetForHistoryLimit(historyLimit)
+  return Number(historyLimit) === historyLimitForContextProfile(normalized) ? normalized : 'custom'
 }
 
 function performanceSubText(mode) {
@@ -2759,33 +2795,52 @@ if (copyTestPromptButton) {
 runtimeToolExposureInput.addEventListener('change', () => {
   runtimeApiCommand('settings', { toolExposure: runtimeToolExposureInput.value || 'action' })
 })
-runtimeCpuThreadsInput.addEventListener('change', () => {
-  const max = Number(runtimeServiceState && runtimeServiceState.maxCpuThreads) || 16
-  const value = Math.max(1, Math.min(max, Math.round(Number(runtimeCpuThreadsInput.value) || 4)))
-  runtimeCpuThreadsInput.value = String(value)
-  runtimeApiCommand('settings', { cpuThreads: value })
-})
-if (runtimePerformanceControl) {
-  runtimePerformanceControl.addEventListener('click', event => {
-    const button = event.target.closest('.segmented-option')
-    if (!button || !button.dataset.performanceMode) return
-    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(button.dataset.performanceMode) })
+if (runtimePerformanceModeInput) {
+  runtimePerformanceModeInput.addEventListener('change', () => {
+    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
   })
 }
-if (runtimeResponseLengthControl) {
-  runtimeResponseLengthControl.addEventListener('click', event => {
-    const button = event.target.closest('.segmented-option')
-    if (!button || !button.dataset.outputTokens) return
+if (runtimeResponseLengthInput) {
+  runtimeResponseLengthInput.addEventListener('change', () => {
+    if (runtimeResponseLengthInput.value === 'custom') {
+      if (runtimeResponseTokensInput) {
+        runtimeResponseTokensInput.classList.remove('is-hidden')
+        runtimeResponseTokensInput.focus()
+      }
+      return
+    }
     const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
-    const value = Math.max(1, Math.min(hardMax, Number(button.dataset.outputTokens) || 512))
+    const value = Math.max(1, Math.min(hardMax, Number(runtimeResponseLengthInput.value) || 512))
     runtimeApiCommand('settings', { maxOutputTokens: value })
   })
 }
-if (runtimeContextControl) {
-  runtimeContextControl.addEventListener('click', event => {
-    const button = event.target.closest('.segmented-option')
-    if (!button || !button.dataset.contextProfile) return
-    runtimeApiCommand('settings', { contextProfile: button.dataset.contextProfile })
+if (runtimeResponseTokensInput) {
+  runtimeResponseTokensInput.addEventListener('change', () => {
+    const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+    const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeResponseTokensInput.value) || 512)))
+    runtimeResponseTokensInput.value = String(value)
+    runtimeApiCommand('settings', { maxOutputTokens: value })
+  })
+}
+if (runtimeContextMemoryInput) {
+  runtimeContextMemoryInput.addEventListener('change', () => {
+    if (runtimeContextMemoryInput.value === 'custom') {
+      if (runtimeHistoryLimitInput) {
+        runtimeHistoryLimitInput.classList.remove('is-hidden')
+        runtimeHistoryLimitInput.focus()
+      }
+      return
+    }
+    const profile = runtimeContextMemoryInput.value || 'balanced'
+    runtimeApiCommand('settings', { contextProfile: profile, historyLimit: historyLimitForContextProfile(profile) })
+  })
+}
+if (runtimeHistoryLimitInput) {
+  runtimeHistoryLimitInput.addEventListener('change', () => {
+    const maxHistory = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.maxHistoryLimit) || 256
+    const value = Math.max(1, Math.min(maxHistory, Math.round(Number(runtimeHistoryLimitInput.value) || 64)))
+    runtimeHistoryLimitInput.value = String(value)
+    runtimeApiCommand('settings', { contextProfile: contextPresetForHistoryLimit(value), historyLimit: value })
   })
 }
 if (runtimeReleaseModelButton) {
