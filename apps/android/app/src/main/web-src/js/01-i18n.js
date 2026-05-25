@@ -2,6 +2,7 @@
 
 const i18n = {
   en: {
+    'nav.home': 'Home',
     'nav.scenes': 'Scenes',
     'nav.settings': 'Settings',
     'nav.models': 'Models',
@@ -19,6 +20,21 @@ const i18n = {
     'status.running': 'Running',
     'status.stopped': 'Stopped',
 
+    'home.quickDiagnostics': 'Run diagnostics',
+    'home.quickConnection': 'Copy connection',
+    'home.quickScenes': 'Open scenes',
+    'home.placeholder': 'Ask Lociant, or describe a tool task',
+    'home.send': 'Send',
+    'home.runtimeLabel': 'Runtime',
+    'home.modelLabel': 'Model',
+    'home.nodeLabel': 'Node',
+    'home.historyTitle': 'Recent chats',
+    'home.noChats': 'No recent chats',
+    'home.readyModels': 'ready models',
+    'home.emptyReply': 'No reply.',
+    'home.thinking': 'Thinking...',
+    'home.deleteChat': 'Delete chat',
+
     'page.scenesTitle': 'Scenes',
     'page.scenesSub': 'Run phone-side workflows and capability packs.',
     'page.settingsTitle': 'Settings',
@@ -26,7 +42,7 @@ const i18n = {
     'page.modelsTitle': 'Models',
     'page.modelsSub': 'Install, choose, and manage local inference.',
     'page.nodesTitle': 'Nodes',
-    'page.nodesSub': 'Prepare device collaboration.',
+    'page.nodesSub': 'Manage this device first. Multi-device collaboration can plug in later.',
 
     'settings.language': 'Language',
     'settings.languageSub': 'Display language',
@@ -155,7 +171,11 @@ const i18n = {
     'models.installing': 'Installing',
     'models.delete': 'Delete',
 
-    'nodes.placeholder': 'Node discovery and collaboration will live here.',
+    'nodes.localNode': 'Local node',
+    'nodes.localSub': 'This phone is the active capability node.',
+    'nodes.connectionTitle': 'Connection endpoint',
+    'nodes.connectionSub': 'Start the runtime to expose MCP and OpenAI endpoints.',
+    'nodes.placeholder': 'Multi-node discovery and collaboration will expand here.',
     'empty.scenes': 'No scenes yet',
     'empty.models': 'No models yet',
     'toast.modelsReloaded': 'Models refreshed',
@@ -176,6 +196,7 @@ const i18n = {
   },
 
   zh: {
+    'nav.home': '主页',
     'nav.scenes': '场景',
     'nav.settings': '设置',
     'nav.models': '模型',
@@ -193,6 +214,21 @@ const i18n = {
     'status.running': '运行中',
     'status.stopped': '已停止',
 
+    'home.quickDiagnostics': '运行诊断',
+    'home.quickConnection': '复制连接配置',
+    'home.quickScenes': '打开场景',
+    'home.placeholder': '问问 Lociant，或输入一个工具调用任务',
+    'home.send': '发送',
+    'home.runtimeLabel': '运行时',
+    'home.modelLabel': '模型',
+    'home.nodeLabel': '节点',
+    'home.historyTitle': '最近对话',
+    'home.noChats': '暂无对话',
+    'home.readyModels': '个就绪模型',
+    'home.emptyReply': '没有回复。',
+    'home.thinking': '思考中...',
+    'home.deleteChat': '删除对话',
+
     'page.scenesTitle': '场景',
     'page.scenesSub': '运行手机侧工作流与能力包',
     'page.settingsTitle': '设置',
@@ -200,7 +236,7 @@ const i18n = {
     'page.modelsTitle': '模型',
     'page.modelsSub': '安装、选择和管理本地推理',
     'page.nodesTitle': '节点',
-    'page.nodesSub': '为设备协同预留',
+    'page.nodesSub': '当前先管理本机节点，后续接入多设备协同。',
 
     'settings.language': '语言',
     'settings.languageSub': '显示语言',
@@ -329,7 +365,11 @@ const i18n = {
     'models.installing': '安装中',
     'models.delete': '删除',
 
-    'nodes.placeholder': '节点发现与协同能力会放在这里',
+    'nodes.localNode': '本机节点',
+    'nodes.localSub': '当前设备作为能力节点运行',
+    'nodes.connectionTitle': '连接入口',
+    'nodes.connectionSub': '启动运行时后暴露 MCP 和 OpenAI 入口',
+    'nodes.placeholder': '多节点发现与协同会在这里扩展。',
     'empty.scenes': '暂无场景',
     'empty.models': '暂无模型',
     'toast.modelsReloaded': '模型已刷新',

@@ -42,8 +42,94 @@ function navigateTo(page) {
     setModelView(modelView)
     loadModels()
   }
-  stateText.textContent = t('state.idle')
+  stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
   updateRuntimeStrip()
+}
+
+function openRuntimeServerFromHome() {
+  navigateTo('settings')
+  openRuntimeServerSettings()
+}
+
+function showHomeConversationLoading(text) {
+  clearHomeMessages()
+  appendChatBubble('assistant', text || t('home.thinking'))
+}
+
+function handleHomeAction(action) {
+  if (action === 'diagnostics') {
+    navigateTo('settings')
+    openRuntimeAdvancedSettings()
+    runAgentDiagnostics()
+    return
+  }
+  if (action === 'copy-config') {
+    openRuntimeServerFromHome()
+    return
+  }
+  if (action === 'scenes') {
+    navigateTo('scenes')
+    return
+  }
+}
+
+function submitHomeChat(text) {
+  const prompt = String(text || '').trim()
+  if (!prompt) return
+  appendChatBubble('user', prompt)
+  if (homeChatInput) homeChatInput.value = ''
+  if (homeChatSendButton) homeChatSendButton.disabled = true
+  const pending = appendChatBubble('assistant', t('home.thinking'))
+  const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
+  const sessionId = homeCurrentSessionId()
+  upsertHomeSessionPreview(sessionId, prompt, 'user')
+  apiPost('/v1/chat/completions', {
+    model: modelId,
+    stream: false,
+    sessionId,
+    messages: [{ role: 'user', content: prompt }]
+  }).then(result => {
+    const reply = chatResponseText(result)
+    if (pending) pending.textContent = reply || t('home.emptyReply')
+    else appendChatBubble('assistant', reply || t('home.emptyReply'))
+    if (result && result.sessionId) {
+      runtimeServiceState = Object.assign({}, runtimeServiceState || {}, { currentSessionId: result.sessionId })
+    }
+    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt, 'assistant')
+    refreshRuntimeServiceState()
+  }).catch(error => {
+    if (pending) pending.textContent = (error && error.message) || t('toast.modelImportFailed')
+    else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+  }).finally(() => {
+    if (homeChatSendButton) homeChatSendButton.disabled = false
+  })
+}
+
+function chatResponseText(result) {
+  if (!result) return ''
+  const choice = result.choices && result.choices[0]
+  const message = choice && choice.message
+  return String(
+    (message && message.content) ||
+    (result.message && result.message.content) ||
+    result.response ||
+    result.text ||
+    ''
+  ).trim()
+}
+
+function loadHomeConversation(sessionId) {
+  const target = sessionId || homeCurrentSessionId()
+  showHomeConversationLoading(t('home.thinking'))
+  try {
+    const state = runtimeApiCommand('session.details', { sessionId: target })
+    const payload = state && state.session ? state.session : state
+    const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
+    renderHomeConversation(target, messages)
+  } catch (error) {
+    clearHomeMessages()
+    appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+  }
 }
 
 // ---- Clock tick ----

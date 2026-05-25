@@ -54,6 +54,33 @@ class SessionStore(context: Context) {
         return result
     }
 
+    fun sessionDetails(sessionId: String): JSONObject {
+        val id = normalizeModelSessionId(sessionId)
+        val session = dao.session(id)
+        val result = JSONObject()
+            .put("id", id)
+            .put("title", session?.title ?: id)
+            .put("modelId", session?.modelId ?: JSONObject.NULL)
+            .put("updatedAt", session?.updatedAt ?: 0L)
+            .put("messages", JSONArray())
+        if (session != null) {
+            val messages = JSONArray()
+            dao.messages(id).forEach { message ->
+                messages.put(
+                    JSONObject()
+                        .put("id", message.id)
+                        .put("role", message.role)
+                        .put("text", message.text)
+                        .put("contentJson", runCatching { JSONObject(message.contentJson) }.getOrDefault(JSONObject()))
+                        .put("status", message.status)
+                        .put("createdAt", message.createdAt)
+                )
+            }
+            result.put("messages", messages)
+        }
+        return result
+    }
+
     fun recordApiRequest(
         method: String,
         endpoint: String,

@@ -118,6 +118,7 @@ class ApiServerController(
             "session.create" -> selectSession(sessionStore.createModelSession(modelId))
             "session.select" -> selectSession(payload.optString("sessionId", payload.optString("id")))
             "session.delete" -> deleteSession(payload.optString("sessionId", payload.optString("id")))
+            "session.details" -> return sessionDetails(payload.optString("sessionId", payload.optString("id")))
             "status" -> loadSettings()
         }
         return state()
@@ -180,6 +181,7 @@ class ApiServerController(
                         get("/v1/store/{namespace}") { call.withCors(); handleStoreList(call) }
                         post("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreSet(call) }
                         post("/v1/store/{namespace}/{key}/delete") { call.withCors(); handleStoreRemove(call) }
+                        get("/v1/sessions") { call.withCors(); handleSessionGet(call) }
                         post("/v1/runtime/{command}") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleRuntimeCommand(call) }
                         get("/v1/tools") {
                             call.withCors()
@@ -505,6 +507,13 @@ class ApiServerController(
         call.respondText(localStore.list(storeNamespace(call)).toString(), JsonContentType)
     }
 
+    private suspend fun handleSessionGet(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val sessionId = call.request.queryParameters["sessionId"].orEmpty()
+        val session = sessionStore.sessionDetails(sessionId)
+        call.respondText(session.toString(), JsonContentType)
+    }
+
     // ---- State reporting ----
 
     private fun buildStateJson(type: String?, includeHistory: Boolean = true, includeSensitive: Boolean = false): JSONObject {
@@ -646,6 +655,11 @@ class ApiServerController(
         if (sessionStore.deleteModelSession(deletedId) && deletedId == currentSessionId) {
             currentSessionId = DEFAULT_SESSION_ID; saveSettings()
         }
+    }
+
+    private fun sessionDetails(rawSessionId: String): JSONObject {
+        val details = sessionStore.sessionDetails(rawSessionId)
+        return state().put("session", details)
     }
 
     // ---- Extensions ----

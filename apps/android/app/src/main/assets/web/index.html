@@ -15,7 +15,11 @@
       </button>
 
       <nav class="nav" aria-label="Primary">
-        <button class="nav-item pressable active" data-page="scenes">
+        <button class="nav-item pressable active" data-page="home">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-5 5v-5.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg></span>
+          <span class="nav-label" data-i18n="nav.home">主页</span>
+        </button>
+        <button class="nav-item pressable" data-page="scenes">
           <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg></span>
           <span class="nav-label" data-i18n="nav.scenes">场景</span>
         </button>
@@ -27,10 +31,6 @@
           <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
           <span class="nav-label" data-i18n="nav.models">模型</span>
         </button>
-        <button class="nav-item pressable" data-page="nodes">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="7" cy="12" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9.7 10.7 14.4 8.2"/><path d="M9.7 13.3 14.4 15.8"/></svg></span>
-          <span class="nav-label" data-i18n="nav.nodes">节点</span>
-        </button>
       </nav>
 
       <div class="version">v0.3</div>
@@ -41,8 +41,31 @@
         <button class="back-button pressable" id="backButton" data-i18n="common.back">返回</button>
         <button class="scene-settings-button pressable" id="sceneSettingsButton" data-i18n="nav.settings">设置</button>
         <div class="top-spacer"></div>
-        <span class="status-dot" id="stateDot"></span>
-        <span id="stateText" class="status-text" data-i18n="state.idle">待机</span>
+        <div class="top-history">
+          <button class="home-rail-toggle pressable" id="homeRailToggle" type="button">
+            <span class="home-rail-toggle-dot"></span>
+            <span data-i18n="home.historyTitle">最近对话</span>
+            <span class="home-rail-toggle-count" id="homeSessionCount">0</span>
+          </button>
+          <aside class="chat-sidebar" id="homeSidebar">
+            <section class="chat-sidebar-section">
+              <div class="chat-sidebar-head">
+                <span data-i18n="home.historyTitle">最近对话</span>
+                <button class="mini-action pressable" id="homeNewChatButton" type="button" data-i18n="settings.newSession">新建</button>
+              </div>
+              <div class="chat-session-list" id="homeSessionList"></div>
+            </section>
+          </aside>
+        </div>
+        <span class="top-status">
+          <span class="status-dot" id="stateDot"></span>
+          <span id="stateText" class="status-text" data-i18n="state.idle">待机</span>
+        </span>
+        <button class="node-chip pressable" id="topNodeButton" type="button">
+          <span class="node-chip-dot"></span>
+          <span id="topNodeText" data-i18n="nodes.localNode">本机节点</span>
+          <span class="node-chip-arrow">›</span>
+        </button>
         <span class="clock" id="clock">--:--:--</span>
       </section>
 
@@ -67,7 +90,27 @@
         </span>
       </section>
 
-      <section class="panel active" id="page-scenes">
+      <section class="panel active home-panel" id="page-home">
+        <div class="home-chat-layout">
+          <section class="chat-surface">
+            <header class="chat-head">
+              <span class="status-pill" id="homeRuntimePill" data-i18n="status.stopped">已停止</span>
+            </header>
+            <div class="chat-feed" id="homeChatFeed"></div>
+            <div class="chat-suggestions">
+              <button class="suggestion-chip pressable" type="button" data-home-action="diagnostics" data-i18n="home.quickDiagnostics">运行诊断</button>
+              <button class="suggestion-chip pressable" type="button" data-home-action="copy-config" data-i18n="home.quickConnection">复制连接配置</button>
+              <button class="suggestion-chip pressable" type="button" data-home-action="scenes" data-i18n="home.quickScenes">打开场景</button>
+            </div>
+            <form class="chat-composer" id="homeChatForm">
+              <input id="homeChatInput" type="text" autocomplete="off" data-i18n-placeholder="home.placeholder" placeholder="问问 Lociant，或输入一个工具调用任务">
+              <button class="filled-button pressable" id="homeChatSendButton" type="submit" data-i18n="home.send">发送</button>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel" id="page-scenes">
         <header class="page-head">
           <div>
             <p class="eyebrow">Lociant</p>
@@ -448,11 +491,29 @@
           <div>
             <p class="eyebrow">Network</p>
             <h1 class="section-title" data-i18n="page.nodesTitle">节点</h1>
-            <p class="section-subtitle" data-i18n="page.nodesSub">为设备协同预留</p>
+            <p class="section-subtitle" data-i18n="page.nodesSub">当前先管理本机节点，后续接入多设备协同。</p>
+          </div>
+          <div class="head-actions">
+            <button class="tonal-button pressable" id="nodeCopyMcpButton" type="button" data-i18n="connection.copy">复制</button>
           </div>
         </header>
         <div class="surface-list">
-          <div class="simple-card" data-i18n="nodes.placeholder">节点发现与协同能力会放在这里</div>
+          <div class="settings-section">
+            <span class="scene-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m18.4 5.6-2.1 2.1"/><path d="m7.7 16.3-2.1 2.1"/></svg></span>
+            <span class="settings-section-main">
+              <span class="settings-section-title" data-i18n="nodes.localNode">本机节点</span>
+              <span class="settings-section-sub" id="nodeLocalSub" data-i18n="nodes.localSub">当前设备作为能力节点运行</span>
+            </span>
+            <span class="status-pill" id="nodeLocalState" data-i18n="status.stopped">已停止</span>
+          </div>
+          <button class="settings-section pressable" id="nodeOpenServerButton" type="button">
+            <span class="settings-section-main">
+              <span class="settings-section-title" data-i18n="nodes.connectionTitle">连接入口</span>
+              <span class="settings-section-sub" id="nodeConnectionText">--</span>
+            </span>
+            <span class="status-pill">MCP</span>
+          </button>
+          <div class="simple-card" data-i18n="nodes.placeholder">多节点发现与协同会在这里扩展。</div>
         </div>
       </section>
 

@@ -71,6 +71,124 @@ function renderSessions(sessions) {
   })
 }
 
+function renderHomeSessions(sessions) {
+  if (!homeSessionList) return
+  homeSessionList.innerHTML = ''
+  const items = Array.isArray(sessions) ? sessions.slice(0, 8) : []
+  if (!items.length) {
+    homeSessionList.appendChild(el('div', 'chat-session-empty', t('home.noChats')))
+    return
+  }
+  items.forEach(session => {
+    const row = document.createElement('button')
+    row.type = 'button'
+    row.className = 'chat-session-item pressable'
+    row.classList.toggle('active', session.id === (runtimeServiceState && runtimeServiceState.currentSessionId))
+    const body = el('span', 'chat-session-body')
+    const title = el('strong', '', session.title || session.id || '--')
+    const sub = el('span', '', (session.modelId || '--') + ' · ' + (session.messageCount || 0))
+    const remove = el('span', 'chat-session-delete', 'x')
+    remove.setAttribute('role', 'button')
+    remove.setAttribute('tabindex', '0')
+    remove.setAttribute('aria-label', t('home.deleteChat'))
+    body.appendChild(title)
+    body.appendChild(sub)
+    row.appendChild(body)
+    row.appendChild(remove)
+    row.addEventListener('click', () => {
+      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
+        .then(state => {
+          updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: session.id }))
+          loadHomeConversation(session.id)
+          if (homeSidebar && homeSidebar.classList.contains('open')) {
+            homeSidebar.classList.remove('open')
+            if (homeRailToggle) homeRailToggle.setAttribute('aria-expanded', 'false')
+          }
+        })
+        .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
+    })
+    const deleteSession = event => {
+      event.preventDefault()
+      event.stopPropagation()
+      Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
+        .then(state => {
+          updateRuntimeServiceState(state || {})
+          if (state && state.currentSessionId) loadHomeConversation(state.currentSessionId)
+          else clearHomeMessages()
+          showToast(t('home.deleteChat'))
+        })
+        .catch(error => showToast((error && error.message) || t('toast.modelDeleteFailed')))
+    }
+    remove.addEventListener('click', deleteSession)
+    remove.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') deleteSession(event)
+    })
+    homeSessionList.appendChild(row)
+  })
+}
+
+function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
+  if (!sessionId) return
+  const now = Date.now()
+  const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions)
+    ? runtimeServiceState.sessions.slice()
+    : []
+  const index = sessions.findIndex(session => session && session.id === sessionId)
+  const existing = index >= 0 ? sessions[index] : {}
+  const next = Object.assign({}, existing, {
+    id: sessionId,
+    title: existing.title || String(titleText || '').trim() || sessionId,
+    modelId: existing.modelId || (runtimeServiceState && runtimeServiceState.modelId) || '--',
+    updatedAt: now,
+    messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
+    lastRole: lastRole || existing.lastRole || 'user',
+    lastText: String(titleText || existing.lastText || '').slice(0, 120),
+  })
+  if (index >= 0) sessions.splice(index, 1)
+  sessions.unshift(next)
+  runtimeServiceState = Object.assign({}, runtimeServiceState || {}, {
+    currentSessionId: sessionId,
+    sessions,
+  })
+  updateHomeState()
+}
+
+function homeCurrentSessionId() {
+  return (runtimeServiceState && runtimeServiceState.currentSessionId) || 'model-server/chat/default'
+}
+
+function appendChatBubble(role, text, meta) {
+  if (!homeChatFeed || !text) return null
+  const node = document.createElement('div')
+  node.className = 'chat-message ' + (role || 'assistant')
+  if (meta && meta.active) node.dataset.activeSession = 'true'
+  node.textContent = text
+  homeChatFeed.appendChild(node)
+  homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+  return node
+}
+
+function clearHomeMessages() {
+  if (!homeChatFeed) return
+  Array.from(homeChatFeed.querySelectorAll('.chat-message')).forEach(node => node.remove())
+}
+
+function renderHomeConversation(sessionId, messages) {
+  if (!homeChatFeed) return
+  clearHomeMessages()
+  const items = Array.isArray(messages) ? messages : []
+  if (!items.length) {
+    appendChatBubble('assistant', t('home.noChats'))
+    return
+  }
+  items.forEach(item => {
+    const role = item && item.role ? item.role : 'assistant'
+    const text = item && (item.text || item.content || item.message || '')
+    if (text) appendChatBubble(role, text, { active: sessionId === homeCurrentSessionId() })
+  })
+  homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+}
+
 // ---- Diagnostics ----
 let runtimeDiagLastResults = null
 

@@ -3,6 +3,7 @@
 
 const i18n = {
   en: {
+    'nav.home': 'Home',
     'nav.scenes': 'Scenes',
     'nav.settings': 'Settings',
     'nav.models': 'Models',
@@ -20,6 +21,21 @@ const i18n = {
     'status.running': 'Running',
     'status.stopped': 'Stopped',
 
+    'home.quickDiagnostics': 'Run diagnostics',
+    'home.quickConnection': 'Copy connection',
+    'home.quickScenes': 'Open scenes',
+    'home.placeholder': 'Ask Lociant, or describe a tool task',
+    'home.send': 'Send',
+    'home.runtimeLabel': 'Runtime',
+    'home.modelLabel': 'Model',
+    'home.nodeLabel': 'Node',
+    'home.historyTitle': 'Recent chats',
+    'home.noChats': 'No recent chats',
+    'home.readyModels': 'ready models',
+    'home.emptyReply': 'No reply.',
+    'home.thinking': 'Thinking...',
+    'home.deleteChat': 'Delete chat',
+
     'page.scenesTitle': 'Scenes',
     'page.scenesSub': 'Run phone-side workflows and capability packs.',
     'page.settingsTitle': 'Settings',
@@ -27,7 +43,7 @@ const i18n = {
     'page.modelsTitle': 'Models',
     'page.modelsSub': 'Install, choose, and manage local inference.',
     'page.nodesTitle': 'Nodes',
-    'page.nodesSub': 'Prepare device collaboration.',
+    'page.nodesSub': 'Manage this device first. Multi-device collaboration can plug in later.',
 
     'settings.language': 'Language',
     'settings.languageSub': 'Display language',
@@ -156,7 +172,11 @@ const i18n = {
     'models.installing': 'Installing',
     'models.delete': 'Delete',
 
-    'nodes.placeholder': 'Node discovery and collaboration will live here.',
+    'nodes.localNode': 'Local node',
+    'nodes.localSub': 'This phone is the active capability node.',
+    'nodes.connectionTitle': 'Connection endpoint',
+    'nodes.connectionSub': 'Start the runtime to expose MCP and OpenAI endpoints.',
+    'nodes.placeholder': 'Multi-node discovery and collaboration will expand here.',
     'empty.scenes': 'No scenes yet',
     'empty.models': 'No models yet',
     'toast.modelsReloaded': 'Models refreshed',
@@ -177,6 +197,7 @@ const i18n = {
   },
 
   zh: {
+    'nav.home': '主页',
     'nav.scenes': '场景',
     'nav.settings': '设置',
     'nav.models': '模型',
@@ -194,6 +215,21 @@ const i18n = {
     'status.running': '运行中',
     'status.stopped': '已停止',
 
+    'home.quickDiagnostics': '运行诊断',
+    'home.quickConnection': '复制连接配置',
+    'home.quickScenes': '打开场景',
+    'home.placeholder': '问问 Lociant，或输入一个工具调用任务',
+    'home.send': '发送',
+    'home.runtimeLabel': '运行时',
+    'home.modelLabel': '模型',
+    'home.nodeLabel': '节点',
+    'home.historyTitle': '最近对话',
+    'home.noChats': '暂无对话',
+    'home.readyModels': '个就绪模型',
+    'home.emptyReply': '没有回复。',
+    'home.thinking': '思考中...',
+    'home.deleteChat': '删除对话',
+
     'page.scenesTitle': '场景',
     'page.scenesSub': '运行手机侧工作流与能力包',
     'page.settingsTitle': '设置',
@@ -201,7 +237,7 @@ const i18n = {
     'page.modelsTitle': '模型',
     'page.modelsSub': '安装、选择和管理本地推理',
     'page.nodesTitle': '节点',
-    'page.nodesSub': '为设备协同预留',
+    'page.nodesSub': '当前先管理本机节点，后续接入多设备协同。',
 
     'settings.language': '语言',
     'settings.languageSub': '显示语言',
@@ -330,7 +366,11 @@ const i18n = {
     'models.installing': '安装中',
     'models.delete': '删除',
 
-    'nodes.placeholder': '节点发现与协同能力会放在这里',
+    'nodes.localNode': '本机节点',
+    'nodes.localSub': '当前设备作为能力节点运行',
+    'nodes.connectionTitle': '连接入口',
+    'nodes.connectionSub': '启动运行时后暴露 MCP 和 OpenAI 入口',
+    'nodes.placeholder': '多节点发现与协同会在这里扩展。',
     'empty.scenes': '暂无场景',
     'empty.models': '暂无模型',
     'toast.modelsReloaded': '模型已刷新',
@@ -372,6 +412,8 @@ const app = document.getElementById('app')
 const clock = document.getElementById('clock')
 const stateText = document.getElementById('stateText')
 const stateDot = document.getElementById('stateDot')
+const topNodeButton = document.getElementById('topNodeButton')
+const topNodeText = document.getElementById('topNodeText')
 const navItems = Array.from(document.querySelectorAll('.nav-item'))
 const panels = Array.from(document.querySelectorAll('.panel'))
 const sceneHost = document.getElementById('sceneHost')
@@ -480,6 +522,21 @@ const runtimeModelTokens = document.getElementById('runtimeModelTokens')
 const runtimeEffectiveTokens = document.getElementById('runtimeEffectiveTokens')
 const runtimeDeviceState = document.getElementById('runtimeDeviceState')
 const settingsHomePage = document.getElementById('settingsList')
+const homeRuntimePill = document.getElementById('homeRuntimePill')
+const homeRailToggle = document.getElementById('homeRailToggle')
+const homeSidebar = document.getElementById('homeSidebar')
+const homeSessionCount = document.getElementById('homeSessionCount')
+const homeNewChatButton = document.getElementById('homeNewChatButton')
+const homeSessionList = document.getElementById('homeSessionList')
+const homeChatForm = document.getElementById('homeChatForm')
+const homeChatInput = document.getElementById('homeChatInput')
+const homeChatSendButton = document.getElementById('homeChatSendButton')
+const homeChatFeed = document.getElementById('homeChatFeed')
+const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
+const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
+const nodeLocalState = document.getElementById('nodeLocalState')
+const nodeLocalSub = document.getElementById('nodeLocalSub')
+const nodeConnectionText = document.getElementById('nodeConnectionText')
 
 // ---- State variables ----
 let runtimeServiceState = null
@@ -703,6 +760,25 @@ function shellCommand(command, payload) {
   return raw ? JSON.parse(raw) : { running: false, message: 'Runtime shell unavailable' }
 }
 
+function runtimeState() {
+  try {
+    return shellCommand('status', {})
+  } catch (error) {
+    return runtimeServiceState || { running: false }
+  }
+}
+
+async function runtimeFetchJson(path) {
+  const state = runtimeServiceState || runtimeState()
+  const base = (state && (state.lanUrl || state.url)) ? String(state.lanUrl || state.url).replace(/\/$/, '') : localApiBaseUrl()
+  const headers = {}
+  if (state && state.authToken) headers.Authorization = 'Bearer ' + state.authToken
+  const response = await fetch(base + path, { headers })
+  const json = await response.json()
+  if (!response.ok) throw new Error(path + ': ' + ((json.error && json.error.message) || json.message || 'API request failed'))
+  return json
+}
+
 function sceneApiClient() {
   const baseUrl = localApiBaseUrl()
   const headers = () => {
@@ -765,26 +841,33 @@ function runtimeApiCommand(command, payload) {
     })
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
-      'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status'
+      'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
+      'session.create', 'session.select', 'session.delete', 'session.details'
     ].includes(command)
     if (runShell) {
-      updateRuntimeServiceState(shellCommand(command, body))
-      return
+      const next = shellCommand(command, body)
+      updateRuntimeServiceState(next)
+      return next
     }
     const promise = apiPost('/v1/runtime/' + encodeURIComponent(command), body)
     promise.then(state => {
       updateRuntimeServiceState(state)
     }).catch(() => updateRuntimeServiceState({ running: false, message: 'API server command failed' }))
+    return promise
   } catch (error) {
     updateRuntimeServiceState({ running: false, message: 'API server command failed' })
+    return Promise.reject(error)
   }
 }
 
 function runtimeServiceCommand(command, payload) {
   try {
-    updateRuntimeServiceState(shellCommand(command, payload))
+    const next = shellCommand(command, payload)
+    updateRuntimeServiceState(next)
+    return next
   } catch (error) {
     updateRuntimeServiceState({ running: false, message: 'Runtime service command failed' })
+    return null
   }
 }
 
@@ -879,7 +962,36 @@ function updateRuntimeServiceState(state) {
   if (runtimeServiceState.requestCount !== undefined || runtimeServiceState.recentRequests) {
     updateDiagnostics(runtimeServiceState)
   }
+  updateHomeState()
+  updateNodeState()
   updateRuntimeStrip()
+}
+
+function updateHomeState() {
+  const running = !!(runtimeServiceState && runtimeServiceState.running)
+  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
+  const runtimeLabel = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
+  const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
+  if (homeRuntimePill) {
+    homeRuntimePill.textContent = runtimeLabel
+    homeRuntimePill.classList.toggle('running', running || starting)
+  }
+  if (homeSessionCount) homeSessionCount.textContent = String(sessions.length)
+  renderHomeSessions(sessions)
+}
+
+function updateNodeState() {
+  const running = !!(runtimeServiceState && runtimeServiceState.running)
+  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
+  const label = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
+  if (topNodeText) topNodeText.textContent = t('nodes.localNode')
+  if (topNodeButton) topNodeButton.classList.toggle('running', running || starting)
+  if (nodeLocalState) {
+    nodeLocalState.textContent = label
+    nodeLocalState.classList.toggle('running', running || starting)
+  }
+  if (nodeLocalSub) nodeLocalSub.textContent = running ? publicRuntimeUrl(runtimeServiceState) : t('nodes.localSub')
+  if (nodeConnectionText) nodeConnectionText.textContent = running ? mcpEndpointUrl() : t('nodes.connectionSub')
 }
 
 function runtimeServiceStatusText(state, running, starting) {
@@ -1056,10 +1168,10 @@ function goHome() {
   backButton.classList.remove('active')
   activeScene = null
   setSceneSettingsVisible(false)
-  showPagePanel('scenes')
-  const scenesPanel = document.getElementById('page-scenes')
-  if (scenesPanel) scenesPanel.scrollTop = 0
-  navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'scenes'))
+  showPagePanel('home')
+  const homePanel = document.getElementById('page-home')
+  if (homePanel) homePanel.scrollTop = 0
+  navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'home'))
   stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
   updateRuntimeStrip()
 }
@@ -1298,6 +1410,7 @@ function updateModelHomeState() {
   const readyModels = runtimeModels.filter(model => model && model.ready)
   if (modelLocalState) modelLocalState.textContent = String(readyModels.length)
   if (modelRuntimeState) modelRuntimeState.textContent = (runtimeServiceState && runtimeServiceState.modelId) || '--'
+  updateHomeState()
 }
 
 function deleteModel(modelId) {
@@ -1614,6 +1727,124 @@ function renderSessions(sessions) {
   })
 }
 
+function renderHomeSessions(sessions) {
+  if (!homeSessionList) return
+  homeSessionList.innerHTML = ''
+  const items = Array.isArray(sessions) ? sessions.slice(0, 8) : []
+  if (!items.length) {
+    homeSessionList.appendChild(el('div', 'chat-session-empty', t('home.noChats')))
+    return
+  }
+  items.forEach(session => {
+    const row = document.createElement('button')
+    row.type = 'button'
+    row.className = 'chat-session-item pressable'
+    row.classList.toggle('active', session.id === (runtimeServiceState && runtimeServiceState.currentSessionId))
+    const body = el('span', 'chat-session-body')
+    const title = el('strong', '', session.title || session.id || '--')
+    const sub = el('span', '', (session.modelId || '--') + ' · ' + (session.messageCount || 0))
+    const remove = el('span', 'chat-session-delete', 'x')
+    remove.setAttribute('role', 'button')
+    remove.setAttribute('tabindex', '0')
+    remove.setAttribute('aria-label', t('home.deleteChat'))
+    body.appendChild(title)
+    body.appendChild(sub)
+    row.appendChild(body)
+    row.appendChild(remove)
+    row.addEventListener('click', () => {
+      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
+        .then(state => {
+          updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: session.id }))
+          loadHomeConversation(session.id)
+          if (homeSidebar && homeSidebar.classList.contains('open')) {
+            homeSidebar.classList.remove('open')
+            if (homeRailToggle) homeRailToggle.setAttribute('aria-expanded', 'false')
+          }
+        })
+        .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
+    })
+    const deleteSession = event => {
+      event.preventDefault()
+      event.stopPropagation()
+      Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
+        .then(state => {
+          updateRuntimeServiceState(state || {})
+          if (state && state.currentSessionId) loadHomeConversation(state.currentSessionId)
+          else clearHomeMessages()
+          showToast(t('home.deleteChat'))
+        })
+        .catch(error => showToast((error && error.message) || t('toast.modelDeleteFailed')))
+    }
+    remove.addEventListener('click', deleteSession)
+    remove.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') deleteSession(event)
+    })
+    homeSessionList.appendChild(row)
+  })
+}
+
+function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
+  if (!sessionId) return
+  const now = Date.now()
+  const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions)
+    ? runtimeServiceState.sessions.slice()
+    : []
+  const index = sessions.findIndex(session => session && session.id === sessionId)
+  const existing = index >= 0 ? sessions[index] : {}
+  const next = Object.assign({}, existing, {
+    id: sessionId,
+    title: existing.title || String(titleText || '').trim() || sessionId,
+    modelId: existing.modelId || (runtimeServiceState && runtimeServiceState.modelId) || '--',
+    updatedAt: now,
+    messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
+    lastRole: lastRole || existing.lastRole || 'user',
+    lastText: String(titleText || existing.lastText || '').slice(0, 120),
+  })
+  if (index >= 0) sessions.splice(index, 1)
+  sessions.unshift(next)
+  runtimeServiceState = Object.assign({}, runtimeServiceState || {}, {
+    currentSessionId: sessionId,
+    sessions,
+  })
+  updateHomeState()
+}
+
+function homeCurrentSessionId() {
+  return (runtimeServiceState && runtimeServiceState.currentSessionId) || 'model-server/chat/default'
+}
+
+function appendChatBubble(role, text, meta) {
+  if (!homeChatFeed || !text) return null
+  const node = document.createElement('div')
+  node.className = 'chat-message ' + (role || 'assistant')
+  if (meta && meta.active) node.dataset.activeSession = 'true'
+  node.textContent = text
+  homeChatFeed.appendChild(node)
+  homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+  return node
+}
+
+function clearHomeMessages() {
+  if (!homeChatFeed) return
+  Array.from(homeChatFeed.querySelectorAll('.chat-message')).forEach(node => node.remove())
+}
+
+function renderHomeConversation(sessionId, messages) {
+  if (!homeChatFeed) return
+  clearHomeMessages()
+  const items = Array.isArray(messages) ? messages : []
+  if (!items.length) {
+    appendChatBubble('assistant', t('home.noChats'))
+    return
+  }
+  items.forEach(item => {
+    const role = item && item.role ? item.role : 'assistant'
+    const text = item && (item.text || item.content || item.message || '')
+    if (text) appendChatBubble(role, text, { active: sessionId === homeCurrentSessionId() })
+  })
+  homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+}
+
 // ---- Diagnostics ----
 let runtimeDiagLastResults = null
 
@@ -1869,8 +2100,94 @@ function navigateTo(page) {
     setModelView(modelView)
     loadModels()
   }
-  stateText.textContent = t('state.idle')
+  stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
   updateRuntimeStrip()
+}
+
+function openRuntimeServerFromHome() {
+  navigateTo('settings')
+  openRuntimeServerSettings()
+}
+
+function showHomeConversationLoading(text) {
+  clearHomeMessages()
+  appendChatBubble('assistant', text || t('home.thinking'))
+}
+
+function handleHomeAction(action) {
+  if (action === 'diagnostics') {
+    navigateTo('settings')
+    openRuntimeAdvancedSettings()
+    runAgentDiagnostics()
+    return
+  }
+  if (action === 'copy-config') {
+    openRuntimeServerFromHome()
+    return
+  }
+  if (action === 'scenes') {
+    navigateTo('scenes')
+    return
+  }
+}
+
+function submitHomeChat(text) {
+  const prompt = String(text || '').trim()
+  if (!prompt) return
+  appendChatBubble('user', prompt)
+  if (homeChatInput) homeChatInput.value = ''
+  if (homeChatSendButton) homeChatSendButton.disabled = true
+  const pending = appendChatBubble('assistant', t('home.thinking'))
+  const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
+  const sessionId = homeCurrentSessionId()
+  upsertHomeSessionPreview(sessionId, prompt, 'user')
+  apiPost('/v1/chat/completions', {
+    model: modelId,
+    stream: false,
+    sessionId,
+    messages: [{ role: 'user', content: prompt }]
+  }).then(result => {
+    const reply = chatResponseText(result)
+    if (pending) pending.textContent = reply || t('home.emptyReply')
+    else appendChatBubble('assistant', reply || t('home.emptyReply'))
+    if (result && result.sessionId) {
+      runtimeServiceState = Object.assign({}, runtimeServiceState || {}, { currentSessionId: result.sessionId })
+    }
+    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt, 'assistant')
+    refreshRuntimeServiceState()
+  }).catch(error => {
+    if (pending) pending.textContent = (error && error.message) || t('toast.modelImportFailed')
+    else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+  }).finally(() => {
+    if (homeChatSendButton) homeChatSendButton.disabled = false
+  })
+}
+
+function chatResponseText(result) {
+  if (!result) return ''
+  const choice = result.choices && result.choices[0]
+  const message = choice && choice.message
+  return String(
+    (message && message.content) ||
+    (result.message && result.message.content) ||
+    result.response ||
+    result.text ||
+    ''
+  ).trim()
+}
+
+function loadHomeConversation(sessionId) {
+  const target = sessionId || homeCurrentSessionId()
+  showHomeConversationLoading(t('home.thinking'))
+  try {
+    const state = runtimeApiCommand('session.details', { sessionId: target })
+    const payload = state && state.session ? state.session : state
+    const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
+    renderHomeConversation(target, messages)
+  } catch (error) {
+    clearHomeMessages()
+    appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+  }
 }
 
 // ---- Clock tick ----
@@ -1992,6 +2309,54 @@ runtimeWindowText.addEventListener('click', event => {
   event.stopPropagation()
   runtimeWindowCommand()
 })
+if (topNodeButton) {
+  topNodeButton.addEventListener('click', () => navigateTo('nodes'))
+}
+if (homeRailToggle && homeSidebar) {
+  homeRailToggle.setAttribute('aria-expanded', 'false')
+  homeRailToggle.addEventListener('click', () => {
+    const open = homeSidebar.classList.toggle('open')
+    homeRailToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    if (open) refreshRuntimeServiceState()
+  })
+  document.addEventListener('pointerdown', event => {
+    if (!homeSidebar.classList.contains('open')) return
+    if (!homeSidebar.contains(event.target) && !homeRailToggle.contains(event.target)) {
+      homeSidebar.classList.remove('open')
+      homeRailToggle.setAttribute('aria-expanded', 'false')
+    }
+  })
+}
+if (homeNewChatButton) {
+  homeNewChatButton.addEventListener('click', () => {
+    const next = runtimeApiCommand('session.create', {})
+    Promise.resolve(next).then(state => {
+      const sessionId = state && state.currentSessionId ? state.currentSessionId : homeCurrentSessionId()
+      clearHomeMessages()
+      updateRuntimeServiceState(state || {})
+      loadHomeConversation(sessionId)
+    }).catch(error => {
+      showToast((error && error.message) || t('toast.modelImportFailed'))
+    })
+  })
+}
+if (homeChatForm) {
+  homeChatForm.addEventListener('submit', event => {
+    event.preventDefault()
+    submitHomeChat(homeChatInput && homeChatInput.value)
+  })
+}
+if (homeChatFeed) {
+  homeChatFeed.addEventListener('click', event => {
+    const button = event.target.closest('[data-home-action]')
+    if (button) handleHomeAction(button.dataset.homeAction)
+  })
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    loadHomeConversation()
+  }
+})
 
 // ---- Settings navigation ----
 runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
@@ -2100,6 +2465,12 @@ runtimeSessionNewButton.addEventListener('click', () => {
 })
 if (runtimeDiagRunButton) {
   runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
+}
+if (nodeCopyMcpButton) {
+  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+}
+if (nodeOpenServerButton) {
+  nodeOpenServerButton.addEventListener('click', openRuntimeServerFromHome)
 }
 
 // ---- Language ----

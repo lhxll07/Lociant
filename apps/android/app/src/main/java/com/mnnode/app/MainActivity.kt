@@ -332,7 +332,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             "vision.stop" -> runtimeSummaryWithWindow().put("vision", apiServerController.callToolResult("vision_stop"))
             "vision.status" -> runtimeSummaryWithWindow().put("vision", apiServerController.callToolResult("vision_status"))
             "settings" -> apiServerController.command(command, payload).toRuntimeUiState()
-            "session.create", "session.select", "session.delete" -> apiServerController.command(command, payload).withRuntimeState()
+            "session.create", "session.select", "session.delete", "session.details" -> apiServerController.command(command, payload).withRuntimeState()
             "status" -> runtimeSummaryWithWindow()
             else -> JSONObject().put("ok", false).put("message", "Unknown shell command: $command")
         }.toString()
@@ -399,14 +399,10 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     }
 
     private fun runtimeSummaryWithWindow(window: JSONObject = MNNodeRuntimeService.floatingWindowState(this)): JSONObject =
-        apiServerController.uiState().withRuntimeState(window)
+        apiServerController.state().withRuntimeState(window)
 
     private fun JSONObject.toRuntimeUiState(): JSONObject {
-        val full = this
         return runtimeSummaryWithWindow()
-            .put("sessions", full.optJSONArray("sessions") ?: org.json.JSONArray())
-            .put("requestCount", full.optInt("requestCount"))
-            .put("recentRequests", full.optJSONArray("recentRequests") ?: org.json.JSONArray())
     }
 
     private fun updateWindowSettings(payload: JSONObject) {

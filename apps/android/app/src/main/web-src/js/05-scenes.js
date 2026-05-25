@@ -86,10 +86,10 @@ function goHome() {
   backButton.classList.remove('active')
   activeScene = null
   setSceneSettingsVisible(false)
-  showPagePanel('scenes')
-  const scenesPanel = document.getElementById('page-scenes')
-  if (scenesPanel) scenesPanel.scrollTop = 0
-  navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'scenes'))
+  showPagePanel('home')
+  const homePanel = document.getElementById('page-home')
+  if (homePanel) homePanel.scrollTop = 0
+  navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'home'))
   stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
   updateRuntimeStrip()
 }

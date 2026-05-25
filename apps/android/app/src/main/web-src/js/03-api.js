@@ -130,6 +130,25 @@ function shellCommand(command, payload) {
   return raw ? JSON.parse(raw) : { running: false, message: 'Runtime shell unavailable' }
 }
 
+function runtimeState() {
+  try {
+    return shellCommand('status', {})
+  } catch (error) {
+    return runtimeServiceState || { running: false }
+  }
+}
+
+async function runtimeFetchJson(path) {
+  const state = runtimeServiceState || runtimeState()
+  const base = (state && (state.lanUrl || state.url)) ? String(state.lanUrl || state.url).replace(/\/$/, '') : localApiBaseUrl()
+  const headers = {}
+  if (state && state.authToken) headers.Authorization = 'Bearer ' + state.authToken
+  const response = await fetch(base + path, { headers })
+  const json = await response.json()
+  if (!response.ok) throw new Error(path + ': ' + ((json.error && json.error.message) || json.message || 'API request failed'))
+  return json
+}
+
 function sceneApiClient() {
   const baseUrl = localApiBaseUrl()
   const headers = () => {

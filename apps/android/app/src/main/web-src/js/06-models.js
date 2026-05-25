@@ -91,6 +91,7 @@ function updateModelHomeState() {
   const readyModels = runtimeModels.filter(model => model && model.ready)
   if (modelLocalState) modelLocalState.textContent = String(readyModels.length)
   if (modelRuntimeState) modelRuntimeState.textContent = (runtimeServiceState && runtimeServiceState.modelId) || '--'
+  updateHomeState()
 }
 
 function deleteModel(modelId) {

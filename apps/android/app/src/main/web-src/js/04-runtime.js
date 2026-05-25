@@ -7,26 +7,33 @@ function runtimeApiCommand(command, payload) {
     })
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
-      'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status'
+      'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
+      'session.create', 'session.select', 'session.delete', 'session.details'
     ].includes(command)
     if (runShell) {
-      updateRuntimeServiceState(shellCommand(command, body))
-      return
+      const next = shellCommand(command, body)
+      updateRuntimeServiceState(next)
+      return next
     }
     const promise = apiPost('/v1/runtime/' + encodeURIComponent(command), body)
     promise.then(state => {
       updateRuntimeServiceState(state)
     }).catch(() => updateRuntimeServiceState({ running: false, message: 'API server command failed' }))
+    return promise
   } catch (error) {
     updateRuntimeServiceState({ running: false, message: 'API server command failed' })
+    return Promise.reject(error)
   }
 }
 
 function runtimeServiceCommand(command, payload) {
   try {
-    updateRuntimeServiceState(shellCommand(command, payload))
+    const next = shellCommand(command, payload)
+    updateRuntimeServiceState(next)
+    return next
   } catch (error) {
     updateRuntimeServiceState({ running: false, message: 'Runtime service command failed' })
+    return null
   }
 }
 
@@ -121,7 +128,36 @@ function updateRuntimeServiceState(state) {
   if (runtimeServiceState.requestCount !== undefined || runtimeServiceState.recentRequests) {
     updateDiagnostics(runtimeServiceState)
   }
+  updateHomeState()
+  updateNodeState()
   updateRuntimeStrip()
+}
+
+function updateHomeState() {
+  const running = !!(runtimeServiceState && runtimeServiceState.running)
+  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
+  const runtimeLabel = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
+  const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
+  if (homeRuntimePill) {
+    homeRuntimePill.textContent = runtimeLabel
+    homeRuntimePill.classList.toggle('running', running || starting)
+  }
+  if (homeSessionCount) homeSessionCount.textContent = String(sessions.length)
+  renderHomeSessions(sessions)
+}
+
+function updateNodeState() {
+  const running = !!(runtimeServiceState && runtimeServiceState.running)
+  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
+  const label = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
+  if (topNodeText) topNodeText.textContent = t('nodes.localNode')
+  if (topNodeButton) topNodeButton.classList.toggle('running', running || starting)
+  if (nodeLocalState) {
+    nodeLocalState.textContent = label
+    nodeLocalState.classList.toggle('running', running || starting)
+  }
+  if (nodeLocalSub) nodeLocalSub.textContent = running ? publicRuntimeUrl(runtimeServiceState) : t('nodes.localSub')
+  if (nodeConnectionText) nodeConnectionText.textContent = running ? mcpEndpointUrl() : t('nodes.connectionSub')
 }
 
 function runtimeServiceStatusText(state, running, starting) {

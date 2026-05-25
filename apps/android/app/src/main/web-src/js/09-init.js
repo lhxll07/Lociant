@@ -58,6 +58,54 @@ runtimeWindowText.addEventListener('click', event => {
   event.stopPropagation()
   runtimeWindowCommand()
 })
+if (topNodeButton) {
+  topNodeButton.addEventListener('click', () => navigateTo('nodes'))
+}
+if (homeRailToggle && homeSidebar) {
+  homeRailToggle.setAttribute('aria-expanded', 'false')
+  homeRailToggle.addEventListener('click', () => {
+    const open = homeSidebar.classList.toggle('open')
+    homeRailToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    if (open) refreshRuntimeServiceState()
+  })
+  document.addEventListener('pointerdown', event => {
+    if (!homeSidebar.classList.contains('open')) return
+    if (!homeSidebar.contains(event.target) && !homeRailToggle.contains(event.target)) {
+      homeSidebar.classList.remove('open')
+      homeRailToggle.setAttribute('aria-expanded', 'false')
+    }
+  })
+}
+if (homeNewChatButton) {
+  homeNewChatButton.addEventListener('click', () => {
+    const next = runtimeApiCommand('session.create', {})
+    Promise.resolve(next).then(state => {
+      const sessionId = state && state.currentSessionId ? state.currentSessionId : homeCurrentSessionId()
+      clearHomeMessages()
+      updateRuntimeServiceState(state || {})
+      loadHomeConversation(sessionId)
+    }).catch(error => {
+      showToast((error && error.message) || t('toast.modelImportFailed'))
+    })
+  })
+}
+if (homeChatForm) {
+  homeChatForm.addEventListener('submit', event => {
+    event.preventDefault()
+    submitHomeChat(homeChatInput && homeChatInput.value)
+  })
+}
+if (homeChatFeed) {
+  homeChatFeed.addEventListener('click', event => {
+    const button = event.target.closest('[data-home-action]')
+    if (button) handleHomeAction(button.dataset.homeAction)
+  })
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    loadHomeConversation()
+  }
+})
 
 // ---- Settings navigation ----
 runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
@@ -166,6 +214,12 @@ runtimeSessionNewButton.addEventListener('click', () => {
 })
 if (runtimeDiagRunButton) {
   runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
+}
+if (nodeCopyMcpButton) {
+  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+}
+if (nodeOpenServerButton) {
+  nodeOpenServerButton.addEventListener('click', openRuntimeServerFromHome)
 }
 
 // ---- Language ----
