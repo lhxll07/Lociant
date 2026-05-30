@@ -145,6 +145,7 @@ const i18n = {
     'settings.notificationPermission': 'Notifications',
     'settings.overlayPermission': 'Overlay',
     'settings.battery': 'Background power',
+    'settings.accessibilityPermission': 'Accessibility',
     'settings.noSessions': 'No sessions',
     'settings.noRequests': 'No requests',
     'settings.checking': 'Checking',
@@ -156,6 +157,8 @@ const i18n = {
     'settings.notificationPermissionNeeded': 'Required',
     'settings.overlayPermissionGranted': 'Ready',
     'settings.overlayPermissionNeeded': 'Required',
+    'settings.accessibilityPermissionGranted': 'Ready',
+    'settings.accessibilityPermissionNeeded': 'Required',
     'settings.allowed': 'Allowed',
     'settings.allow': 'Allow',
     'settings.grant': 'Grant',
@@ -373,6 +376,7 @@ const i18n = {
     'settings.notificationPermission': '通知',
     'settings.overlayPermission': '悬浮窗',
     'settings.battery': '后台电量',
+    'settings.accessibilityPermission': '无障碍',
     'settings.noSessions': '暂无会话',
     'settings.noRequests': '暂无请求',
     'settings.checking': '检查中',
@@ -384,6 +388,8 @@ const i18n = {
     'settings.notificationPermissionNeeded': '需要授权',
     'settings.overlayPermissionGranted': '就绪',
     'settings.overlayPermissionNeeded': '需要授权',
+    'settings.accessibilityPermissionGranted': '就绪',
+    'settings.accessibilityPermissionNeeded': '需要授权',
     'settings.allowed': '已允许',
     'settings.allow': '允许',
     'settings.grant': '授权',
@@ -537,10 +543,12 @@ const cameraPermissionState = document.getElementById('cameraPermissionState')
 const notificationPermissionState = document.getElementById('notificationPermissionState')
 const overlayPermissionState = document.getElementById('overlayPermissionState')
 const batteryPermissionState = document.getElementById('batteryPermissionState')
+const accessibilityPermissionState = document.getElementById('accessibilityPermissionState')
 const cameraPermissionButton = document.getElementById('cameraPermissionButton')
 const notificationPermissionButton = document.getElementById('notificationPermissionButton')
 const overlayPermissionButton = document.getElementById('overlayPermissionButton')
 const batteryPermissionButton = document.getElementById('batteryPermissionButton')
+const accessibilityPermissionButton = document.getElementById('accessibilityPermissionButton')
 const runtimeServerButton = document.getElementById('runtimeServerButton')
 const runtimeServerState = document.getElementById('runtimeServerState')
 const runtimeServerPanel = document.getElementById('runtimeServerPanel')
@@ -972,6 +980,7 @@ function updateRuntimeServiceState(state) {
   const notificationGranted = runtimeServiceState.notificationPermissionGranted === true
   const overlayGranted = runtimeServiceState.windowAllowed === true
   const batteryGranted = !!runtimeServiceState.batteryOptimizationIgnored
+  const accessibilityGranted = runtimeServiceState.accessibilityPermissionGranted === true
   if (stateDot) stateDot.classList.toggle('running', running || starting)
   if (stateText) stateText.classList.toggle('running', running || starting)
   runtimeSettingsState.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
@@ -984,10 +993,12 @@ function updateRuntimeServiceState(state) {
   if (notificationPermissionState) notificationPermissionState.textContent = devicePermissionLabel(notificationGranted, t('settings.notificationPermissionGranted'), t('settings.notificationPermissionNeeded'))
   if (overlayPermissionState) overlayPermissionState.textContent = devicePermissionLabel(overlayGranted, t('settings.overlayPermissionGranted'), t('settings.overlayPermissionNeeded'))
   if (batteryPermissionState) batteryPermissionState.textContent = devicePermissionLabel(batteryGranted, t('settings.batteryAllowed'), t('settings.batteryRestricted'))
+  if (accessibilityPermissionState) accessibilityPermissionState.textContent = devicePermissionLabel(accessibilityGranted, t('settings.accessibilityPermissionGranted'), t('settings.accessibilityPermissionNeeded'))
   setPermissionButton(cameraPermissionButton, cameraGranted)
   setPermissionButton(notificationPermissionButton, notificationGranted)
   setPermissionButton(overlayPermissionButton, overlayGranted)
   setPermissionButton(batteryPermissionButton, batteryGranted)
+  setPermissionButton(accessibilityPermissionButton, accessibilityGranted)
   const vision = visionState()
   const visionRunning = !!vision.running
   const visionStarting = String(vision.state || '').toLowerCase() === 'starting'
@@ -2752,6 +2763,11 @@ overlayPermissionButton.addEventListener('click', () => {
 batteryPermissionButton.addEventListener('click', () => {
   handlePermissionAction(batteryPermissionButton, 'requestBatteryOptimizationExemption', 'battery')
 })
+if (accessibilityPermissionButton) {
+  accessibilityPermissionButton.addEventListener('click', () => {
+    handlePermissionAction(accessibilityPermissionButton, 'requestAccessibilityPermission', 'accessibility')
+  })
+}
 
 // ---- Server settings ----
 runtimePortInput.addEventListener('change', () => {

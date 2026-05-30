@@ -53,6 +53,7 @@ function updateRuntimeServiceState(state) {
   const notificationGranted = runtimeServiceState.notificationPermissionGranted === true
   const overlayGranted = runtimeServiceState.windowAllowed === true
   const batteryGranted = !!runtimeServiceState.batteryOptimizationIgnored
+  const accessibilityGranted = runtimeServiceState.accessibilityPermissionGranted === true
   if (stateDot) stateDot.classList.toggle('running', running || starting)
   if (stateText) stateText.classList.toggle('running', running || starting)
   runtimeSettingsState.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
@@ -65,10 +66,12 @@ function updateRuntimeServiceState(state) {
   if (notificationPermissionState) notificationPermissionState.textContent = devicePermissionLabel(notificationGranted, t('settings.notificationPermissionGranted'), t('settings.notificationPermissionNeeded'))
   if (overlayPermissionState) overlayPermissionState.textContent = devicePermissionLabel(overlayGranted, t('settings.overlayPermissionGranted'), t('settings.overlayPermissionNeeded'))
   if (batteryPermissionState) batteryPermissionState.textContent = devicePermissionLabel(batteryGranted, t('settings.batteryAllowed'), t('settings.batteryRestricted'))
+  if (accessibilityPermissionState) accessibilityPermissionState.textContent = devicePermissionLabel(accessibilityGranted, t('settings.accessibilityPermissionGranted'), t('settings.accessibilityPermissionNeeded'))
   setPermissionButton(cameraPermissionButton, cameraGranted)
   setPermissionButton(notificationPermissionButton, notificationGranted)
   setPermissionButton(overlayPermissionButton, overlayGranted)
   setPermissionButton(batteryPermissionButton, batteryGranted)
+  setPermissionButton(accessibilityPermissionButton, accessibilityGranted)
   const vision = visionState()
   const visionRunning = !!vision.running
   const visionStarting = String(vision.state || '').toLowerCase() === 'starting'

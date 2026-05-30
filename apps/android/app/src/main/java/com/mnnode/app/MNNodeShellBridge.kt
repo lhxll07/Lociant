@@ -11,6 +11,7 @@ class MNNodeShellBridge(private val host: Host) {
         fun requestNotificationPermission()
         fun requestOverlayPermission()
         fun requestBatteryOptimizationExemption()
+        fun requestAccessibilityPermission()
         fun openAppSettings()
         fun openPermissionSettings(kind: String)
         fun runtimeShellCommand(command: String, payloadJson: String?): String
@@ -49,6 +50,12 @@ class MNNodeShellBridge(private val host: Host) {
     @JavascriptInterface
     fun requestBatteryOptimizationExemption(): String {
         host.requestBatteryOptimizationExemption()
+        return ok("permission_requested")
+    }
+
+    @JavascriptInterface
+    fun requestAccessibilityPermission(): String {
+        host.requestAccessibilityPermission()
         return ok("permission_requested")
     }
 

@@ -187,6 +187,11 @@ overlayPermissionButton.addEventListener('click', () => {
 batteryPermissionButton.addEventListener('click', () => {
   handlePermissionAction(batteryPermissionButton, 'requestBatteryOptimizationExemption', 'battery')
 })
+if (accessibilityPermissionButton) {
+  accessibilityPermissionButton.addEventListener('click', () => {
+    handlePermissionAction(accessibilityPermissionButton, 'requestAccessibilityPermission', 'accessibility')
+  })
+}
 
 // ---- Server settings ----
 runtimePortInput.addEventListener('change', () => {

@@ -117,6 +117,14 @@ curl -X POST http://<phone-ip>:11434/v1/tools/runtime_status/call \
   -d "{\"arguments\":{}}"
 ```
 
+Use the phone-local LLM as a tool, including through MCP:
+
+```bash
+curl -X POST http://<phone-ip>:11434/v1/tools/llm_chat/call \
+  -H "Content-Type: application/json" \
+  -d "{\"arguments\":{\"prompt\":\"Give one practical use for a phone-local AI node.\",\"maxTokens\":128}}"
+```
+
 Use OpenAI-style tool calling:
 
 ```json
@@ -155,6 +163,12 @@ Smoke test:
 
 ```bash
 python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
+```
+
+MCP tool path into the phone-local LLM:
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --mcp-llm
 ```
 
 Logging proxy:
@@ -297,6 +311,14 @@ curl -X POST http://<phone-ip>:11434/v1/tools/runtime_status/call \
   -d "{\"arguments\":{}}"
 ```
 
+把手机本地 LLM 当作工具调用，MCP 也会暴露同一个能力：
+
+```bash
+curl -X POST http://<phone-ip>:11434/v1/tools/llm_chat/call \
+  -H "Content-Type: application/json" \
+  -d "{\"arguments\":{\"prompt\":\"说一个手机本地 AI 节点的实用场景。\",\"maxTokens\":128}}"
+```
+
 使用 OpenAI 风格 tool calling：
 
 ```json
@@ -335,6 +357,12 @@ curl -X POST http://<phone-ip>:11434/v1/tools/runtime_status/call \
 
 ```bash
 python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
+```
+
+测试 MCP 调用手机本地 LLM：
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --mcp-llm
 ```
 
 日志代理：

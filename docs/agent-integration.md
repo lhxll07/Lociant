@@ -97,19 +97,39 @@ Current Lociant-local tools:
 |---|---|
 | `runtime_status` | API/runtime status |
 | `runtime_resources` | Android package and resource info |
+| `device_status` | Battery, network, screen, and permission state |
+| `clipboard_read` | Read Android clipboard text when available |
+| `clipboard_write` | Write Android clipboard text |
+| `app_open` | Open an installed app or safe deep link |
 | `model_list` | Installed/built-in models |
 | `model_preload` | Queue model preload |
 | `inference_cancel` | Cancel current inference |
+| `llm_status` | Phone-local LLM readiness and available chat models |
+| `llm_chat` | Ask the phone-local LLM through MCP or direct tool calls |
 | `vision_status` | Camera/vision runtime status |
 | `vision_start` | Start continuous camera vision analysis |
 | `camera_capture` | Capture the latest camera frame as a JPEG data URL |
 | `vision_stop` | Stop continuous camera vision analysis |
+| `store_get` | Read a local-store value |
+| `store_set` | Write a local-store value |
+| `store_list` | List a local-store namespace |
 | `event_record` | Persist a runtime event |
 | `store_increment` | Increment a numeric local-store value |
 | `notification_post` | Send Android notification |
 | `webhook_post` | Queue JSON webhook POST |
 
 These tools should describe Android-side capabilities. Do not add PC workspace tools to Lociant unless they map to real phone-side behavior.
+
+For desktop agents, `llm_chat` is the simplest way to use the Android phone as a local reasoning node through MCP:
+
+```json
+{
+  "prompt": "Summarize why a phone-local model is useful for an agent.",
+  "maxTokens": 128
+}
+```
+
+By default `llm_chat` does not persist chat history. Pass `sessionId` when you want Lociant to reuse and save phone-local context.
 
 For photo capture, use `camera_capture`. It intentionally reuses the active vision runtime instead of opening a second camera path. Start vision first, then capture:
 
@@ -194,6 +214,12 @@ Include one chat completion:
 
 ```bash
 python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --chat
+```
+
+Test the MCP path into the phone-local LLM:
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --mcp-llm
 ```
 
 If API Token is enabled:
@@ -334,6 +360,10 @@ API Key: 留空或任意非空字符串，取决于客户端
 |---|---|
 | `runtime_status` | API/runtime 状态 |
 | `runtime_resources` | Android 包和资源信息 |
+| `device_status` | 电量、网络、屏幕和权限状态 |
+| `clipboard_read` | 在系统允许时读取 Android 剪贴板文本 |
+| `clipboard_write` | 写入 Android 剪贴板文本 |
+| `app_open` | 打开已安装应用或安全 deep link |
 | `model_list` | 已安装和内置模型 |
 | `model_preload` | 排队预加载模型 |
 | `inference_cancel` | 取消当前推理 |
@@ -341,6 +371,9 @@ API Key: 留空或任意非空字符串，取决于客户端
 | `vision_start` | 启动连续摄像头视觉分析 |
 | `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
 | `vision_stop` | 停止连续摄像头视觉分析 |
+| `store_get` | 读取本地存储值 |
+| `store_set` | 写入本地存储值 |
+| `store_list` | 列出本地存储 namespace |
 | `event_record` | 持久化 runtime 事件 |
 | `store_increment` | 递增本地存储里的数值 |
 | `notification_post` | 发送 Android 通知 |

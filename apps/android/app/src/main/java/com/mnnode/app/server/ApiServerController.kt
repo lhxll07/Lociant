@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
+import com.mnnode.app.model.ModelChatMessage
+import com.mnnode.app.model.ModelChatPart
 import com.mnnode.app.model.ModelChatRequest
 import com.mnnode.app.model.ModelToolCall
 import com.mnnode.app.model.ModelToolChoice
@@ -84,10 +86,16 @@ class ApiServerController(
         ToolRegistry(
             listOf(
                 RuntimeTools(context, runtimeState = { runtimeSummary() }),
+                AndroidTools(context),
                 ModelTools(
                     modelManager = modelManager,
                     preloadModel = { chatController.preload(it.ifBlank { modelId }) },
                     cancelChat = { chatController.cancelCurrent() },
+                ),
+                LlmTools(
+                    modelManager = modelManager,
+                    runtimeState = { runtimeSummary() },
+                    chat = { llmToolChat(it) },
                 ),
                 VisionTools(context),
                 StorageTools(sessionStore, localStore),
@@ -349,6 +357,94 @@ class ApiServerController(
         val args = runCatching { JSONObject(toolCall.arguments.ifBlank { "{}" }) }.getOrDefault(JSONObject())
         return toolRegistry.call(toolCall.name, args, toolExposure)
             .put("tool_call_id", toolCall.id)
+    }
+
+    private fun llmToolChat(args: JSONObject): JSONObject {
+        val model = args.optString("model").ifBlank { args.optString("modelId") }
+        val maxTokens = optionalPositiveInt(args, "maxTokens") ?: optionalPositiveInt(args, "max_tokens")
+        val sessionId = args.optString("sessionId").ifBlank { args.optString("session_id") }.trim()
+        val currentRequest = chatController.boundRequest(
+            ModelChatRequest(
+                modelId = model,
+                messages = llmToolMessages(args),
+                maxTokens = maxTokens,
+                stream = false,
+                source = "mcp.llm_chat",
+                sessionId = sessionId,
+            ),
+            modelId,
+            maxOutputTokens,
+        )
+        val request = chatController.sessionRequest(currentRequest)
+        val turnRequest = currentRequest.copy(sessionId = request.sessionId, modelId = request.modelId, persistSession = request.persistSession)
+        val timeoutMs = optionalPositiveInt(args, "timeoutMs")
+            ?.toLong()
+            ?.coerceIn(1_000L, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
+            ?: RuntimeDefaults.Queue.CHAT_TIMEOUT_MS
+        val result = chatController.submitSync(request, timeoutMs)
+        chatController.saveModelTurn(turnRequest, result)
+        return JSONObject()
+            .put("ok", result.ok)
+            .put("modelId", result.modelId)
+            .put("sessionId", request.sessionId)
+            .put("text", result.text)
+            .put("message", result.message)
+            .put("usage", ModelApiMapper.openAiUsage(result))
+            .put("metrics", ModelApiMapper.runtimeMetrics(result))
+            .apply {
+                if (!result.ok) {
+                    put("error", JSONObject()
+                        .put("code", "chat_failed")
+                        .put("message", result.message.ifBlank { "local LLM chat failed" }))
+                }
+            }
+    }
+
+    private fun llmToolMessages(args: JSONObject): List<ModelChatMessage> {
+        val parsed = parseLlmToolMessages(args.optJSONArray("messages"))
+        if (parsed.isNotEmpty()) return parsed
+
+        val prompt = args.optString("prompt").trim()
+        require(prompt.isNotBlank()) { "prompt or messages is required" }
+
+        val system = args.optString("system").trim()
+        return buildList {
+            if (system.isNotBlank()) add(ModelChatMessage("system", listOf(ModelChatPart.Text(system))))
+            add(ModelChatMessage("user", listOf(ModelChatPart.Text(prompt))))
+        }
+    }
+
+    private fun parseLlmToolMessages(messages: JSONArray?): List<ModelChatMessage> {
+        if (messages == null || messages.length() == 0) return emptyList()
+        val parsed = mutableListOf<ModelChatMessage>()
+        for (index in 0 until messages.length()) {
+            val message = messages.optJSONObject(index) ?: continue
+            val role = message.optString("role", "user").ifBlank { "user" }
+            val text = textFromLlmToolContent(message.opt("content")).trim()
+            if (text.isNotBlank()) parsed += ModelChatMessage(role, listOf(ModelChatPart.Text(text)))
+        }
+        return parsed
+    }
+
+    private fun textFromLlmToolContent(content: Any?): String {
+        return when (content) {
+            is String -> content
+            is JSONArray -> buildString {
+                for (index in 0 until content.length()) {
+                    val item = content.optJSONObject(index) ?: continue
+                    if (item.optString("type") == "text") {
+                        if (isNotEmpty()) append('\n')
+                        append(item.optString("text"))
+                    }
+                }
+            }
+            else -> ""
+        }
+    }
+
+    private fun optionalPositiveInt(json: JSONObject, key: String): Int? {
+        if (!json.has(key) || json.isNull(key)) return null
+        return json.optInt(key).takeIf { it > 0 }
     }
 
     private fun parseChat(protocol: ChatProtocol, raw: String) = when (protocol) {

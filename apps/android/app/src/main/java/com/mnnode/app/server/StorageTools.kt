@@ -10,6 +10,35 @@ class StorageTools(
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
         ToolDefinition(
+            name = "store_get",
+            description = "Read a value from Lociant's local persistent key-value store.",
+            parameters = objectSchema(JSONObject()
+                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))
+                .put("key", JSONObject().put("type", "string").put("description", "Key to read"))),
+        ) { args ->
+            localStore.get(args.optString("namespace", "default"), args.optString("key", "value"))
+        },
+        ToolDefinition(
+            name = "store_set",
+            description = "Write a JSON-compatible value to Lociant's local persistent key-value store.",
+            parameters = objectSchema(JSONObject()
+                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))
+                .put("key", JSONObject().put("type", "string").put("description", "Key to write"))
+                .put("value", JSONObject().put("description", "JSON-compatible value"))),
+            policy = ToolPolicy(sideEffect = true),
+        ) { args ->
+            val value = if (args.has("value")) args.opt("value") else JSONObject.NULL
+            localStore.set(args.optString("namespace", "default"), args.optString("key", "value"), value)
+        },
+        ToolDefinition(
+            name = "store_list",
+            description = "List all values in a Lociant local persistent key-value namespace.",
+            parameters = objectSchema(JSONObject()
+                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))),
+        ) { args ->
+            localStore.list(args.optString("namespace", "default"))
+        },
+        ToolDefinition(
             name = "event_record",
             description = "Record a runtime event to local persistent storage (Room). Useful for sensor-driven data logging.",
             parameters = objectSchema(JSONObject()

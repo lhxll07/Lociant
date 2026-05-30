@@ -181,6 +181,16 @@ def mcp_call(base_url: str, headers: dict[str, str], timeout: int, method: str, 
     return data
 
 
+def mcp_tool_call(base_url: str, headers: dict[str, str], timeout: int, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    data = mcp_call(base_url, headers, timeout, "tools/call", {"name": name, "arguments": arguments or {}})
+    result = data.get("result")
+    if not isinstance(result, dict):
+        fail(f"MCP tools/call {name} missing result: {data}")
+    if result.get("isError"):
+        fail(f"MCP tools/call {name} returned error: {result}")
+    return result
+
+
 def chat_once(base_url: str, headers: dict[str, str], timeout: int, model: str, prompt: str, max_tokens: int) -> dict[str, Any]:
     payload = {
         "model": model,
@@ -195,6 +205,26 @@ def chat_once(base_url: str, headers: dict[str, str], timeout: int, model: str, 
     text = str((choice.get("message") or {}).get("content") or "")
     ok("chat", f"{result.elapsed_ms}ms prompt={usage.get('prompt_tokens')} out={usage.get('completion_tokens')} text={text[:80]!r}")
     return data
+
+
+def mcp_llm_once(base_url: str, headers: dict[str, str], timeout: int, prompt: str, max_tokens: int) -> dict[str, Any]:
+    status = mcp_tool_call(base_url, headers, timeout, "llm_status")
+    structured = status.get("structuredContent") if isinstance(status.get("structuredContent"), dict) else {}
+    ok("mcp llm_status", f"running={structured.get('running')} model={structured.get('modelId')} loaded={structured.get('modelLoaded')}")
+
+    result = mcp_tool_call(
+        base_url,
+        headers,
+        timeout,
+        "llm_chat",
+        {"prompt": prompt, "maxTokens": max_tokens},
+    )
+    content = result.get("structuredContent") if isinstance(result.get("structuredContent"), dict) else {}
+    text = str(content.get("text") or "")
+    if not text:
+        fail(f"MCP llm_chat returned empty text: {result}")
+    ok("mcp llm_chat", f"text={text[:80]!r}")
+    return result
 
 
 def require_completion(value: dict[str, Any], *, allow_tool_calls: bool = False) -> dict[str, Any]:
@@ -263,6 +293,11 @@ def run_quick_checks(args: argparse.Namespace, *, print_done: bool) -> tuple[lis
         chat_once(base_url, headers, args.chat_timeout, model, args.prompt, args.max_tokens)
     else:
         warn("chat", "skipped; pass --chat to test /v1/chat/completions")
+
+    if args.mcp_llm:
+        if "llm_status" not in names or "llm_chat" not in names:
+            fail(f"MCP LLM tools not listed in /v1/tools: {names}")
+        mcp_llm_once(base_url, headers, args.chat_timeout, args.prompt, args.max_tokens)
 
     if print_done:
         print("[DONE] quick probe passed.")
@@ -479,6 +514,7 @@ def main() -> int:
     quick.add_argument("--expect-auth", action="store_true", help="verify unauthenticated /v1/tools returns 401")
     quick.add_argument("--tool", default=DEFAULT_TOOL, help=f"default: {DEFAULT_TOOL}")
     quick.add_argument("--chat", action="store_true", help="also test /v1/chat/completions")
+    quick.add_argument("--mcp-llm", action="store_true", help="also call llm_status and llm_chat through MCP")
     quick.add_argument("--model", default="", help="model id for chat; default: first /v1/models item")
     quick.add_argument("--prompt", default="Say OK in one short sentence.")
     quick.add_argument("--max-tokens", type=int, default=32)
@@ -490,6 +526,7 @@ def main() -> int:
     full.add_argument("--expect-auth", action="store_true")
     full.add_argument("--tool", default=DEFAULT_TOOL)
     full.add_argument("--chat", action="store_true", default=True)
+    full.add_argument("--mcp-llm", action="store_true", default=True, help="call llm_status and llm_chat through MCP")
     full.add_argument("--model", default="")
     full.add_argument("--prompt", default="Reply with exactly: background ok")
     full.add_argument("--max-tokens", type=int, default=32)

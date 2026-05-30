@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.TextUtils
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -301,6 +302,10 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         runOnUiThread { launchBatteryOptimizationExemption() }
     }
 
+    override fun requestAccessibilityPermission() {
+        runOnUiThread { launchAccessibilitySettings() }
+    }
+
     override fun openAppSettings() {
         runOnUiThread {
             openAppSettingsScreen()
@@ -312,6 +317,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             when (kind) {
                 "overlay" -> launchOverlayPermissionSettings()
                 "battery" -> launchBatteryOptimizationSettings()
+                "accessibility" -> launchAccessibilitySettings()
                 else -> openAppSettingsScreen()
             }
         }
@@ -461,6 +467,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             .put("window", window)
             .put("notificationPermissionGranted", notificationPermissionGranted())
             .put("batteryOptimizationIgnored", isIgnoringBatteryOptimizations())
+            .put("accessibilityPermissionGranted", isAccessibilityServiceEnabled())
     }
 
     private fun runtimeSummaryWithWindow(window: JSONObject = MNNodeRuntimeService.floatingWindowState(this)): JSONObject =
@@ -557,6 +564,19 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                 }
             }
             .also { refreshRuntimeStateIfNeeded() }
+    }
+
+    private fun launchAccessibilitySettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            .onFailure { openAppSettingsScreen() }
+            .also { refreshRuntimeStateIfNeeded() }
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val serviceId = "$packageName/${LociantAccessibilityService::class.java.name}"
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?: return false
+        return enabled.split(':').any { TextUtils.equals(it, serviceId) }
     }
 
     private fun launchBatteryOptimizationSettings() {
