@@ -125,6 +125,32 @@ curl -X POST http://<phone-ip>:11434/v1/tools/llm_chat/call \
   -d "{\"arguments\":{\"prompt\":\"Give one practical use for a phone-local AI node.\",\"maxTokens\":128}}"
 ```
 
+For VLM models, pass `image` or `images` as data URLs:
+
+```json
+{
+  "arguments": {
+    "prompt": "What is in this image?",
+    "image": "data:image/jpeg;base64,...",
+    "maxTokens": 128
+  }
+}
+```
+
+For the phone camera path, start vision first and then call:
+
+```json
+{
+  "arguments": {
+    "prompt": "What does the phone camera see?",
+    "useCameraFrame": true,
+    "maxTokens": 128
+  }
+}
+```
+
+Do not copy the compact placeholder from MCP `camera_capture` text output into `llm_chat`; large media is intentionally compacted there.
+
 Use OpenAI-style tool calling:
 
 ```json
@@ -318,6 +344,32 @@ curl -X POST http://<phone-ip>:11434/v1/tools/llm_chat/call \
   -H "Content-Type: application/json" \
   -d "{\"arguments\":{\"prompt\":\"说一个手机本地 AI 节点的实用场景。\",\"maxTokens\":128}}"
 ```
+
+如果当前模型是 VLM，也可以传 `image` 或 `images` data URL：
+
+```json
+{
+  "arguments": {
+    "prompt": "这张图里有什么？",
+    "image": "data:image/jpeg;base64,...",
+    "maxTokens": 128
+  }
+}
+```
+
+如果图片来自手机摄像头，先启动 vision，然后直接让 `llm_chat` 读取当前帧：
+
+```json
+{
+  "arguments": {
+    "prompt": "手机摄像头现在看到了什么？",
+    "useCameraFrame": true,
+    "maxTokens": 128
+  }
+}
+```
+
+不要把 MCP `camera_capture` 文本输出里的占位符再传给 `llm_chat`；大媒体在 MCP 结构化结果里会被压缩。
 
 使用 OpenAI 风格 tool calling：
 

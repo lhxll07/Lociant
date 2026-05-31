@@ -93,7 +93,9 @@ if (homeRailToggle && homeSidebar) {
 }
 if (homeNewChatButton) {
   homeNewChatButton.addEventListener('click', () => {
-    const next = runtimeApiCommand('session.create', {})
+    const next = activeNodeKind() === 'acp'
+      ? apiPost('/v1/runtime/agent.session.create', {})
+      : runtimeApiCommand('session.create', {})
     Promise.resolve(next).then(state => {
       const sessionId = state && state.currentSessionId ? state.currentSessionId : homeCurrentSessionId()
       clearHomeMessages()
@@ -301,10 +303,56 @@ if (runtimeDiagRunButton) {
   runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
 }
 if (nodeCopyMcpButton) {
-  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(() => t('nodes.starterCommand')))
+}
+if (nodeLocalButton) {
+  nodeLocalButton.addEventListener('click', () => {
+    updateRuntimeServiceState(runtimeApiCommand('agent.selectNode', { nodeId: 'local' }) || {})
+    showToast(t('nodes.localActive'))
+  })
 }
 if (nodeOpenServerButton) {
   nodeOpenServerButton.addEventListener('click', openRuntimeServerFromHome)
+}
+if (nodeSaveCodexButton) {
+  nodeSaveCodexButton.addEventListener('click', () => {
+    const node = {
+      id: 'desktop-codex',
+      kind: 'acp',
+      name: t('nodes.codexNode'),
+      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
+      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
+      token: ''
+    }
+    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    showToast(t('common.save'))
+  })
+}
+if (nodeConnectCodexButton) {
+  nodeConnectCodexButton.addEventListener('click', () => {
+    const network = runtimeServiceState && runtimeServiceState.agentNetwork
+    const active = network && network.activeNode && network.activeNode.kind === 'acp'
+    const connected = network && network.agent && network.agent.connected
+    if (active && connected) {
+      updateRuntimeServiceState(runtimeApiCommand('agent.disconnect', {}) || {})
+      return
+    }
+    const node = {
+      id: 'desktop-codex',
+      kind: 'acp',
+      name: t('nodes.codexNode'),
+      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
+      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
+      token: ''
+    }
+    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    Promise.resolve(apiPost('/v1/runtime/agent.connect', {}))
+      .then(state => updateRuntimeServiceState(state || {}))
+      .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
+  })
+}
+if (nodePairQrButton) {
+  nodePairQrButton.addEventListener('click', () => showToast(t('nodes.qrTodo')))
 }
 
 // ---- Language ----

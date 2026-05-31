@@ -29,6 +29,9 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE sceneId = :sceneId AND kind = :kind ORDER BY updatedAt DESC LIMIT :limit")
     fun recentSessions(sceneId: String, kind: String, limit: Int): List<SessionEntity>
 
+    @Query("SELECT * FROM sessions WHERE kind IN (:kinds) ORDER BY updatedAt DESC LIMIT :limit")
+    fun recentSessions(kinds: List<String>, limit: Int): List<SessionEntity>
+
     @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY createdAt ASC, id ASC")
     fun messages(sessionId: String): List<MessageEntity>
 

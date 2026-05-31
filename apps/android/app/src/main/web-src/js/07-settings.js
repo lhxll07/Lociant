@@ -87,7 +87,8 @@ function renderHomeSessions(sessions) {
     row.classList.toggle('active', session.id === (runtimeServiceState && runtimeServiceState.currentSessionId))
     const body = el('span', 'chat-session-body')
     const title = el('strong', '', session.title || session.id || '--')
-    const sub = el('span', '', (session.modelId || '--') + ' · ' + (session.messageCount || 0))
+    const nodeLabel = session.kind === 'agent-acp' ? (session.nodeId || 'codex') : (session.modelId || '--')
+    const sub = el('span', '', nodeLabel + ' · ' + (session.messageCount || 0))
     const remove = el('span', 'chat-session-delete', 'x')
     remove.setAttribute('role', 'button')
     remove.setAttribute('tabindex', '0')
@@ -97,7 +98,8 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
-      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
+      const command = session.kind === 'agent-acp' ? 'agent.session.select' : 'session.select'
+      Promise.resolve(runtimeApiCommand(command, { sessionId: session.id }))
         .then(state => {
           updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: session.id }))
           loadHomeConversation(session.id)
@@ -141,7 +143,9 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   const next = Object.assign({}, existing, {
     id: sessionId,
     title: existing.title || String(titleText || '').trim() || sessionId,
-    modelId: existing.modelId || (runtimeServiceState && runtimeServiceState.modelId) || '--',
+    kind: existing.kind || (activeNodeKind() === 'acp' ? 'agent-acp' : 'model-chat'),
+    modelId: existing.modelId || (activeNodeKind() === 'acp' ? 'codex-acp' : ((runtimeServiceState && runtimeServiceState.modelId) || '--')),
+    nodeId: existing.nodeId || ((runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNodeId) || 'local'),
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
@@ -242,7 +246,9 @@ function restoreHomeConversation(options) {
     return null
   }
   if (target !== currentId) {
-    const selected = runtimeApiCommand('session.select', { sessionId: target })
+    const selected = target.indexOf('agent/acp/') === 0
+      ? runtimeApiCommand('agent.session.select', { sessionId: target })
+      : runtimeApiCommand('session.select', { sessionId: target })
     updateRuntimeServiceState(selected || Object.assign({}, state, { currentSessionId: target }))
   }
   loadHomeConversation(target, { silent: true })

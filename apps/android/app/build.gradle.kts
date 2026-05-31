@@ -93,6 +93,7 @@ tasks.named("preBuild") {
 dependencies {
     val cameraxVersion = "1.4.2"
     val ktorVersion = "3.1.3"
+    val okhttpVersion = "4.12.0"
     val roomVersion = "2.7.2"
 
     implementation("androidx.activity:activity-ktx:1.10.1")
@@ -103,6 +104,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")

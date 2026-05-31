@@ -8,7 +8,9 @@ function runtimeApiCommand(command, payload) {
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
+      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details',
+      'agent.status', 'agent.saveNode', 'agent.selectNode', 'agent.disconnect',
+      'agent.session.select'
     ].includes(command)
     if (runShell) {
       const next = shellCommand(command, body)
@@ -245,14 +247,41 @@ function updateNodeState() {
   const running = !!(runtimeServiceState && runtimeServiceState.running)
   const starting = !!(runtimeServiceState && runtimeServiceState.starting)
   const label = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
-  if (topNodeText) topNodeText.textContent = t('nodes.localNode')
-  if (topNodeButton) topNodeButton.classList.toggle('running', running || starting)
+  const network = runtimeServiceState && runtimeServiceState.agentNetwork
+  const activeNode = (network && network.activeNode) || { id: 'local', kind: 'local', name: t('nodes.localNode') }
+  const agent = (network && network.agent) || {}
+  const agentConnected = !!agent.connected
+  const activeIsLocal = !activeNode || activeNode.kind === 'local'
+  if (topNodeText) topNodeText.textContent = activeIsLocal ? t('nodes.localNode') : (activeNode.name || t('nodes.codexNode'))
+  if (topNodeButton) topNodeButton.classList.toggle('running', activeIsLocal ? (running || starting) : agentConnected)
   if (nodeLocalState) {
-    nodeLocalState.textContent = label
-    nodeLocalState.classList.toggle('running', running || starting)
+    nodeLocalState.textContent = activeIsLocal ? t('nodes.localActive') : label
+    nodeLocalState.classList.toggle('running', activeIsLocal || running || starting)
   }
   if (nodeLocalSub) nodeLocalSub.textContent = running ? publicRuntimeUrl(runtimeServiceState) : t('nodes.localSub')
   if (nodeConnectionText) nodeConnectionText.textContent = running ? mcpEndpointUrl() : t('nodes.connectionSub')
+  const codex = nodeProfileByKind('acp')
+  if (codex && nodeCodexUrlInput && document.activeElement !== nodeCodexUrlInput) nodeCodexUrlInput.value = codex.url || ''
+  if (codex && nodeCodexCwdInput && document.activeElement !== nodeCodexCwdInput) nodeCodexCwdInput.value = codex.cwd || ''
+  if (nodeCodexState) {
+    const text = activeNode && activeNode.kind === 'acp'
+      ? (agentConnected ? t('nodes.codexConnected') : (agent.lastError || t('nodes.codexActive')))
+      : (codex && codex.url ? codex.url : t('nodes.codexIdle'))
+    nodeCodexState.textContent = text
+  }
+  if (nodeConnectCodexButton) {
+    nodeConnectCodexButton.textContent = activeNode && activeNode.kind === 'acp' && agentConnected ? t('nodes.disconnect') : t('nodes.connect')
+  }
+}
+
+function nodeProfileByKind(kind) {
+  const nodes = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.nodes
+  return Array.isArray(nodes) ? nodes.find(node => node && node.kind === kind) : null
+}
+
+function activeNodeKind() {
+  const node = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNode
+  return node && node.kind ? node.kind : 'local'
 }
 
 function runtimeServiceStatusText(state, running, starting) {

@@ -150,6 +150,10 @@ function submitHomeChat(text) {
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
   if (!prompt && !image) return
+  if (activeNodeKind() === 'acp') {
+    submitAcpHomeChat(prompt)
+    return
+  }
   appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
@@ -180,6 +184,38 @@ function submitHomeChat(text) {
   })
 }
 
+function submitAcpHomeChat(prompt) {
+  if (!prompt || homeBackendBusy) return
+  appendChatBubble('user', prompt)
+  if (homeChatInput) homeChatInput.value = ''
+  clearHomeImageAttachment()
+  homeBackendBusy = true
+  if (homeChatSendButton) homeChatSendButton.disabled = true
+  const pending = appendChatBubble('assistant', t('home.thinking'))
+  const sessionId = (runtimeServiceState && runtimeServiceState.agentNetwork &&
+    runtimeServiceState.agentNetwork.agent && runtimeServiceState.agentNetwork.agent.sessionId) || ''
+  if (sessionId) upsertHomeSessionPreview(sessionId, prompt, 'user')
+  Promise.resolve(apiPost('/v1/runtime/agent.prompt', { text: prompt }))
+    .then(result => {
+      updateRuntimeServiceState(result || {})
+      const reply = (result && result.reply) || t('home.emptyReply')
+      if (pending) renderChatMarkdown(pending, reply)
+      else appendChatBubble('assistant', reply)
+      const nextSessionId = (result && result.currentSessionId) ||
+        (result && result.agentNetwork && result.agentNetwork.agent && result.agentNetwork.agent.sessionId) ||
+        sessionId
+      if (nextSessionId) upsertHomeSessionPreview(nextSessionId, reply || prompt, 'assistant')
+    })
+    .catch(error => {
+      if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
+      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+    })
+    .finally(() => {
+      homeBackendBusy = false
+      if (homeChatSendButton) homeChatSendButton.disabled = false
+    })
+}
+
 function chatResponseText(result) {
   if (!result) return ''
   const choice = result.choices && result.choices[0]
@@ -198,7 +234,9 @@ function loadHomeConversation(sessionId, options) {
   const silent = !!(options && options.silent)
   if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
-    const state = runtimeApiCommand('session.details', { sessionId: target })
+    const state = target && target.indexOf('agent/acp/') === 0
+      ? runtimeApiCommand('agent.session.select', { sessionId: target })
+      : runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
     updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: target }))

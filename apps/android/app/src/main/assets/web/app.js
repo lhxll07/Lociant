@@ -12,6 +12,7 @@ const i18n = {
     'common.open': 'Open',
     'common.refresh': 'Refresh',
     'common.install': 'Install',
+    'common.save': 'Save',
     'settings.custom': 'Custom',
     'common.start': 'Start',
     'common.stop': 'Stop',
@@ -46,7 +47,7 @@ const i18n = {
     'page.modelsTitle': 'Models',
     'page.modelsSub': 'Install, choose, and manage local inference.',
     'page.nodesTitle': 'Nodes',
-    'page.nodesSub': 'Manage this device first. Multi-device collaboration can plug in later.',
+    'page.nodesSub': 'Switch between the phone runtime and desktop Codex agents.',
 
     'settings.language': 'Language',
     'settings.languageSub': 'Display language',
@@ -212,7 +213,18 @@ const i18n = {
     'nodes.localSub': 'This phone is the active capability node.',
     'nodes.connectionTitle': 'Connection endpoint',
     'nodes.connectionSub': 'Start the runtime to expose MCP and OpenAI endpoints.',
-    'nodes.placeholder': 'Multi-node discovery and collaboration will expand here.',
+    'nodes.codexNode': 'Desktop Codex',
+    'nodes.copyStarter': 'Copy starter',
+    'nodes.qrPair': 'Scan',
+    'nodes.connect': 'Connect',
+    'nodes.disconnect': 'Disconnect',
+    'nodes.cwdPlaceholder': 'Desktop working directory',
+    'nodes.codexIdle': 'Ready for ws:// host:3000',
+    'nodes.codexConnected': 'Connected',
+    'nodes.codexActive': 'Active',
+    'nodes.localActive': 'Active',
+    'nodes.starterCommand': 'npx -y @rebornix/stdio-to-ws --port 3000 --persist --grace-period -1 "npx -y @zed-industries/codex-acp@latest"',
+    'nodes.qrTodo': 'QR pairing is reserved. Paste the WebSocket URL for now.',
     'empty.scenes': 'No scenes yet',
     'empty.models': 'No models yet',
     'toast.modelsReloaded': 'Models refreshed',
@@ -243,6 +255,7 @@ const i18n = {
     'common.open': '打开',
     'common.refresh': '刷新',
     'common.install': '安装',
+    'common.save': '保存',
     'settings.custom': '自定义',
     'common.start': '启动',
     'common.stop': '停止',
@@ -277,7 +290,7 @@ const i18n = {
     'page.modelsTitle': '模型',
     'page.modelsSub': '安装、选择和管理本地推理',
     'page.nodesTitle': '节点',
-    'page.nodesSub': '当前先管理本机节点，后续接入多设备协同。',
+    'page.nodesSub': '在手机本机模型和桌面 Codex Agent 之间切换。',
 
     'settings.language': '语言',
     'settings.languageSub': '显示语言',
@@ -443,7 +456,18 @@ const i18n = {
     'nodes.localSub': '当前设备作为能力节点运行',
     'nodes.connectionTitle': '连接入口',
     'nodes.connectionSub': '启动运行时后暴露 MCP 和 OpenAI 入口',
-    'nodes.placeholder': '多节点发现与协同会在这里扩展。',
+    'nodes.codexNode': '桌面 Codex',
+    'nodes.copyStarter': '复制启动命令',
+    'nodes.qrPair': '扫码',
+    'nodes.connect': '连接',
+    'nodes.disconnect': '断开',
+    'nodes.cwdPlaceholder': '电脑上的工作目录',
+    'nodes.codexIdle': '等待 ws:// 主机:3000',
+    'nodes.codexConnected': '已连接',
+    'nodes.codexActive': '当前节点',
+    'nodes.localActive': '当前节点',
+    'nodes.starterCommand': 'npx -y @rebornix/stdio-to-ws --port 3000 --persist --grace-period -1 "npx -y @zed-industries/codex-acp@latest"',
+    'nodes.qrTodo': '二维码配对入口已预留，当前先粘贴 WebSocket URL。',
     'empty.scenes': '暂无场景',
     'empty.models': '暂无模型',
     'toast.modelsReloaded': '模型已刷新',
@@ -625,10 +649,17 @@ const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
 const homeImagePreviewName = document.getElementById('homeImagePreviewName')
 const homeImageRemoveButton = document.getElementById('homeImageRemoveButton')
 const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
+const nodeLocalButton = document.getElementById('nodeLocalButton')
 const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
 const nodeLocalState = document.getElementById('nodeLocalState')
 const nodeLocalSub = document.getElementById('nodeLocalSub')
 const nodeConnectionText = document.getElementById('nodeConnectionText')
+const nodeCodexState = document.getElementById('nodeCodexState')
+const nodeCodexUrlInput = document.getElementById('nodeCodexUrlInput')
+const nodeCodexCwdInput = document.getElementById('nodeCodexCwdInput')
+const nodePairQrButton = document.getElementById('nodePairQrButton')
+const nodeSaveCodexButton = document.getElementById('nodeSaveCodexButton')
+const nodeConnectCodexButton = document.getElementById('nodeConnectCodexButton')
 
 // ---- State variables ----
 let runtimeServiceState = null
@@ -650,6 +681,7 @@ let scenes = []
 let activeScene = null
 let cameraPreviewRect = null
 let homeAttachedImage = null
+let homeBackendBusy = false
 
 // ---- DOM helpers ----
 function el(tag, className, text) {
@@ -935,7 +967,9 @@ function runtimeApiCommand(command, payload) {
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
+      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details',
+      'agent.status', 'agent.saveNode', 'agent.selectNode', 'agent.disconnect',
+      'agent.session.select'
     ].includes(command)
     if (runShell) {
       const next = shellCommand(command, body)
@@ -1172,14 +1206,41 @@ function updateNodeState() {
   const running = !!(runtimeServiceState && runtimeServiceState.running)
   const starting = !!(runtimeServiceState && runtimeServiceState.starting)
   const label = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
-  if (topNodeText) topNodeText.textContent = t('nodes.localNode')
-  if (topNodeButton) topNodeButton.classList.toggle('running', running || starting)
+  const network = runtimeServiceState && runtimeServiceState.agentNetwork
+  const activeNode = (network && network.activeNode) || { id: 'local', kind: 'local', name: t('nodes.localNode') }
+  const agent = (network && network.agent) || {}
+  const agentConnected = !!agent.connected
+  const activeIsLocal = !activeNode || activeNode.kind === 'local'
+  if (topNodeText) topNodeText.textContent = activeIsLocal ? t('nodes.localNode') : (activeNode.name || t('nodes.codexNode'))
+  if (topNodeButton) topNodeButton.classList.toggle('running', activeIsLocal ? (running || starting) : agentConnected)
   if (nodeLocalState) {
-    nodeLocalState.textContent = label
-    nodeLocalState.classList.toggle('running', running || starting)
+    nodeLocalState.textContent = activeIsLocal ? t('nodes.localActive') : label
+    nodeLocalState.classList.toggle('running', activeIsLocal || running || starting)
   }
   if (nodeLocalSub) nodeLocalSub.textContent = running ? publicRuntimeUrl(runtimeServiceState) : t('nodes.localSub')
   if (nodeConnectionText) nodeConnectionText.textContent = running ? mcpEndpointUrl() : t('nodes.connectionSub')
+  const codex = nodeProfileByKind('acp')
+  if (codex && nodeCodexUrlInput && document.activeElement !== nodeCodexUrlInput) nodeCodexUrlInput.value = codex.url || ''
+  if (codex && nodeCodexCwdInput && document.activeElement !== nodeCodexCwdInput) nodeCodexCwdInput.value = codex.cwd || ''
+  if (nodeCodexState) {
+    const text = activeNode && activeNode.kind === 'acp'
+      ? (agentConnected ? t('nodes.codexConnected') : (agent.lastError || t('nodes.codexActive')))
+      : (codex && codex.url ? codex.url : t('nodes.codexIdle'))
+    nodeCodexState.textContent = text
+  }
+  if (nodeConnectCodexButton) {
+    nodeConnectCodexButton.textContent = activeNode && activeNode.kind === 'acp' && agentConnected ? t('nodes.disconnect') : t('nodes.connect')
+  }
+}
+
+function nodeProfileByKind(kind) {
+  const nodes = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.nodes
+  return Array.isArray(nodes) ? nodes.find(node => node && node.kind === kind) : null
+}
+
+function activeNodeKind() {
+  const node = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNode
+  return node && node.kind ? node.kind : 'local'
 }
 
 function runtimeServiceStatusText(state, running, starting) {
@@ -1931,7 +1992,8 @@ function renderHomeSessions(sessions) {
     row.classList.toggle('active', session.id === (runtimeServiceState && runtimeServiceState.currentSessionId))
     const body = el('span', 'chat-session-body')
     const title = el('strong', '', session.title || session.id || '--')
-    const sub = el('span', '', (session.modelId || '--') + ' · ' + (session.messageCount || 0))
+    const nodeLabel = session.kind === 'agent-acp' ? (session.nodeId || 'codex') : (session.modelId || '--')
+    const sub = el('span', '', nodeLabel + ' · ' + (session.messageCount || 0))
     const remove = el('span', 'chat-session-delete', 'x')
     remove.setAttribute('role', 'button')
     remove.setAttribute('tabindex', '0')
@@ -1941,7 +2003,8 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
-      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
+      const command = session.kind === 'agent-acp' ? 'agent.session.select' : 'session.select'
+      Promise.resolve(runtimeApiCommand(command, { sessionId: session.id }))
         .then(state => {
           updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: session.id }))
           loadHomeConversation(session.id)
@@ -1985,7 +2048,9 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   const next = Object.assign({}, existing, {
     id: sessionId,
     title: existing.title || String(titleText || '').trim() || sessionId,
-    modelId: existing.modelId || (runtimeServiceState && runtimeServiceState.modelId) || '--',
+    kind: existing.kind || (activeNodeKind() === 'acp' ? 'agent-acp' : 'model-chat'),
+    modelId: existing.modelId || (activeNodeKind() === 'acp' ? 'codex-acp' : ((runtimeServiceState && runtimeServiceState.modelId) || '--')),
+    nodeId: existing.nodeId || ((runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNodeId) || 'local'),
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
@@ -2086,7 +2151,9 @@ function restoreHomeConversation(options) {
     return null
   }
   if (target !== currentId) {
-    const selected = runtimeApiCommand('session.select', { sessionId: target })
+    const selected = target.indexOf('agent/acp/') === 0
+      ? runtimeApiCommand('agent.session.select', { sessionId: target })
+      : runtimeApiCommand('session.select', { sessionId: target })
     updateRuntimeServiceState(selected || Object.assign({}, state, { currentSessionId: target }))
   }
   loadHomeConversation(target, { silent: true })
@@ -2456,6 +2523,10 @@ function submitHomeChat(text) {
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
   if (!prompt && !image) return
+  if (activeNodeKind() === 'acp') {
+    submitAcpHomeChat(prompt)
+    return
+  }
   appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
@@ -2486,6 +2557,38 @@ function submitHomeChat(text) {
   })
 }
 
+function submitAcpHomeChat(prompt) {
+  if (!prompt || homeBackendBusy) return
+  appendChatBubble('user', prompt)
+  if (homeChatInput) homeChatInput.value = ''
+  clearHomeImageAttachment()
+  homeBackendBusy = true
+  if (homeChatSendButton) homeChatSendButton.disabled = true
+  const pending = appendChatBubble('assistant', t('home.thinking'))
+  const sessionId = (runtimeServiceState && runtimeServiceState.agentNetwork &&
+    runtimeServiceState.agentNetwork.agent && runtimeServiceState.agentNetwork.agent.sessionId) || ''
+  if (sessionId) upsertHomeSessionPreview(sessionId, prompt, 'user')
+  Promise.resolve(apiPost('/v1/runtime/agent.prompt', { text: prompt }))
+    .then(result => {
+      updateRuntimeServiceState(result || {})
+      const reply = (result && result.reply) || t('home.emptyReply')
+      if (pending) renderChatMarkdown(pending, reply)
+      else appendChatBubble('assistant', reply)
+      const nextSessionId = (result && result.currentSessionId) ||
+        (result && result.agentNetwork && result.agentNetwork.agent && result.agentNetwork.agent.sessionId) ||
+        sessionId
+      if (nextSessionId) upsertHomeSessionPreview(nextSessionId, reply || prompt, 'assistant')
+    })
+    .catch(error => {
+      if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
+      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+    })
+    .finally(() => {
+      homeBackendBusy = false
+      if (homeChatSendButton) homeChatSendButton.disabled = false
+    })
+}
+
 function chatResponseText(result) {
   if (!result) return ''
   const choice = result.choices && result.choices[0]
@@ -2504,7 +2607,9 @@ function loadHomeConversation(sessionId, options) {
   const silent = !!(options && options.silent)
   if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
-    const state = runtimeApiCommand('session.details', { sessionId: target })
+    const state = target && target.indexOf('agent/acp/') === 0
+      ? runtimeApiCommand('agent.session.select', { sessionId: target })
+      : runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
     updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: target }))
@@ -2669,7 +2774,9 @@ if (homeRailToggle && homeSidebar) {
 }
 if (homeNewChatButton) {
   homeNewChatButton.addEventListener('click', () => {
-    const next = runtimeApiCommand('session.create', {})
+    const next = activeNodeKind() === 'acp'
+      ? apiPost('/v1/runtime/agent.session.create', {})
+      : runtimeApiCommand('session.create', {})
     Promise.resolve(next).then(state => {
       const sessionId = state && state.currentSessionId ? state.currentSessionId : homeCurrentSessionId()
       clearHomeMessages()
@@ -2877,10 +2984,56 @@ if (runtimeDiagRunButton) {
   runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
 }
 if (nodeCopyMcpButton) {
-  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(() => t('nodes.starterCommand')))
+}
+if (nodeLocalButton) {
+  nodeLocalButton.addEventListener('click', () => {
+    updateRuntimeServiceState(runtimeApiCommand('agent.selectNode', { nodeId: 'local' }) || {})
+    showToast(t('nodes.localActive'))
+  })
 }
 if (nodeOpenServerButton) {
   nodeOpenServerButton.addEventListener('click', openRuntimeServerFromHome)
+}
+if (nodeSaveCodexButton) {
+  nodeSaveCodexButton.addEventListener('click', () => {
+    const node = {
+      id: 'desktop-codex',
+      kind: 'acp',
+      name: t('nodes.codexNode'),
+      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
+      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
+      token: ''
+    }
+    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    showToast(t('common.save'))
+  })
+}
+if (nodeConnectCodexButton) {
+  nodeConnectCodexButton.addEventListener('click', () => {
+    const network = runtimeServiceState && runtimeServiceState.agentNetwork
+    const active = network && network.activeNode && network.activeNode.kind === 'acp'
+    const connected = network && network.agent && network.agent.connected
+    if (active && connected) {
+      updateRuntimeServiceState(runtimeApiCommand('agent.disconnect', {}) || {})
+      return
+    }
+    const node = {
+      id: 'desktop-codex',
+      kind: 'acp',
+      name: t('nodes.codexNode'),
+      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
+      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
+      token: ''
+    }
+    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    Promise.resolve(apiPost('/v1/runtime/agent.connect', {}))
+      .then(state => updateRuntimeServiceState(state || {}))
+      .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
+  })
+}
+if (nodePairQrButton) {
+  nodePairQrButton.addEventListener('click', () => showToast(t('nodes.qrTodo')))
 }
 
 // ---- Language ----

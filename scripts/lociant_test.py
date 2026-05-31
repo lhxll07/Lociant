@@ -8,7 +8,9 @@ chat, tools, MCP, scenes, streaming, and to proxy/log real agent traffic.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import mimetypes
 import sys
 import time
 import urllib.error
@@ -207,17 +209,30 @@ def chat_once(base_url: str, headers: dict[str, str], timeout: int, model: str, 
     return data
 
 
-def mcp_llm_once(base_url: str, headers: dict[str, str], timeout: int, prompt: str, max_tokens: int) -> dict[str, Any]:
+def image_data_url(path: str) -> str:
+    mime_type = mimetypes.guess_type(path)[0] or "image/jpeg"
+    try:
+        with open(path, "rb") as file:
+            encoded = base64.b64encode(file.read()).decode("ascii")
+    except OSError as error:
+        fail(f"cannot read image {path!r}: {error}")
+    return f"data:{mime_type};base64,{encoded}"
+
+
+def mcp_llm_once(base_url: str, headers: dict[str, str], timeout: int, prompt: str, max_tokens: int, image_path: str = "") -> dict[str, Any]:
     status = mcp_tool_call(base_url, headers, timeout, "llm_status")
     structured = status.get("structuredContent") if isinstance(status.get("structuredContent"), dict) else {}
     ok("mcp llm_status", f"running={structured.get('running')} model={structured.get('modelId')} loaded={structured.get('modelLoaded')}")
 
+    arguments = {"prompt": prompt, "maxTokens": max_tokens}
+    if image_path:
+        arguments["image"] = image_data_url(image_path)
     result = mcp_tool_call(
         base_url,
         headers,
         timeout,
         "llm_chat",
-        {"prompt": prompt, "maxTokens": max_tokens},
+        arguments,
     )
     content = result.get("structuredContent") if isinstance(result.get("structuredContent"), dict) else {}
     text = str(content.get("text") or "")
@@ -297,7 +312,7 @@ def run_quick_checks(args: argparse.Namespace, *, print_done: bool) -> tuple[lis
     if args.mcp_llm:
         if "llm_status" not in names or "llm_chat" not in names:
             fail(f"MCP LLM tools not listed in /v1/tools: {names}")
-        mcp_llm_once(base_url, headers, args.chat_timeout, args.prompt, args.max_tokens)
+        mcp_llm_once(base_url, headers, args.chat_timeout, args.prompt, args.max_tokens, args.mcp_llm_image)
 
     if print_done:
         print("[DONE] quick probe passed.")
@@ -515,6 +530,7 @@ def main() -> int:
     quick.add_argument("--tool", default=DEFAULT_TOOL, help=f"default: {DEFAULT_TOOL}")
     quick.add_argument("--chat", action="store_true", help="also test /v1/chat/completions")
     quick.add_argument("--mcp-llm", action="store_true", help="also call llm_status and llm_chat through MCP")
+    quick.add_argument("--mcp-llm-image", default="", help="optional local image path for MCP llm_chat")
     quick.add_argument("--model", default="", help="model id for chat; default: first /v1/models item")
     quick.add_argument("--prompt", default="Say OK in one short sentence.")
     quick.add_argument("--max-tokens", type=int, default=32)
@@ -527,6 +543,7 @@ def main() -> int:
     full.add_argument("--tool", default=DEFAULT_TOOL)
     full.add_argument("--chat", action="store_true", default=True)
     full.add_argument("--mcp-llm", action="store_true", default=True, help="call llm_status and llm_chat through MCP")
+    full.add_argument("--mcp-llm-image", default="", help="optional local image path for MCP llm_chat")
     full.add_argument("--model", default="")
     full.add_argument("--prompt", default="Reply with exactly: background ok")
     full.add_argument("--max-tokens", type=int, default=32)

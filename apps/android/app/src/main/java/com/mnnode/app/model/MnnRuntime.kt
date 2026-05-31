@@ -170,6 +170,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
         config
             .put("base_dir", modelDir.absolutePath.trimEnd('/', File.separatorChar) + File.separator)
             .put("thread_num", cpuThreads)
+        applyVisualConfig(modelDir, config)
         mllm.put("thread_num", cpuThreads)
         val jinja = config.optJSONObject("jinja") ?: JSONObject().also { config.put("jinja", it) }
         val context = jinja.optJSONObject("context") ?: JSONObject().also { jinja.put("context", it) }
@@ -183,6 +184,21 @@ class MnnRuntime(context: Context) : AutoCloseable {
         }
         Log.i(TAG, "effective MNN config model=${modelDir.name} cpuThreads=$cpuThreads path=${target.absolutePath}")
         return target
+    }
+
+    private fun applyVisualConfig(modelDir: File, config: JSONObject) {
+        val visual = config.optString("visual_model").trim().replace('\\', '/').trimStart('/')
+            .ifBlank { "visual.mnn" }
+        val visualFile = File(modelDir, visual)
+        val fallbackVisualFile = File(modelDir, "visual.mnn")
+        val selected = when {
+            visualFile.isFile -> visual
+            fallbackVisualFile.isFile -> "visual.mnn"
+            else -> ""
+        }
+        if (selected.isBlank()) return
+        config.put("visual_model", selected)
+        config.put("is_visual", true)
     }
 
     private fun sha1(value: String): String {

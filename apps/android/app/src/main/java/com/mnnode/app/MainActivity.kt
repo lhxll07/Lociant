@@ -403,6 +403,8 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             "vision.status" -> runtimeSummaryWithWindow().put("vision", apiServerController.callToolResult("vision_status"))
             "settings" -> apiServerController.command(command, payload).toRuntimeUiState()
             "model.release" -> apiServerController.command(command, payload).withRuntimeState()
+            "agent.status", "agent.saveNode", "agent.selectNode", "agent.connect", "agent.disconnect",
+            "agent.session.create", "agent.session.select", "agent.prompt" -> apiServerController.command(command, payload).withRuntimeState()
             "session.create", "session.select", "session.delete", "session.details" -> apiServerController.command(command, payload).withRuntimeState()
             "status" -> runtimeSummaryWithWindow()
             else -> JSONObject().put("ok", false).put("message", "Unknown shell command: $command")

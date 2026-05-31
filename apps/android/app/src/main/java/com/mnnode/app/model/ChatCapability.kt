@@ -209,13 +209,20 @@ class ChatCapability(
                 if (hasImage && !imageInserted) {
                     append("<img>image_0</img>")
                     imageInserted = true
-                    if (text.isNotBlank()) append("\n")
                 }
-                append(text)
+                val cleanedText = stripImageTags(text)
+                if (cleanedText.isNotBlank()) {
+                    if (isNotEmpty()) append("\n")
+                    append(cleanedText)
+                }
             }.trim()
             "${message.role}: $content"
         }.trim()
     }
+
+    private fun stripImageTags(text: String): String =
+        text.replace(Regex("<img>.*?</img>", RegexOption.IGNORE_CASE), "")
+            .trim()
 
     private fun normalize(value: String) = ModelManager.normalizeId(value).ifBlank { DEFAULT_MODEL_ID }
 

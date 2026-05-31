@@ -1136,6 +1136,27 @@ select {
   flex-wrap: wrap;
 }
 
+.node-editor {
+  align-items: flex-start;
+}
+
+.node-field-list {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 10px;
+}
+
+.node-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
 .model-experience-card {
   align-items: stretch;
   flex-direction: column;
@@ -1321,6 +1342,7 @@ select {
 .settings-token-input,
 .settings-number-input,
 .settings-select-input,
+.node-field-list input,
 .market-search input[type=search] {
   min-height: 42px;
   padding: 0 14px;
@@ -2132,6 +2154,16 @@ select {
     min-width: 0;
     padding: 13px 14px;
     gap: 12px;
+  }
+
+  .node-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .node-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .runtime-service-section {

@@ -2,6 +2,7 @@ package com.mnnode.app.server
 
 import android.content.Context
 import android.util.Log
+import com.mnnode.app.agent.AcpAgentManager
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.model.ModelChatMessage
@@ -60,6 +61,7 @@ class ApiServerController(
     private val localStore: LocalStore,
     private val sessionStore: SessionStore,
     private val triggerEngine: TriggerEngine,
+    private val acpAgentManager: AcpAgentManager,
 ) {
     @Volatile private var server: EmbeddedServer<*, *>? = null
     @Volatile private var starting = false
@@ -116,27 +118,29 @@ class ApiServerController(
 
     // ---- Public API ----
 
-    @Synchronized
     fun command(command: String, payload: JSONObject = JSONObject()): JSONObject {
-        when (command) {
-            "start" -> start(payload)
-            "stop" -> stop()
-            "settings" -> {
-                if (payload.optBoolean("generateAuthToken", false)) payload.put("authToken", newToken())
-                updateSettings(payload)
-                if (server != null) tryPreload()
+        if (isAgentCommand(command)) return withAgentState(acpAgentManager.command(command, payload))
+        synchronized(this) {
+            when (command) {
+                "start" -> start(payload)
+                "stop" -> stop()
+                "settings" -> {
+                    if (payload.optBoolean("generateAuthToken", false)) payload.put("authToken", newToken())
+                    updateSettings(payload)
+                    if (server != null) tryPreload()
+                }
+                "model.release" -> {
+                    chatController.releaseModel()
+                    lastError = null
+                }
+                "session.create" -> selectSession(sessionStore.createModelSession(modelId))
+                "session.select" -> selectSession(payload.optString("sessionId", payload.optString("id")))
+                "session.delete" -> deleteSession(payload.optString("sessionId", payload.optString("id")))
+                "session.details" -> return sessionDetails(payload.optString("sessionId", payload.optString("id")))
+                "status" -> loadSettings()
             }
-            "model.release" -> {
-                chatController.releaseModel()
-                lastError = null
-            }
-            "session.create" -> selectSession(sessionStore.createModelSession(modelId))
-            "session.select" -> selectSession(payload.optString("sessionId", payload.optString("id")))
-            "session.delete" -> deleteSession(payload.optString("sessionId", payload.optString("id")))
-            "session.details" -> return sessionDetails(payload.optString("sessionId", payload.optString("id")))
-            "status" -> loadSettings()
+            return state()
         }
-        return state()
     }
 
     @Synchronized fun startForService(payload: JSONObject = JSONObject()) { start(payload) }
@@ -375,6 +379,16 @@ class ApiServerController(
             modelId,
             maxOutputTokens,
         )
+        if (requestHasImages(currentRequest) && modelManager.resolve(currentRequest.modelId).spec.type != "vlm") {
+            return JSONObject()
+                .put("ok", false)
+                .put("modelId", currentRequest.modelId)
+                .put("text", "")
+                .put("message", "Image input requires a VLM model.")
+                .put("error", JSONObject()
+                    .put("code", "vlm_required")
+                    .put("message", "Image input requires a VLM model. Select or install a VLM model before calling llm_chat with images."))
+        }
         val request = chatController.sessionRequest(currentRequest)
         val turnRequest = currentRequest.copy(sessionId = request.sessionId, modelId = request.modelId, persistSession = request.persistSession)
         val timeoutMs = optionalPositiveInt(args, "timeoutMs")
@@ -389,6 +403,7 @@ class ApiServerController(
             .put("sessionId", request.sessionId)
             .put("text", result.text)
             .put("message", result.message)
+            .put("input", inputSummary(currentRequest))
             .put("usage", ModelApiMapper.openAiUsage(result))
             .put("metrics", ModelApiMapper.runtimeMetrics(result))
             .apply {
@@ -401,16 +416,23 @@ class ApiServerController(
     }
 
     private fun llmToolMessages(args: JSONObject): List<ModelChatMessage> {
+        val topLevelImages = llmToolImages(args)
         val parsed = parseLlmToolMessages(args.optJSONArray("messages"))
-        if (parsed.isNotEmpty()) return parsed
+        if (parsed.isNotEmpty()) {
+            return if (topLevelImages.isEmpty()) parsed else appendImagesToLastUserMessage(parsed, topLevelImages)
+        }
 
         val prompt = args.optString("prompt").trim()
-        require(prompt.isNotBlank()) { "prompt or messages is required" }
+        require(prompt.isNotBlank() || topLevelImages.isNotEmpty()) { "prompt, messages, or image is required" }
 
         val system = args.optString("system").trim()
         return buildList {
             if (system.isNotBlank()) add(ModelChatMessage("system", listOf(ModelChatPart.Text(system))))
-            add(ModelChatMessage("user", listOf(ModelChatPart.Text(prompt))))
+            val parts = buildList {
+                if (prompt.isNotBlank()) add(ModelChatPart.Text(prompt))
+                addAll(topLevelImages)
+            }
+            add(ModelChatMessage("user", parts))
         }
     }
 
@@ -420,15 +442,15 @@ class ApiServerController(
         for (index in 0 until messages.length()) {
             val message = messages.optJSONObject(index) ?: continue
             val role = message.optString("role", "user").ifBlank { "user" }
-            val text = textFromLlmToolContent(message.opt("content")).trim()
-            if (text.isNotBlank()) parsed += ModelChatMessage(role, listOf(ModelChatPart.Text(text)))
+            val parts = partsFromLlmToolContent(message.opt("content"))
+            if (parts.isNotEmpty()) parsed += ModelChatMessage(role, parts)
         }
         return parsed
     }
 
-    private fun textFromLlmToolContent(content: Any?): String {
+    private fun partsFromLlmToolContent(content: Any?): List<ModelChatPart> {
         return when (content) {
-            is String -> content
+            is String -> listOf(ModelChatPart.Text(content))
             is JSONArray -> buildString {
                 for (index in 0 until content.length()) {
                     val item = content.optJSONObject(index) ?: continue
@@ -437,9 +459,75 @@ class ApiServerController(
                         append(item.optString("text"))
                     }
                 }
+            }.let { text ->
+                buildList {
+                    if (text.isNotBlank()) add(ModelChatPart.Text(text))
+                    addAll(imagesFromOpenAiContent(content))
+                }
             }
-            else -> ""
+            else -> emptyList()
         }
+    }
+
+    private fun imagesFromOpenAiContent(content: JSONArray): List<ModelChatPart.Image> {
+        val images = mutableListOf<ModelChatPart.Image>()
+        for (index in 0 until content.length()) {
+            val item = content.optJSONObject(index) ?: continue
+            if (item.optString("type") != "image_url") continue
+            val url = item.optJSONObject("image_url")?.optString("url")
+                ?: item.optString("image_url")
+            ModelChatPart.decodeImagePart(url)?.let { images += it }
+        }
+        return images
+    }
+
+    private fun llmToolImages(args: JSONObject): List<ModelChatPart.Image> {
+        val images = mutableListOf<ModelChatPart.Image>()
+        if (args.optBoolean("useCameraFrame", false)) {
+            val bytes = VisionRuntime.previewBytes()
+                ?: throw IllegalArgumentException("useCameraFrame requires an active vision runtime with a latest preview frame")
+            images += ModelChatPart.Image("image/jpeg", bytes)
+        }
+        val image = args.optString("image")
+        if (image.isNotBlank()) {
+            images += ModelChatPart.decodeImagePart(image)
+                ?: throw IllegalArgumentException("image must be a valid base64 image or data:image/...;base64,... URL")
+        }
+        val array = args.optJSONArray("images")
+        if (array != null) {
+            for (index in 0 until array.length()) {
+                val raw = array.optString(index)
+                if (raw.isNotBlank()) {
+                    images += ModelChatPart.decodeImagePart(raw)
+                        ?: throw IllegalArgumentException("images[$index] must be a valid base64 image or data:image/...;base64,... URL")
+                }
+            }
+        }
+        return images
+    }
+
+    private fun appendImagesToLastUserMessage(
+        messages: List<ModelChatMessage>,
+        images: List<ModelChatPart.Image>,
+    ): List<ModelChatMessage> {
+        val targetIndex = messages.indexOfLast { it.role.equals("user", ignoreCase = true) }
+            .takeIf { it >= 0 }
+            ?: messages.lastIndex
+        return messages.mapIndexed { index, message ->
+            if (index == targetIndex) message.copy(parts = message.parts + images) else message
+        }
+    }
+
+    private fun requestHasImages(request: ModelChatRequest): Boolean =
+        request.messages.any { message -> message.parts.any { it is ModelChatPart.Image } }
+
+    private fun inputSummary(request: ModelChatRequest): JSONObject {
+        val images = request.messages.flatMap { message -> message.parts.filterIsInstance<ModelChatPart.Image>() }
+        return JSONObject()
+            .put("messageCount", request.messages.size)
+            .put("imageCount", images.size)
+            .put("imageBytes", images.sumOf { it.bytes.size })
+            .put("imageMimeType", images.firstOrNull()?.mimeType ?: JSONObject.NULL)
     }
 
     private fun optionalPositiveInt(json: JSONObject, key: String): Int? {
@@ -660,6 +748,7 @@ class ApiServerController(
                 .put("requestCount", sessionStore.apiRequestCount())
                 .put("recentRequests", sessionStore.recentApiRequests())
         }
+        json.put("agentNetwork", acpAgentManager.state())
         return json
     }
 
@@ -808,6 +897,22 @@ class ApiServerController(
         val details = sessionStore.sessionDetails(rawSessionId)
         return state().put("session", details)
     }
+
+    private fun withAgentState(agent: JSONObject): JSONObject {
+        val output = state()
+        agent.keys().forEach { key -> output.put(key, agent.opt(key)) }
+        return output.put("agentNetwork", acpAgentManager.state())
+    }
+
+    private fun isAgentCommand(command: String): Boolean =
+        command == "agent.status" ||
+            command == "agent.saveNode" ||
+            command == "agent.selectNode" ||
+            command == "agent.connect" ||
+            command == "agent.disconnect" ||
+            command == "agent.session.create" ||
+            command == "agent.session.select" ||
+            command == "agent.prompt"
 
     // ---- Extensions ----
 

@@ -129,7 +129,9 @@ For desktop agents, `llm_chat` is the simplest way to use the Android phone as a
 }
 ```
 
-By default `llm_chat` does not persist chat history. Pass `sessionId` when you want Lociant to reuse and save phone-local context.
+`llm_chat` also accepts `image` or `images` as data URLs, and OpenAI-style `messages[].content[].image_url`. Image input requires a VLM model. By default `llm_chat` does not persist chat history. Pass `sessionId` when you want Lociant to reuse and save phone-local context.
+
+When the image comes from the phone camera, prefer `useCameraFrame: true` after starting vision. MCP responses intentionally compact large media in `structuredContent`, so copying the placeholder text from `camera_capture` back into `llm_chat` will not work.
 
 For photo capture, use `camera_capture`. It intentionally reuses the active vision runtime instead of opening a second camera path. Start vision first, then capture:
 
@@ -196,6 +198,26 @@ With API Token enabled:
 
 Both paths expose the same underlying `ToolRegistry`. MCP is only a protocol adapter over `/v1/tools`, not another capability system. Prefer the phone-native `/mcp` endpoint when the client supports Streamable HTTP.
 
+## Phone Console For Desktop Codex
+
+Lociant can also use ACP to treat a desktop Codex process as another node. In this mode the phone is the control surface, while Codex still runs on the computer and owns the workspace.
+
+Start the desktop bridge on the computer:
+
+```bash
+npx -y @rebornix/stdio-to-ws --port 3000 --persist --grace-period -1 "npx -y @zed-industries/codex-acp@latest"
+```
+
+Then open Lociant on the phone:
+
+1. Open Nodes from the top node chip.
+2. Enter `ws://<desktop-ip>:3000/`.
+3. Optionally enter the desktop working directory.
+4. Save and Connect.
+5. Return Home and chat normally.
+
+The desktop bridge uses ACP over WebSocket. `--persist --grace-period -1` keeps the Codex process alive across brief phone disconnects. Lociant auto-allows ACP permission prompts in this first implementation, so only use it on a trusted LAN and trusted workspace.
+
 ## Client-Owned Tools
 
 An agent client may send its own OpenAI `tools`, for example `read`, `edit`, or `bash`. Lociant should pass those schemas into the model and return standard `tool_calls` when the model selects one.
@@ -220,6 +242,22 @@ Test the MCP path into the phone-local LLM:
 
 ```bash
 python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --mcp-llm
+```
+
+With an image:
+
+```bash
+python scripts/lociant_test.py quick --base-url http://<phone-ip>:11434 --mcp-llm --mcp-llm-image ./capture.jpg --prompt "What is in this image?"
+```
+
+With the current phone camera frame:
+
+```json
+{
+  "prompt": "What does the phone camera see?",
+  "useCameraFrame": true,
+  "maxTokens": 128
+}
 ```
 
 If API Token is enabled:

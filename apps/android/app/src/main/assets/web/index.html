@@ -567,21 +567,21 @@
           <div>
             <p class="eyebrow">Network</p>
             <h1 class="section-title" data-i18n="page.nodesTitle">节点</h1>
-            <p class="section-subtitle" data-i18n="page.nodesSub">当前先管理本机节点，后续接入多设备协同。</p>
+            <p class="section-subtitle" data-i18n="page.nodesSub">在手机本机模型和桌面 Codex Agent 之间切换。</p>
           </div>
           <div class="head-actions">
-            <button class="tonal-button pressable" id="nodeCopyMcpButton" type="button" data-i18n="connection.copy">复制</button>
+            <button class="tonal-button pressable" id="nodeCopyMcpButton" type="button" data-i18n="nodes.copyStarter">复制启动命令</button>
           </div>
         </header>
         <div class="surface-list">
-          <div class="settings-section">
+          <button class="settings-section pressable" id="nodeLocalButton" type="button">
             <span class="scene-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m18.4 5.6-2.1 2.1"/><path d="m7.7 16.3-2.1 2.1"/></svg></span>
             <span class="settings-section-main">
               <span class="settings-section-title" data-i18n="nodes.localNode">本机节点</span>
               <span class="settings-section-sub" id="nodeLocalSub" data-i18n="nodes.localSub">当前设备作为能力节点运行</span>
             </span>
             <span class="status-pill" id="nodeLocalState" data-i18n="status.stopped">已停止</span>
-          </div>
+          </button>
           <button class="settings-section pressable" id="nodeOpenServerButton" type="button">
             <span class="settings-section-main">
               <span class="settings-section-title" data-i18n="nodes.connectionTitle">连接入口</span>
@@ -589,7 +589,22 @@
             </span>
             <span class="status-pill">MCP</span>
           </button>
-          <div class="simple-card" data-i18n="nodes.placeholder">多节点发现与协同会在这里扩展。</div>
+          <div class="settings-section node-editor">
+            <span class="scene-icon"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="10" rx="2"/><path d="M8 19h8"/><path d="M12 15v4"/><path d="M8 9h8"/></svg></span>
+            <span class="settings-section-main">
+              <span class="settings-section-title" data-i18n="nodes.codexNode">桌面 Codex</span>
+              <span class="settings-section-sub" id="nodeCodexState">--</span>
+              <span class="node-field-list">
+                <input class="settings-token-input" id="nodeCodexUrlInput" type="url" inputmode="url" placeholder="ws://192.168.1.2:3000/">
+                <input class="settings-token-input" id="nodeCodexCwdInput" type="text" data-i18n-placeholder="nodes.cwdPlaceholder" placeholder="电脑上的工作目录">
+              </span>
+            </span>
+            <span class="node-actions">
+              <button class="tonal-button pressable" id="nodePairQrButton" type="button" data-i18n="nodes.qrPair">扫码</button>
+              <button class="tonal-button pressable" id="nodeSaveCodexButton" type="button" data-i18n="common.save">保存</button>
+              <button class="filled-button pressable" id="nodeConnectCodexButton" type="button" data-i18n="nodes.connect">连接</button>
+            </span>
+          </div>
         </div>
       </section>
 

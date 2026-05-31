@@ -24,6 +24,14 @@ class SessionStore(context: Context) {
         return id
     }
 
+    fun createAcpSession(nodeId: String, remoteSessionId: String, title: String? = null): String {
+        val now = System.currentTimeMillis()
+        val safeNode = nodeId.ifBlank { "codex" }.replace(Regex("[^A-Za-z0-9._-]"), "-")
+        val id = "${RuntimeDefaults.Sessions.AGENT_ACP_PREFIX}$safeNode/$now"
+        upsertAcpSession(id, nodeId, remoteSessionId, now, title?.takeIf { it.isNotBlank() } ?: "Codex ${now % 100000}")
+        return id
+    }
+
     fun ensureModelSession(sessionId: String?, modelId: String?): String {
         val id = normalizeModelSessionId(sessionId)
         if (dao.session(id) == null) upsertModelSession(id, modelId.orEmpty(), System.currentTimeMillis())
@@ -33,20 +41,28 @@ class SessionStore(context: Context) {
     fun deleteModelSession(sessionId: String): Boolean {
         val id = normalizeModelSessionId(sessionId)
         val session = dao.session(id) ?: return false
-        if (session.kind != RuntimeDefaults.Sessions.MODEL_CHAT_KIND) return false
+        if (session.kind != RuntimeDefaults.Sessions.MODEL_CHAT_KIND &&
+            session.kind != RuntimeDefaults.Sessions.AGENT_ACP_KIND) return false
         dao.deleteSession(id)
         return true
     }
 
     fun recentModelSessions(limit: Int = RuntimeDefaults.Sessions.RECENT_LIMIT): JSONArray {
         val result = JSONArray()
-        dao.recentSessions(RuntimeDefaults.Sessions.MODEL_SERVER_SCENE_ID, RuntimeDefaults.Sessions.MODEL_CHAT_KIND, limit).forEach { session ->
+        dao.recentSessions(
+            listOf(RuntimeDefaults.Sessions.MODEL_CHAT_KIND, RuntimeDefaults.Sessions.AGENT_ACP_KIND),
+            limit,
+        ).forEach { session ->
             val latest = dao.latestMessage(session.id)
+            val metadata = runCatching { JSONObject(session.metadataJson) }.getOrDefault(JSONObject())
             result.put(
                 JSONObject()
                     .put("id", session.id)
                     .put("title", session.title)
+                    .put("kind", session.kind)
                     .put("modelId", session.modelId ?: JSONObject.NULL)
+                    .put("nodeId", metadata.optString("nodeId", "local"))
+                    .put("remoteSessionId", metadata.optString("remoteSessionId", ""))
                     .put("updatedAt", session.updatedAt)
                     .put("messageCount", dao.messageCount(session.id))
                     .put("lastRole", latest?.role ?: JSONObject.NULL)
@@ -59,10 +75,13 @@ class SessionStore(context: Context) {
     fun sessionDetails(sessionId: String): JSONObject {
         val id = normalizeModelSessionId(sessionId)
         val session = dao.session(id)
+        val metadata = session?.metadataJson?.let { runCatching { JSONObject(it) }.getOrDefault(JSONObject()) } ?: JSONObject()
         val result = JSONObject()
             .put("id", id)
             .put("title", session?.title ?: id)
+            .put("kind", session?.kind ?: JSONObject.NULL)
             .put("modelId", session?.modelId ?: JSONObject.NULL)
+            .put("metadata", metadata)
             .put("updatedAt", session?.updatedAt ?: 0L)
             .put("messages", JSONArray())
         if (session != null) {
@@ -232,6 +251,27 @@ class SessionStore(context: Context) {
         }
     }
 
+    fun appendAcpMessage(sessionId: String, nodeId: String, remoteSessionId: String, role: String, text: String, status: String = "ok") {
+        val cleanedText = text.trim()
+        if (cleanedText.isBlank()) return
+        val now = System.currentTimeMillis()
+        upsertAcpSession(sessionId, nodeId, remoteSessionId, now)
+        dao.insertMessage(
+            MessageEntity(
+                sessionId = sessionId,
+                role = role.ifBlank { "assistant" },
+                text = cleanedText,
+                contentJson = JSONObject()
+                    .put("source", "acp")
+                    .put("nodeId", nodeId)
+                    .put("remoteSessionId", remoteSessionId)
+                    .toString(),
+                status = status,
+                createdAt = now,
+            )
+        )
+    }
+
     private fun upsertModelSession(sessionId: String, modelId: String, now: Long, title: String? = null) {
         val existing = dao.session(sessionId)
         dao.upsertSession(
@@ -244,6 +284,26 @@ class SessionStore(context: Context) {
                 createdAt = existing?.createdAt ?: now,
                 updatedAt = now,
                 metadataJson = JSONObject().put("modelId", modelId).toString(),
+            )
+        )
+    }
+
+    private fun upsertAcpSession(sessionId: String, nodeId: String, remoteSessionId: String, now: Long, title: String? = null) {
+        val existing = dao.session(sessionId)
+        val metadata = runCatching { JSONObject(existing?.metadataJson ?: "{}") }.getOrDefault(JSONObject())
+            .put("nodeId", nodeId)
+            .put("remoteSessionId", remoteSessionId)
+            .put("transport", "acp-websocket")
+        dao.upsertSession(
+            SessionEntity(
+                id = sessionId,
+                sceneId = RuntimeDefaults.Sessions.AGENT_SCENE_ID,
+                kind = RuntimeDefaults.Sessions.AGENT_ACP_KIND,
+                title = title ?: existing?.title ?: sessionId.substringAfterLast('/').ifBlank { "Codex" },
+                modelId = "codex-acp",
+                createdAt = existing?.createdAt ?: now,
+                updatedAt = now,
+                metadataJson = metadata.toString(),
             )
         )
     }

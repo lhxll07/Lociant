@@ -144,10 +144,17 @@ const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
 const homeImagePreviewName = document.getElementById('homeImagePreviewName')
 const homeImageRemoveButton = document.getElementById('homeImageRemoveButton')
 const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
+const nodeLocalButton = document.getElementById('nodeLocalButton')
 const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
 const nodeLocalState = document.getElementById('nodeLocalState')
 const nodeLocalSub = document.getElementById('nodeLocalSub')
 const nodeConnectionText = document.getElementById('nodeConnectionText')
+const nodeCodexState = document.getElementById('nodeCodexState')
+const nodeCodexUrlInput = document.getElementById('nodeCodexUrlInput')
+const nodeCodexCwdInput = document.getElementById('nodeCodexCwdInput')
+const nodePairQrButton = document.getElementById('nodePairQrButton')
+const nodeSaveCodexButton = document.getElementById('nodeSaveCodexButton')
+const nodeConnectCodexButton = document.getElementById('nodeConnectCodexButton')
 
 // ---- State variables ----
 let runtimeServiceState = null
@@ -169,6 +176,7 @@ let scenes = []
 let activeScene = null
 let cameraPreviewRect = null
 let homeAttachedImage = null
+let homeBackendBusy = false
 
 // ---- DOM helpers ----
 function el(tag, className, text) {
