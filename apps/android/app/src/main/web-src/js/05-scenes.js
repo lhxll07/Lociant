@@ -77,7 +77,7 @@ function openScene(scene) {
   sceneFrame.style.height = '100%'
   sceneFrame.src = sceneEntryUrl(scene)
   activateRuntime(scene)
-  stateText.textContent = t('state.running')
+  syncTopStatus()
   updateRuntimeStrip()
 }
 
@@ -90,7 +90,7 @@ function goHome() {
   const homePanel = document.getElementById('page-home')
   if (homePanel) homePanel.scrollTop = 0
   navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'home'))
-  stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
+  syncTopStatus()
   updateRuntimeStrip()
 }
 

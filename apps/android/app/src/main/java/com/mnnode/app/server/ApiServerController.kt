@@ -47,6 +47,7 @@ import java.security.SecureRandom
 import java.util.UUID
 import java.util.concurrent.Executors
 import io.ktor.http.content.OutgoingContent
+import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeFully
 import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.Dispatchers
@@ -201,6 +202,7 @@ class ApiServerController(
                         post("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreSet(call) }
                         post("/v1/store/{namespace}/{key}/delete") { call.withCors(); handleStoreRemove(call) }
                         get("/v1/sessions") { call.withCors(); handleSessionGet(call) }
+                        post("/v1/runtime/agent.prompt.stream") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleAgentPromptStream(call) }
                         post("/v1/runtime/{command}") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleRuntimeCommand(call) }
                         get("/v1/tools") {
                             call.withCors()
@@ -586,6 +588,55 @@ class ApiServerController(
         call.respondText(command(call.parameters["command"].orEmpty(), requestJson(call)).toString(), JsonContentType)
     }
 
+    private suspend fun handleAgentPromptStream(call: ApplicationCall) {
+        call.respond(agentPromptStreamContent(requestJson(call)))
+    }
+
+    private fun agentPromptStreamContent(payload: JSONObject) =
+        object : OutgoingContent.WriteChannelContent() {
+            override val contentType = ContentType.Text.EventStream.withParameter("charset", "utf-8")
+            override suspend fun writeTo(channel: ByteWriteChannel) {
+                writeAgentPromptStream(channel, payload)
+            }
+        }
+
+    private suspend fun writeAgentPromptStream(channel: ByteWriteChannel, payload: JSONObject) {
+        val stream = acpAgentManager.promptStream(payload)
+        channel.writeSse(JSONObject().put("type", "start").put("sessionId", stream.sessionId))
+        while (true) {
+            when (val event = withContext(Dispatchers.IO) { stream.events.take() }) {
+                is AcpAgentManager.AcpPromptEvent.Chunk -> channel.writeSse(JSONObject()
+                    .put("type", "chunk")
+                    .put("text", event.text))
+                is AcpAgentManager.AcpPromptEvent.Tool -> channel.writeSse(JSONObject()
+                    .put("type", "tool_call")
+                    .put("toolCall", event.call))
+                is AcpAgentManager.AcpPromptEvent.Done -> {
+                    channel.writeSse(JSONObject()
+                        .put("type", "done")
+                        .put("sessionId", event.sessionId)
+                        .put("reply", event.reply)
+                        .put("toolCalls", event.toolCalls)
+                        .put("stopReason", event.stopReason))
+                    channel.writeStringUtf8("data: [DONE]\n\n")
+                    return
+                }
+                is AcpAgentManager.AcpPromptEvent.Error -> {
+                    channel.writeSse(JSONObject()
+                        .put("type", "error")
+                        .put("message", event.message))
+                    channel.writeStringUtf8("data: [DONE]\n\n")
+                    return
+                }
+            }
+        }
+    }
+
+    private suspend fun ByteWriteChannel.writeSse(json: JSONObject) {
+        writeStringUtf8("data: $json\n\n")
+        flush()
+    }
+
     private suspend fun handleSceneLoad(call: ApplicationCall) {
         val sceneId = call.parameters["sceneId"].orEmpty()
         val scene = sceneManager.findScene(sceneId)
@@ -886,10 +937,13 @@ class ApiServerController(
 
     private fun deleteSession(rawSessionId: String) {
         val deletedId = sessionStore.normalizeModelSessionId(rawSessionId)
-        if (sessionStore.deleteModelSession(deletedId) && deletedId == currentSessionId) {
-            currentSessionId = DEFAULT_SESSION_ID
-            chatController.resetSessionCache()
-            saveSettings()
+        if (sessionStore.deleteModelSession(deletedId)) {
+            acpAgentManager.clearSessionIfMatches(deletedId)
+            if (deletedId == currentSessionId) {
+                currentSessionId = DEFAULT_SESSION_ID
+                chatController.resetSessionCache()
+                saveSettings()
+            }
         }
     }
 
@@ -900,8 +954,17 @@ class ApiServerController(
 
     private fun withAgentState(agent: JSONObject): JSONObject {
         val output = state()
-        agent.keys().forEach { key -> output.put(key, agent.opt(key)) }
-        return output.put("agentNetwork", acpAgentManager.state())
+        agent.keys().forEach { key ->
+            if (key == "currentSessionId") {
+                output.put("agentCurrentSessionId", agent.opt(key))
+            } else {
+                output.put(key, agent.opt(key))
+            }
+        }
+        val network = acpAgentManager.state()
+        val agentState = network.optJSONObject("agent")
+        output.put("agentCurrentSessionId", agentState?.optString("sessionId")?.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+        return output.put("agentNetwork", network)
     }
 
     private fun isAgentCommand(command: String): Boolean =

@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">Allow Lociant to observe Android screen structure for future phone-side agent tools. No actions are performed in this version.</string>
+    <string name="accessibility_service_description">Allow Lociant to read visible screen structure and perform requested taps, swipes, and system navigation for phone-side agent tools.</string>
 </resources>

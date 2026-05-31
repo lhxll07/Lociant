@@ -48,6 +48,9 @@ function runtimeWindowCommand(command) {
 
 function updateRuntimeServiceState(state) {
   runtimeServiceState = Object.assign({}, runtimeServiceState || {}, state || {})
+  if (runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.agent) {
+    runtimeServiceState.agentCurrentSessionId = runtimeServiceState.agentNetwork.agent.sessionId || ''
+  }
   publishSceneApiClient()
   const running = !!runtimeServiceState.running
   const starting = !!runtimeServiceState.starting
@@ -56,8 +59,7 @@ function updateRuntimeServiceState(state) {
   const overlayGranted = runtimeServiceState.windowAllowed === true
   const batteryGranted = !!runtimeServiceState.batteryOptimizationIgnored
   const accessibilityGranted = runtimeServiceState.accessibilityPermissionGranted === true
-  if (stateDot) stateDot.classList.toggle('running', running || starting)
-  if (stateText) stateText.classList.toggle('running', running || starting)
+  syncTopStatus()
   runtimeSettingsState.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
   runtimeSettingsState.classList.toggle('running', running || starting)
   runtimeServiceToggle.textContent = running || starting ? t('common.stop') : t('common.start')
@@ -136,6 +138,22 @@ function updateRuntimeServiceState(state) {
   updateHomeState()
   updateNodeState()
   updateRuntimeStrip()
+}
+
+function syncTopStatus() {
+  if (!stateText && !stateDot) return
+  const running = !!(runtimeServiceState && runtimeServiceState.running)
+  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
+  const onHome = activePage === 'home'
+  const nodeLabel = activeNodeLabel()
+  const active = onHome ? nodeLabel.active : (running || starting)
+  if (stateText) {
+    stateText.textContent = onHome
+      ? nodeLabel.text
+      : (starting ? t('status.starting') : (running ? t('state.background') : t('state.idle')))
+    stateText.classList.toggle('running', active)
+  }
+  if (stateDot) stateDot.classList.toggle('running', active)
 }
 
 function updateModelExperienceState() {
@@ -233,14 +251,25 @@ function contextSubText(profile) {
 function updateHomeState() {
   const running = !!(runtimeServiceState && runtimeServiceState.running)
   const starting = !!(runtimeServiceState && runtimeServiceState.starting)
-  const runtimeLabel = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
   const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
-  if (homeRuntimePill) {
-    homeRuntimePill.textContent = runtimeLabel
-    homeRuntimePill.classList.toggle('running', running || starting)
-  }
-  if (homeSessionCount) homeSessionCount.textContent = String(sessions.length)
+  const visibleSessions = typeof activeHomeSessions === 'function' ? activeHomeSessions(runtimeServiceState) : sessions
+  syncTopStatus()
+  if (homeSessionCount) homeSessionCount.textContent = String(visibleSessions.length)
   renderHomeSessions(sessions)
+  if (typeof updateHomeChatContext === 'function') updateHomeChatContext()
+}
+
+function activeNodeLabel() {
+  const network = runtimeServiceState && runtimeServiceState.agentNetwork
+  const node = network && network.activeNode
+  const agent = network && network.agent
+  if (node && node.kind === 'acp') {
+    return {
+      text: node.name || t('nodes.codexNode'),
+      active: !!(agent && agent.connected)
+    }
+  }
+  return { text: t('nodes.localNode'), active: true }
 }
 
 function updateNodeState() {

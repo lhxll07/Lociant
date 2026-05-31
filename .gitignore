@@ -42,9 +42,6 @@ apps/android/app/src/main/assets/web/
 # Distribution builds (pre-built APKs and scene packs)
 dist/
 
-# Embedded git repos (NCNN source)
-tools/NCNN/ncnn/
-
 # Temporary files
 *.tmp
 *.log

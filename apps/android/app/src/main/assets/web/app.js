@@ -32,6 +32,13 @@ const i18n = {
     'home.modelLabel': 'Model',
     'home.nodeLabel': 'Node',
     'home.historyTitle': 'Recent chats',
+    'home.newChat': 'New chat',
+    'home.today': 'Today',
+    'home.yesterday': 'Yesterday',
+    'home.earlier': 'Earlier',
+    'home.activeSession': 'Current',
+    'home.localChatMeta': 'Local model',
+    'home.remoteChatMeta': 'Remote agent',
     'home.readyModels': 'ready models',
     'home.emptyReply': 'No reply.',
     'home.thinking': 'Thinking...',
@@ -275,6 +282,13 @@ const i18n = {
     'home.modelLabel': '模型',
     'home.nodeLabel': '节点',
     'home.historyTitle': '最近对话',
+    'home.newChat': '新对话',
+    'home.today': '今天',
+    'home.yesterday': '昨天',
+    'home.earlier': '更早',
+    'home.activeSession': '当前',
+    'home.localChatMeta': '本地模型',
+    'home.remoteChatMeta': '远程 Agent',
     'home.readyModels': '个就绪模型',
     'home.emptyReply': '没有回复。',
     'home.thinking': '思考中...',
@@ -633,7 +647,6 @@ const runtimeModelTokens = document.getElementById('runtimeModelTokens')
 const runtimeEffectiveTokens = document.getElementById('runtimeEffectiveTokens')
 const runtimeDeviceState = document.getElementById('runtimeDeviceState')
 const settingsHomePage = document.getElementById('settingsList')
-const homeRuntimePill = document.getElementById('homeRuntimePill')
 const homeRailToggle = document.getElementById('homeRailToggle')
 const homeSidebar = document.getElementById('homeSidebar')
 const homeSessionCount = document.getElementById('homeSessionCount')
@@ -643,6 +656,9 @@ const homeChatForm = document.getElementById('homeChatForm')
 const homeChatInput = document.getElementById('homeChatInput')
 const homeChatSendButton = document.getElementById('homeChatSendButton')
 const homeChatFeed = document.getElementById('homeChatFeed')
+const homeChatTitle = document.getElementById('homeChatTitle')
+const homeChatMeta = document.getElementById('homeChatMeta')
+const homeChatState = document.getElementById('homeChatState')
 const homeImageInput = document.getElementById('homeImageInput')
 const homeImagePreview = document.getElementById('homeImagePreview')
 const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
@@ -682,6 +698,7 @@ let activeScene = null
 let cameraPreviewRect = null
 let homeAttachedImage = null
 let homeBackendBusy = false
+let activePage = 'home'
 
 // ---- DOM helpers ----
 function el(tag, className, text) {
@@ -727,6 +744,7 @@ function showPanel(panel) {
 }
 
 function showPagePanel(page) {
+  activePage = page || 'home'
   if (page !== 'settings') {
     closeSettingsDetails()
     if (settingsHomePage) {
@@ -746,6 +764,7 @@ function hidePanels() {
 }
 
 function showSceneHost() {
+  activePage = 'scene'
   hidePanels()
   sceneHost.classList.add('active')
   animateSurface(sceneHost)
@@ -1007,6 +1026,9 @@ function runtimeWindowCommand(command) {
 
 function updateRuntimeServiceState(state) {
   runtimeServiceState = Object.assign({}, runtimeServiceState || {}, state || {})
+  if (runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.agent) {
+    runtimeServiceState.agentCurrentSessionId = runtimeServiceState.agentNetwork.agent.sessionId || ''
+  }
   publishSceneApiClient()
   const running = !!runtimeServiceState.running
   const starting = !!runtimeServiceState.starting
@@ -1015,8 +1037,7 @@ function updateRuntimeServiceState(state) {
   const overlayGranted = runtimeServiceState.windowAllowed === true
   const batteryGranted = !!runtimeServiceState.batteryOptimizationIgnored
   const accessibilityGranted = runtimeServiceState.accessibilityPermissionGranted === true
-  if (stateDot) stateDot.classList.toggle('running', running || starting)
-  if (stateText) stateText.classList.toggle('running', running || starting)
+  syncTopStatus()
   runtimeSettingsState.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
   runtimeSettingsState.classList.toggle('running', running || starting)
   runtimeServiceToggle.textContent = running || starting ? t('common.stop') : t('common.start')
@@ -1095,6 +1116,22 @@ function updateRuntimeServiceState(state) {
   updateHomeState()
   updateNodeState()
   updateRuntimeStrip()
+}
+
+function syncTopStatus() {
+  if (!stateText && !stateDot) return
+  const running = !!(runtimeServiceState && runtimeServiceState.running)
+  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
+  const onHome = activePage === 'home'
+  const nodeLabel = activeNodeLabel()
+  const active = onHome ? nodeLabel.active : (running || starting)
+  if (stateText) {
+    stateText.textContent = onHome
+      ? nodeLabel.text
+      : (starting ? t('status.starting') : (running ? t('state.background') : t('state.idle')))
+    stateText.classList.toggle('running', active)
+  }
+  if (stateDot) stateDot.classList.toggle('running', active)
 }
 
 function updateModelExperienceState() {
@@ -1192,14 +1229,25 @@ function contextSubText(profile) {
 function updateHomeState() {
   const running = !!(runtimeServiceState && runtimeServiceState.running)
   const starting = !!(runtimeServiceState && runtimeServiceState.starting)
-  const runtimeLabel = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
   const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
-  if (homeRuntimePill) {
-    homeRuntimePill.textContent = runtimeLabel
-    homeRuntimePill.classList.toggle('running', running || starting)
-  }
-  if (homeSessionCount) homeSessionCount.textContent = String(sessions.length)
+  const visibleSessions = typeof activeHomeSessions === 'function' ? activeHomeSessions(runtimeServiceState) : sessions
+  syncTopStatus()
+  if (homeSessionCount) homeSessionCount.textContent = String(visibleSessions.length)
   renderHomeSessions(sessions)
+  if (typeof updateHomeChatContext === 'function') updateHomeChatContext()
+}
+
+function activeNodeLabel() {
+  const network = runtimeServiceState && runtimeServiceState.agentNetwork
+  const node = network && network.activeNode
+  const agent = network && network.agent
+  if (node && node.kind === 'acp') {
+    return {
+      text: node.name || t('nodes.codexNode'),
+      active: !!(agent && agent.connected)
+    }
+  }
+  return { text: t('nodes.localNode'), active: true }
 }
 
 function updateNodeState() {
@@ -1408,7 +1456,7 @@ function openScene(scene) {
   sceneFrame.style.height = '100%'
   sceneFrame.src = sceneEntryUrl(scene)
   activateRuntime(scene)
-  stateText.textContent = t('state.running')
+  syncTopStatus()
   updateRuntimeStrip()
 }
 
@@ -1421,7 +1469,7 @@ function goHome() {
   const homePanel = document.getElementById('page-home')
   if (homePanel) homePanel.scrollTop = 0
   navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'home'))
-  stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
+  syncTopStatus()
   updateRuntimeStrip()
 }
 
@@ -1950,10 +1998,75 @@ function broadcastLocale() {
 }
 
 // ---- Sessions ----
+function activeNodeId() {
+  const network = runtimeServiceState && runtimeServiceState.agentNetwork
+  const node = network && network.activeNode
+  return (node && node.id) || (network && network.activeNodeId) || 'local'
+}
+
+function isAcpSession(session) {
+  return !!(session && (session.kind === 'agent-acp' || String(session.id || '').indexOf('agent/acp/') === 0))
+}
+
+function isAcpSessionId(sessionId) {
+  return String(sessionId || '').indexOf('agent/acp/') === 0
+}
+
+function sessionNodeId(session) {
+  if (!session) return 'local'
+  if (!isAcpSession(session)) return 'local'
+  const metadata = session.metadata || {}
+  return session.nodeId || metadata.nodeId || String(session.id || '').split('/')[2] || 'codex'
+}
+
+function sessionMatchesActiveNode(session) {
+  if (!session || !session.id) return false
+  if (activeNodeKind() === 'acp') {
+    return isAcpSession(session) && sessionNodeId(session) === activeNodeId()
+  }
+  return !isAcpSession(session)
+}
+
+function activeHomeSessions(state) {
+  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  return sessions.filter(sessionMatchesActiveNode)
+}
+
+function activeAgentSessionId(state) {
+  const current = state || runtimeServiceState || {}
+  const network = current.agentNetwork || {}
+  const agent = network.agent || {}
+  const explicit = current.agentCurrentSessionId
+  if (explicit === null || explicit === undefined) return agent.sessionId || ''
+  return explicit || agent.sessionId || ''
+}
+
+function homeSessionIdFromState(state) {
+  if (activeNodeKind() === 'acp') return activeAgentSessionId(state)
+  const id = state && state.currentSessionId
+  return isAcpSessionId(id) ? '' : (id || '')
+}
+
+function markHomeSessionActive(state, sessionId) {
+  const next = Object.assign({}, state || {})
+  if (isAcpSessionId(sessionId) || activeNodeKind() === 'acp') {
+    const network = Object.assign({}, (next.agentNetwork || (runtimeServiceState && runtimeServiceState.agentNetwork) || {}))
+    const agent = Object.assign({}, network.agent || {})
+    agent.sessionId = sessionId || ''
+    network.agent = agent
+    next.agentNetwork = network
+    next.agentCurrentSessionId = sessionId || ''
+    if (next.currentSessionId && isAcpSessionId(next.currentSessionId)) delete next.currentSessionId
+  } else if (sessionId) {
+    next.currentSessionId = sessionId
+  }
+  return next
+}
+
 function renderSessions(sessions) {
   if (!runtimeSessionList) return
   runtimeSessionList.innerHTML = ''
-  const items = Array.isArray(sessions) ? sessions : []
+  const items = Array.isArray(sessions) ? sessions.filter(session => !isAcpSession(session)) : []
   if (!items.length) {
     runtimeSessionList.appendChild(emptyCard(t('settings.noSessions')))
     return
@@ -1983,18 +2096,25 @@ function renderHomeSessions(sessions) {
   if (!homeSessionList) return
   homeSessionList.innerHTML = ''
   const policyLimit = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.recentLimit)
-  const items = Array.isArray(sessions) && policyLimit > 0 ? sessions.slice(0, policyLimit) : (Array.isArray(sessions) ? sessions : [])
+  const filtered = activeHomeSessions({ sessions: Array.isArray(sessions) ? sessions : [] })
+  const items = policyLimit > 0 ? filtered.slice(0, policyLimit) : filtered
   if (!items.length) return
+  let lastGroup = ''
   items.forEach(session => {
+    const group = sessionDateGroup(session.updatedAt)
+    if (group !== lastGroup) {
+      lastGroup = group
+      homeSessionList.appendChild(el('div', 'chat-session-date', group))
+    }
     const row = document.createElement('button')
     row.type = 'button'
     row.className = 'chat-session-item pressable'
-    row.classList.toggle('active', session.id === (runtimeServiceState && runtimeServiceState.currentSessionId))
+    const active = session.id === homeCurrentSessionId()
+    row.classList.toggle('active', active)
     const body = el('span', 'chat-session-body')
     const title = el('strong', '', session.title || session.id || '--')
-    const nodeLabel = session.kind === 'agent-acp' ? (session.nodeId || 'codex') : (session.modelId || '--')
-    const sub = el('span', '', nodeLabel + ' · ' + (session.messageCount || 0))
-    const remove = el('span', 'chat-session-delete', 'x')
+    const sub = el('span', '', sessionDisplayMeta(session) + ' · ' + (session.messageCount || 0))
+    const remove = el('span', 'chat-session-delete', '×')
     remove.setAttribute('role', 'button')
     remove.setAttribute('tabindex', '0')
     remove.setAttribute('aria-label', t('home.deleteChat'))
@@ -2006,7 +2126,7 @@ function renderHomeSessions(sessions) {
       const command = session.kind === 'agent-acp' ? 'agent.session.select' : 'session.select'
       Promise.resolve(runtimeApiCommand(command, { sessionId: session.id }))
         .then(state => {
-          updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: session.id }))
+          updateRuntimeServiceState(markHomeSessionActive(state, session.id))
           loadHomeConversation(session.id)
           if (homeSidebar && homeSidebar.classList.contains('open')) {
             homeSidebar.classList.remove('open')
@@ -2018,10 +2138,10 @@ function renderHomeSessions(sessions) {
     const deleteSession = event => {
       event.preventDefault()
       event.stopPropagation()
-      const deletingCurrent = session.id === (runtimeServiceState && runtimeServiceState.currentSessionId)
+      const deletingCurrent = session.id === homeCurrentSessionId()
       Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
         .then(state => {
-          updateRuntimeServiceState(state || {})
+          updateRuntimeServiceState(markHomeSessionActive(state || {}, deletingCurrent ? '' : homeCurrentSessionId()))
           restoreHomeConversation({ forceLatest: deletingCurrent })
           showToast(t('home.deleteChat'))
         })
@@ -2033,6 +2153,48 @@ function renderHomeSessions(sessions) {
     })
     homeSessionList.appendChild(row)
   })
+}
+
+function sessionDateGroup(updatedAt) {
+  const value = Number(updatedAt) || 0
+  if (!value) return t('home.earlier')
+  const date = new Date(value)
+  const today = new Date()
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const diffDays = Math.round((startToday - startDate) / 86400000)
+  if (diffDays <= 0) return t('home.today')
+  if (diffDays === 1) return t('home.yesterday')
+  return t('home.earlier')
+}
+
+function sessionDisplayMeta(session) {
+  if (!session) return '--'
+  if (isAcpSession(session)) return session.nodeId || t('home.remoteChatMeta')
+  return session.modelId || t('home.localChatMeta')
+}
+
+function currentHomeSession() {
+  const currentId = homeCurrentSessionId()
+  const sessions = activeHomeSessions(runtimeServiceState)
+  return sessions.find(session => session && session.id === currentId) || latestHomeSession(runtimeServiceState)
+}
+
+function updateHomeChatContext() {
+  const session = currentHomeSession()
+  const network = runtimeServiceState && runtimeServiceState.agentNetwork
+  const node = network && network.activeNode
+  const agent = network && network.agent
+  const acp = activeNodeKind() === 'acp'
+  const nodeName = acp ? ((node && node.name) || t('nodes.codexNode')) : t('nodes.localNode')
+  const model = acp ? t('home.remoteChatMeta') : ((runtimeServiceState && runtimeServiceState.modelId) || t('home.localChatMeta'))
+  if (homeChatTitle) homeChatTitle.textContent = (session && session.title) || t('home.newChat')
+  if (homeChatMeta) homeChatMeta.textContent = nodeName + ' / ' + model
+  if (homeChatState) {
+    const active = acp ? !!(agent && agent.connected) : !!(runtimeServiceState && runtimeServiceState.running)
+    homeChatState.textContent = active ? t('status.running') : t('status.stopped')
+    homeChatState.classList.toggle('running', active)
+  }
 }
 
 function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
@@ -2050,7 +2212,7 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
     title: existing.title || String(titleText || '').trim() || sessionId,
     kind: existing.kind || (activeNodeKind() === 'acp' ? 'agent-acp' : 'model-chat'),
     modelId: existing.modelId || (activeNodeKind() === 'acp' ? 'codex-acp' : ((runtimeServiceState && runtimeServiceState.modelId) || '--')),
-    nodeId: existing.nodeId || ((runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNodeId) || 'local'),
+    nodeId: existing.nodeId || (activeNodeKind() === 'acp' ? activeNodeId() : 'local'),
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
@@ -2058,21 +2220,25 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   })
   if (index >= 0) sessions.splice(index, 1)
   sessions.unshift(next)
-  runtimeServiceState = Object.assign({}, runtimeServiceState || {}, {
-    currentSessionId: sessionId,
-    sessions,
-  })
+  runtimeServiceState = markHomeSessionActive(Object.assign({}, runtimeServiceState || {}, { sessions }), sessionId)
   updateHomeState()
+  updateHomeChatContext()
 }
 
 function homeCurrentSessionId() {
-  return (runtimeServiceState && runtimeServiceState.currentSessionId) ||
-    (runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.defaultSessionId) ||
-    ''
+  if (activeNodeKind() === 'acp') {
+    const current = activeAgentSessionId(runtimeServiceState)
+    if (current) return current
+    const latest = latestHomeSession(runtimeServiceState)
+    return latest ? latest.id : ''
+  }
+  const current = runtimeServiceState && runtimeServiceState.currentSessionId
+  if (current && !isAcpSessionId(current)) return current
+  return (runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.defaultSessionId) || ''
 }
 
 function appendChatBubble(role, text, meta) {
-  if (!homeChatFeed || !text) return null
+  if (!homeChatFeed) return null
   const node = document.createElement('div')
   node.className = 'chat-message ' + (role || 'assistant')
   if (meta && meta.active) node.dataset.activeSession = 'true'
@@ -2082,8 +2248,81 @@ function appendChatBubble(role, text, meta) {
   return node
 }
 
+function appendAssistantRun() {
+  if (!homeChatFeed) return null
+  const node = document.createElement('div')
+  node.className = 'chat-message assistant assistant-run'
+  const chain = el('div', 'chat-tool-chain')
+  const content = el('div', 'chat-run-content')
+  node.appendChild(chain)
+  node.appendChild(content)
+  homeChatFeed.appendChild(node)
+  homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+  return { node, chain, content }
+}
+
+function chatTextTarget(target) {
+  return target && target.content ? target.content : target
+}
+
+function chatNodeTarget(target) {
+  return target && target.node ? target.node : target
+}
+
+function appendToolBubble(toolCall, target) {
+  if (!homeChatFeed || !toolCall) return null
+  const scope = target && target.chain ? target.chain : homeChatFeed
+  const id = toolCall.id || toolCall.toolCallId || ''
+  const existing = id ? scope.querySelector('.tool-call-item[data-tool-call-id="' + cssEscape(id) + '"]') : null
+  const node = existing || document.createElement('div')
+  node.className = 'tool-call-item'
+  if (id) node.dataset.toolCallId = id
+  const info = normalizeToolBubbleInfo(toolCall)
+  node.classList.toggle('done', info.status === 'completed')
+  node.classList.toggle('error', info.status === 'failed')
+  node.replaceChildren()
+  node.appendChild(el('span', 'tool-call-dot'))
+  const main = el('span', 'tool-call-main')
+  main.appendChild(el('span', 'tool-call-label', info.name))
+  main.appendChild(el('span', 'tool-call-meta', info.meta))
+  if (info.args) main.appendChild(el('code', '', info.args))
+  node.appendChild(main)
+  node.appendChild(el('span', 'tool-call-state', info.statusLabel))
+  if (!existing) scope.appendChild(node)
+  if (target && target.chain) {
+    chatNodeTarget(target).classList.add('has-tools')
+  }
+  homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+  return node
+}
+
+function normalizeToolBubbleInfo(toolCall) {
+  const rawName = toolCall.name || toolCall.functionName || toolCall.title || toolCall.kind || 'tool'
+  const status = String(toolCall.status || '').toLowerCase()
+  const args = toolCall.arguments || toolCall.args || ''
+  const metaParts = []
+  if (toolCall.kind && toolCall.kind !== rawName) metaParts.push(toolCall.kind)
+  if (toolCall.type && toolCall.type !== toolCall.kind) metaParts.push(toolCall.type)
+  return {
+    name: rawName,
+    status,
+    statusLabel: toolStatusLabel(status),
+    meta: metaParts.join(' · ') || 'tool call',
+    args: compactJsonText(args)
+  }
+}
+
+function toolStatusLabel(status) {
+  if (status === 'completed' || status === 'success' || status === 'done') return 'done'
+  if (status === 'failed' || status === 'error') return 'error'
+  if (status === 'pending') return 'pending'
+  return status || 'call'
+}
+
 function renderChatMarkdown(target, text) {
+  if (!target) return
   const source = String(text || '')
+  if (target) target.dataset.rawText = source
   if (!window.marked || !window.DOMPurify) {
     target.textContent = source
     return
@@ -2105,6 +2344,50 @@ function renderChatMarkdown(target, text) {
   })
 }
 
+function createChatTextStream(target) {
+  let source = ''
+  let shown = ''
+  let timer = null
+  let closed = false
+  const step = () => {
+    timer = null
+    if (!target || closed) return
+    if (shown.length >= source.length) return
+    shown = source.slice(0, shown.length + 1)
+    renderChatMarkdown(target, shown)
+    if (homeChatFeed) homeChatFeed.scrollTop = homeChatFeed.scrollHeight
+    if (shown.length < source.length) timer = window.setTimeout(step, 12)
+  }
+  return {
+    push(text) {
+      source += String(text || '')
+      if (!timer) timer = window.setTimeout(step, 8)
+    },
+    finish(text) {
+      if (text !== undefined && String(text) !== source) source = String(text || '')
+      if (timer) window.clearTimeout(timer)
+      timer = null
+      shown = source
+      if (target) renderChatMarkdown(target, shown)
+      closed = true
+    },
+    text() {
+      return source
+    }
+  }
+}
+
+function compactJsonText(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  try { return JSON.stringify(JSON.parse(text)) } catch (error) { return text }
+}
+
+function cssEscape(value) {
+  if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value || ''))
+  return String(value || '').replace(/["\\]/g, '\\$&')
+}
+
 function clearHomeMessages() {
   if (!homeChatFeed) return
   Array.from(homeChatFeed.querySelectorAll('.chat-message')).forEach(node => node.remove())
@@ -2124,7 +2407,7 @@ function renderHomeConversation(sessionId, messages) {
 }
 
 function latestHomeSession(state) {
-  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  const sessions = activeHomeSessions(state)
   return sessions.find(session => session && session.id && Number(session.messageCount || 0) > 0) ||
     sessions.find(session => session && session.id) ||
     null
@@ -2132,7 +2415,7 @@ function latestHomeSession(state) {
 
 function shouldPreferLatestHomeSession(state, currentId) {
   if (!currentId) return true
-  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
+  const sessions = activeHomeSessions(state)
   const current = sessions.find(session => session && session.id === currentId)
   return !current || Number(current.messageCount || 0) <= 0
 }
@@ -2142,7 +2425,7 @@ function restoreHomeConversation(options) {
   const state = runtimeServiceState || runtimeState()
   updateRuntimeServiceState(state)
   const latest = latestHomeSession(state)
-  const currentId = state && state.currentSessionId
+  const currentId = homeCurrentSessionId()
   const target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
     ? (latest && latest.id)
     : currentId
@@ -2154,7 +2437,7 @@ function restoreHomeConversation(options) {
     const selected = target.indexOf('agent/acp/') === 0
       ? runtimeApiCommand('agent.session.select', { sessionId: target })
       : runtimeApiCommand('session.select', { sessionId: target })
-    updateRuntimeServiceState(selected || Object.assign({}, state, { currentSessionId: target }))
+    updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
   return target
@@ -2428,7 +2711,7 @@ function navigateTo(page) {
     setModelView(modelView)
     loadModels()
   }
-  stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
+  syncTopStatus()
   updateRuntimeStrip()
 }
 
@@ -2519,6 +2802,16 @@ function homeChatMessages(prompt, image) {
   return [{ role: 'user', content }]
 }
 
+function homeChatRequestBody(modelId, sessionId, prompt, image) {
+  return {
+    model: modelId,
+    stream: true,
+    stream_options: { include_usage: true },
+    sessionId,
+    messages: homeChatMessages(prompt, image)
+  }
+}
+
 function submitHomeChat(text) {
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
@@ -2531,30 +2824,133 @@ function submitHomeChat(text) {
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
   if (homeChatSendButton) homeChatSendButton.disabled = true
-  const pending = appendChatBubble('assistant', t('home.thinking'))
+  const pending = appendAssistantRun()
   const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
   const sessionId = homeCurrentSessionId()
   upsertHomeSessionPreview(sessionId, prompt || t('home.imageAttached'), 'user')
-  apiPost('/v1/chat/completions', {
-    model: modelId,
-    stream: false,
-    sessionId,
-    messages: homeChatMessages(prompt, image)
-  }).then(result => {
-    const reply = chatResponseText(result)
-    if (pending) renderChatMarkdown(pending, reply || t('home.emptyReply'))
-    else appendChatBubble('assistant', reply || t('home.emptyReply'))
-    if (result && result.sessionId) {
-      runtimeServiceState = Object.assign({}, runtimeServiceState || {}, { currentSessionId: result.sessionId })
-    }
-    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
-    refreshRuntimeServiceState()
-  }).catch(error => {
-    if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
-    else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
-  }).finally(() => {
-    if (homeChatSendButton) homeChatSendButton.disabled = false
+  Promise.resolve(homeChatRequestBody(modelId, sessionId, prompt, image))
+    .then(body => streamOpenAiHomeChat(body, pending))
+    .then(result => {
+      const toolCalls = Array.isArray(result && result.toolCalls) ? result.toolCalls : []
+      const text = (result && result.text) || ''
+      const reply = text || t('home.emptyReply')
+      if (pending && !text && !toolCalls.length) renderChatMarkdown(chatTextTarget(pending), reply)
+      upsertHomeSessionPreview(sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
+      refreshRuntimeServiceState()
+    }).catch(error => {
+      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
+      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+    }).finally(() => {
+      if (homeChatSendButton) homeChatSendButton.disabled = false
+    })
+}
+
+async function streamOpenAiHomeChat(body, target) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
+  const response = await fetch(apiUrl('/v1/chat/completions'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body || {})
   })
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}))
+    throw new Error((errorJson.error && errorJson.error.message) || errorJson.message || 'API request failed')
+  }
+  if (!response.body || !response.body.getReader) {
+    const json = await response.json()
+    const text = chatResponseText(json)
+    const toolCalls = collectToolCallsFromMessage(json)
+    toolCalls.forEach(call => appendToolBubble(call, target))
+    if (target) renderChatMarkdown(chatTextTarget(target), text || t('home.emptyReply'))
+    return { text, toolCalls }
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  const writer = target ? createChatTextStream(chatTextTarget(target)) : null
+  let buffer = ''
+  let text = ''
+  const toolAccumulator = createToolCallAccumulator()
+  const toolCalls = []
+  while (true) {
+    const read = await reader.read()
+    if (read.done) break
+    buffer += decoder.decode(read.value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() || ''
+    for (const event of events) {
+      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (!data || data === '[DONE]') continue
+        const json = JSON.parse(data)
+        const delta = json.choices && json.choices[0] && json.choices[0].delta
+        if (delta && typeof delta.content === 'string') {
+          text += delta.content
+          if (writer) writer.push(delta.content)
+        }
+        const calls = delta ? normalizeToolCalls(delta.tool_calls) : []
+        calls.forEach(call => {
+          const merged = toolAccumulator.push(call)
+          appendToolBubble(merged, target)
+        })
+      }
+    }
+  }
+  if (writer) writer.finish(text)
+  toolCalls.push.apply(toolCalls, toolAccumulator.values())
+  if (!text && target && !toolCalls.length) renderChatMarkdown(chatTextTarget(target), t('home.emptyReply'))
+  return { text, toolCalls }
+}
+
+function normalizeToolCalls(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw.map((call, index) => {
+    const fn = call && call.function ? call.function : {}
+    return {
+      id: (call && call.id) || String((call && call.index) !== undefined ? call.index : index),
+      index: (call && call.index) !== undefined ? call.index : index,
+      type: call && call.type,
+      name: fn.name || (call && call.name) || 'tool',
+      arguments: fn.arguments || (call && call.arguments) || ''
+    }
+  })
+}
+
+function createToolCallAccumulator() {
+  const calls = []
+  return {
+    push(part) {
+      const key = (part && part.id) || String((part && part.index) || calls.length)
+      let current = calls.find(call => call._key === key)
+      if (!current) {
+        current = { _key: key, id: part && part.id, index: part && part.index, type: part && part.type, name: '', arguments: '' }
+        calls.push(current)
+      }
+      if (part && part.id) current.id = part.id
+      if (part && part.type) current.type = part.type
+      if (part && part.name) current.name = part.name
+      if (part && part.arguments) current.arguments += part.arguments
+      return current
+    },
+    values() {
+      return calls.map(call => ({
+        id: call.id || call._key,
+        index: call.index,
+        type: call.type,
+        name: call.name || 'tool',
+        arguments: call.arguments || ''
+      }))
+    }
+  }
+}
+
+function collectToolCallsFromMessage(result) {
+  const choice = result && result.choices && result.choices[0]
+  const message = choice && choice.message
+  return normalizeToolCalls(message && message.tool_calls)
 }
 
 function submitAcpHomeChat(prompt) {
@@ -2564,29 +2960,94 @@ function submitAcpHomeChat(prompt) {
   clearHomeImageAttachment()
   homeBackendBusy = true
   if (homeChatSendButton) homeChatSendButton.disabled = true
-  const pending = appendChatBubble('assistant', t('home.thinking'))
-  const sessionId = (runtimeServiceState && runtimeServiceState.agentNetwork &&
-    runtimeServiceState.agentNetwork.agent && runtimeServiceState.agentNetwork.agent.sessionId) || ''
-  if (sessionId) upsertHomeSessionPreview(sessionId, prompt, 'user')
-  Promise.resolve(apiPost('/v1/runtime/agent.prompt', { text: prompt }))
+  const pending = appendAssistantRun()
+  const sessionId = homeCurrentSessionId()
+  const selected = sessionId ? runtimeApiCommand('agent.session.select', { sessionId }) : null
+  const activeSessionId = homeSessionIdFromState(selected) || sessionId
+  if (activeSessionId) upsertHomeSessionPreview(activeSessionId, prompt, 'user')
+  streamAcpHomeChat({ text: prompt }, pending)
     .then(result => {
-      updateRuntimeServiceState(result || {})
-      const reply = (result && result.reply) || t('home.emptyReply')
-      if (pending) renderChatMarkdown(pending, reply)
-      else appendChatBubble('assistant', reply)
+      refreshRuntimeServiceState()
+      const toolCalls = Array.isArray(result && result.toolCalls) ? result.toolCalls : []
+      const reply = (result && result.reply) || ''
+      if (pending && !reply && !toolCalls.length) {
+        renderChatMarkdown(chatTextTarget(pending), t('home.emptyReply'))
+      }
       const nextSessionId = (result && result.currentSessionId) ||
-        (result && result.agentNetwork && result.agentNetwork.agent && result.agentNetwork.agent.sessionId) ||
-        sessionId
+        activeSessionId
       if (nextSessionId) upsertHomeSessionPreview(nextSessionId, reply || prompt, 'assistant')
     })
     .catch(error => {
-      if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
+      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
       else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
     })
     .finally(() => {
       homeBackendBusy = false
       if (homeChatSendButton) homeChatSendButton.disabled = false
     })
+}
+
+async function streamAcpHomeChat(body, target) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
+  const response = await fetch(apiUrl('/v1/runtime/agent.prompt.stream'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body || {})
+  })
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}))
+    throw new Error((errorJson.error && errorJson.error.message) || errorJson.message || 'ACP request failed')
+  }
+  const reader = response.body && response.body.getReader ? response.body.getReader() : null
+  if (!reader) {
+    const json = await response.json()
+    return { text: json.reply || '', reply: json.reply || '', toolCalls: json.toolCalls || [], currentSessionId: json.currentSessionId || '' }
+  }
+  const decoder = new TextDecoder('utf-8')
+  const writer = target ? createChatTextStream(chatTextTarget(target)) : null
+  let buffer = ''
+  let text = ''
+  let currentSessionId = ''
+  const toolCalls = []
+  while (true) {
+    const read = await reader.read()
+    if (read.done) break
+    buffer += decoder.decode(read.value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() || ''
+    for (const event of events) {
+      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (!data || data === '[DONE]') continue
+        const json = JSON.parse(data)
+        if (json.type === 'start') currentSessionId = json.sessionId || currentSessionId
+        if (json.type === 'chunk' && typeof json.text === 'string') {
+          text += json.text
+          if (writer) writer.push(json.text)
+        }
+        if (json.type === 'tool_call' && json.toolCall) {
+          toolCalls.push(json.toolCall)
+          appendToolBubble(json.toolCall, target)
+        }
+        if (json.type === 'done') {
+          currentSessionId = json.sessionId || currentSessionId
+          const finalText = json.reply || text
+          const finalCalls = Array.isArray(json.toolCalls) && json.toolCalls.length ? json.toolCalls : toolCalls
+          if (writer) writer.finish(finalText)
+          else if (!text && finalText && target) renderChatMarkdown(chatTextTarget(target), finalText)
+          return { text: finalText, reply: finalText, toolCalls: finalCalls, currentSessionId }
+        }
+        if (json.type === 'error') {
+          throw new Error(json.message || 'ACP request failed')
+        }
+      }
+    }
+  }
+  if (writer) writer.finish(text)
+  return { text, reply: text, toolCalls, currentSessionId }
 }
 
 function chatResponseText(result) {
@@ -2612,8 +3073,9 @@ function loadHomeConversation(sessionId, options) {
       : runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
-    updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: target }))
+    updateRuntimeServiceState(markHomeSessionActive(state || {}, target))
     renderHomeConversation(target, messages)
+    if (typeof updateHomeChatContext === 'function') updateHomeChatContext()
   } catch (error) {
     clearHomeMessages()
     if (!silent) appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
@@ -2778,9 +3240,9 @@ if (homeNewChatButton) {
       ? apiPost('/v1/runtime/agent.session.create', {})
       : runtimeApiCommand('session.create', {})
     Promise.resolve(next).then(state => {
-      const sessionId = state && state.currentSessionId ? state.currentSessionId : homeCurrentSessionId()
       clearHomeMessages()
-      updateRuntimeServiceState(state || {})
+      const sessionId = homeSessionIdFromState(state) || homeCurrentSessionId()
+      updateRuntimeServiceState(markHomeSessionActive(state || {}, sessionId))
       loadHomeConversation(sessionId)
     }).catch(error => {
       showToast((error && error.message) || t('toast.modelImportFailed'))
@@ -2989,6 +3451,7 @@ if (nodeCopyMcpButton) {
 if (nodeLocalButton) {
   nodeLocalButton.addEventListener('click', () => {
     updateRuntimeServiceState(runtimeApiCommand('agent.selectNode', { nodeId: 'local' }) || {})
+    restoreHomeConversation()
     showToast(t('nodes.localActive'))
   })
 }
@@ -3006,6 +3469,7 @@ if (nodeSaveCodexButton) {
       token: ''
     }
     updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    restoreHomeConversation()
     showToast(t('common.save'))
   })
 }
@@ -3027,6 +3491,7 @@ if (nodeConnectCodexButton) {
       token: ''
     }
     updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    restoreHomeConversation()
     Promise.resolve(apiPost('/v1/runtime/agent.connect', {}))
       .then(state => updateRuntimeServiceState(state || {}))
       .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
@@ -3085,7 +3550,7 @@ window.MNNodeEvents = {
     if (result && result.ok) {
       loadScenes()
       showToast(t('toast.sceneInstalled'))
-      stateText.textContent = t('state.idle')
+      syncTopStatus()
     } else if (result) {
       showToast(result.message || t('toast.installFailed'))
     }
@@ -3124,7 +3589,7 @@ document.addEventListener('visibilitychange', () => {
 
 const messageHandlers = {
   'scene.ready': () => {
-    stateText.textContent = t('state.running')
+    syncTopStatus()
     broadcastLocale()
     syncRuntimeSnapshot()
   },

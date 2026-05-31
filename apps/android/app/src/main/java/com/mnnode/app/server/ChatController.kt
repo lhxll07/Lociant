@@ -393,12 +393,15 @@ private fun looksLikeToolPrefix(raw: String): Boolean {
     if (text.isBlank()) return true
     if (text.startsWith("<")) {
         return "<tool_call>".startsWith(text.take("<tool_call>".length)) ||
-            text.startsWith("<tool_call>") ||
-            text.startsWith("<think>") ||
-            text.startsWith("</think>")
+            text.startsWith("<tool_call>")
     }
-    if (text.startsWith("```")) return true
-    if (text.startsWith("{") || text.startsWith("[")) return true
+    if (text.startsWith("```")) return text.length < 16 || text.contains("tool", ignoreCase = true)
+    if (text.startsWith("{") || text.startsWith("[")) {
+        if (text.length < 32) return true
+        return text.contains("\"tool_calls\"") ||
+            text.contains("\"function\"") ||
+            text.contains("\"name\"")
+    }
     return false
 }
 

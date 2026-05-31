@@ -97,9 +97,9 @@ if (homeNewChatButton) {
       ? apiPost('/v1/runtime/agent.session.create', {})
       : runtimeApiCommand('session.create', {})
     Promise.resolve(next).then(state => {
-      const sessionId = state && state.currentSessionId ? state.currentSessionId : homeCurrentSessionId()
       clearHomeMessages()
-      updateRuntimeServiceState(state || {})
+      const sessionId = homeSessionIdFromState(state) || homeCurrentSessionId()
+      updateRuntimeServiceState(markHomeSessionActive(state || {}, sessionId))
       loadHomeConversation(sessionId)
     }).catch(error => {
       showToast((error && error.message) || t('toast.modelImportFailed'))
@@ -308,6 +308,7 @@ if (nodeCopyMcpButton) {
 if (nodeLocalButton) {
   nodeLocalButton.addEventListener('click', () => {
     updateRuntimeServiceState(runtimeApiCommand('agent.selectNode', { nodeId: 'local' }) || {})
+    restoreHomeConversation()
     showToast(t('nodes.localActive'))
   })
 }
@@ -325,6 +326,7 @@ if (nodeSaveCodexButton) {
       token: ''
     }
     updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    restoreHomeConversation()
     showToast(t('common.save'))
   })
 }
@@ -346,6 +348,7 @@ if (nodeConnectCodexButton) {
       token: ''
     }
     updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
+    restoreHomeConversation()
     Promise.resolve(apiPost('/v1/runtime/agent.connect', {}))
       .then(state => updateRuntimeServiceState(state || {}))
       .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
@@ -404,7 +407,7 @@ window.MNNodeEvents = {
     if (result && result.ok) {
       loadScenes()
       showToast(t('toast.sceneInstalled'))
-      stateText.textContent = t('state.idle')
+      syncTopStatus()
     } else if (result) {
       showToast(result.message || t('toast.installFailed'))
     }
@@ -443,7 +446,7 @@ document.addEventListener('visibilitychange', () => {
 
 const messageHandlers = {
   'scene.ready': () => {
-    stateText.textContent = t('state.running')
+    syncTopStatus()
     broadcastLocale()
     syncRuntimeSnapshot()
   },

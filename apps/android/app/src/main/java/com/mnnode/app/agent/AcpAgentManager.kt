@@ -15,6 +15,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -42,7 +43,10 @@ class AcpAgentManager(
     @Volatile private var activeNode = defaultLocalNode()
     @Volatile private var activeSession = AcpSession()
     @Volatile private var activePromptSessionId = ""
+    @Volatile private var activePromptTarget = AcpPromptTarget()
     private val activePromptText = StringBuilder()
+    private val activePromptToolCalls = JSONArray()
+    private var activePromptStream: LinkedBlockingQueue<AcpPromptEvent>? = null
 
     init {
         loadActiveNode()
@@ -89,6 +93,13 @@ class AcpAgentManager(
             .put("lastError", lastError.ifBlank { JSONObject.NULL })
             .put("sessionId", activeSession.localSessionId)
             .put("remoteSessionId", activeSession.remoteSessionId))
+
+    fun clearSessionIfMatches(sessionId: String) {
+        if (sessionId.isBlank()) return
+        if (activeSession.localSessionId == sessionId) {
+            activeSession = AcpSession()
+        }
+    }
 
     private fun saveNode(payload: JSONObject): Boolean {
         val existing = nodes().toMutableList()
@@ -189,7 +200,7 @@ class AcpAgentManager(
             }
         })
         webSocket = socket
-        if (!openLatch.await(15, TimeUnit.SECONDS)) {
+        if (!openLatch.await(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             lastError = "ACP connect timed out"
             connectionState = "error"
             socket.cancel()
@@ -266,7 +277,7 @@ class AcpAgentManager(
                 saveActiveNodeId(node.id)
             }
             activeSession = AcpSession(sessionId, metadata.optString("remoteSessionId"))
-            if (activeSession.remoteSessionId.isNotBlank()) {
+            if (activeSession.remoteSessionId.isNotBlank() && payload.optBoolean("remote", false)) {
                 runCatching {
                     ensureConnected()
                     if (supportsLoadSession) {
@@ -291,27 +302,92 @@ class AcpAgentManager(
         if (activeSession.remoteSessionId.isBlank()) createSession(JSONObject())
         val text = payload.optString("text").trim()
         if (text.isBlank()) return state()
-        sessionStore.appendAcpMessage(activeSession.localSessionId, activeNode.id, activeSession.remoteSessionId, "user", text)
+        val promptNodeId = activeNode.id
+        val localSessionId = activeSession.localSessionId
+        val remoteSessionId = activeSession.remoteSessionId
+        sessionStore.appendAcpMessage(localSessionId, promptNodeId, remoteSessionId, "user", text)
         synchronized(lock) {
-            activePromptSessionId = activeSession.localSessionId
+            activePromptSessionId = localSessionId
+            activePromptTarget = AcpPromptTarget(localSessionId, promptNodeId, remoteSessionId)
             activePromptText.setLength(0)
+            clearArray(activePromptToolCalls)
         }
         val response = request("session/prompt", JSONObject()
-            .put("sessionId", activeSession.remoteSessionId)
+            .put("sessionId", remoteSessionId)
             .put("prompt", JSONArray().put(JSONObject().put("type", "text").put("text", text))))
-        val reply = synchronized(lock) {
-            activePromptText.toString().also {
+        val promptResult = synchronized(lock) {
+            val output = PromptResult(activePromptText.toString(), JSONArray(activePromptToolCalls.toString()))
+            output.also {
                 activePromptText.setLength(0)
+                clearArray(activePromptToolCalls)
                 activePromptSessionId = ""
+                activePromptTarget = AcpPromptTarget()
             }
-        }.ifBlank { response.optString("text") }
+        }
+        val reply = promptResult.text.ifBlank { response.optString("text") }
         if (reply.isNotBlank()) {
-            sessionStore.appendAcpMessage(activeSession.localSessionId, activeNode.id, activeSession.remoteSessionId, "assistant", reply)
+            sessionStore.appendAcpMessage(localSessionId, promptNodeId, remoteSessionId, "assistant", reply)
         }
         return state()
-            .put("currentSessionId", activeSession.localSessionId)
+            .put("currentSessionId", localSessionId)
             .put("reply", reply)
+            .put("toolCalls", promptResult.toolCalls)
             .put("stopReason", response.optString("stopReason", ""))
+    }
+
+    fun promptStream(payload: JSONObject): AcpPromptStream {
+        if (activeNode.kind == LOCAL_KIND) {
+            throw IllegalStateException("Active node is local.")
+        }
+        ensureConnected()
+        if (activeSession.remoteSessionId.isBlank()) createSession(JSONObject())
+        val text = payload.optString("text").trim()
+        if (text.isBlank()) throw IllegalArgumentException("Prompt is empty.")
+        val promptNodeId = activeNode.id
+        val localSessionId = activeSession.localSessionId
+        val remoteSessionId = activeSession.remoteSessionId
+        sessionStore.appendAcpMessage(localSessionId, promptNodeId, remoteSessionId, "user", text)
+        val queue = LinkedBlockingQueue<AcpPromptEvent>()
+        synchronized(lock) {
+            activePromptSessionId = localSessionId
+            activePromptTarget = AcpPromptTarget(localSessionId, promptNodeId, remoteSessionId)
+            activePromptText.setLength(0)
+            clearArray(activePromptToolCalls)
+            activePromptStream = queue
+        }
+        val worker = Thread({
+            runCatching {
+                val response = request("session/prompt", JSONObject()
+                    .put("sessionId", remoteSessionId)
+                    .put("prompt", JSONArray().put(JSONObject().put("type", "text").put("text", text))))
+                val promptResult = synchronized(lock) {
+                    val output = PromptResult(activePromptText.toString(), JSONArray(activePromptToolCalls.toString()))
+                    output.also {
+                        activePromptText.setLength(0)
+                        clearArray(activePromptToolCalls)
+                        activePromptSessionId = ""
+                        activePromptTarget = AcpPromptTarget()
+                        activePromptStream = null
+                    }
+                }
+                val reply = promptResult.text.ifBlank { response.optString("text") }
+                if (reply.isNotBlank()) {
+                    sessionStore.appendAcpMessage(localSessionId, promptNodeId, remoteSessionId, "assistant", reply)
+                }
+                queue.put(AcpPromptEvent.Done(localSessionId, reply, promptResult.toolCalls, response.optString("stopReason", "")))
+            }.onFailure { error ->
+                synchronized(lock) {
+                    activePromptText.setLength(0)
+                    clearArray(activePromptToolCalls)
+                    activePromptSessionId = ""
+                    activePromptTarget = AcpPromptTarget()
+                    activePromptStream = null
+                }
+                queue.put(AcpPromptEvent.Error(error.message ?: "ACP prompt failed"))
+            }
+        }, "lociant-acp-prompt").apply { isDaemon = true }
+        worker.start()
+        return AcpPromptStream(localSessionId, queue)
     }
 
     private fun ensureConnected() {
@@ -397,17 +473,34 @@ class AcpAgentManager(
         if (json.optString("method") != "session/update") return
         val update = json.optJSONObject("params")?.optJSONObject("update") ?: return
         val kind = update.optString("sessionUpdate")
+        if (kind == "tool_call" || kind == "tool_call_update") {
+            val tool = JSONObject()
+                .put("id", update.optString("toolCallId"))
+                .put("name", update.optString("title").ifBlank { update.optString("kind", "tool") })
+                .put("status", update.optString("status", "pending"))
+            synchronized(lock) {
+                if (activePromptSessionId.isNotBlank()) {
+                    activePromptToolCalls.put(tool)
+                    activePromptStream?.put(AcpPromptEvent.Tool(tool))
+                }
+            }
+            return
+        }
         val content = update.optJSONObject("content")
         val text = content?.optString("text").orEmpty()
         if (text.isBlank()) return
         if (kind == "agent_message_chunk") {
             synchronized(lock) {
-                if (activePromptSessionId == activeSession.localSessionId) {
+                if (activePromptSessionId.isNotBlank()) {
                     activePromptText.append(text)
+                    activePromptStream?.put(AcpPromptEvent.Chunk(text))
                     return
                 }
             }
-            sessionStore.appendAcpMessage(activeSession.localSessionId, activeNode.id, activeSession.remoteSessionId, "assistant", text)
+            val target = activePromptTarget
+            if (target.localSessionId.isNotBlank()) {
+                sessionStore.appendAcpMessage(target.localSessionId, target.nodeId, target.remoteSessionId, "assistant", text)
+            }
         }
     }
 
@@ -474,6 +567,29 @@ class AcpAgentManager(
         val remoteSessionId: String = "",
     )
 
+    private data class AcpPromptTarget(
+        val localSessionId: String = "",
+        val nodeId: String = "",
+        val remoteSessionId: String = "",
+    )
+
+    private data class PromptResult(
+        val text: String,
+        val toolCalls: JSONArray,
+    )
+
+    data class AcpPromptStream(
+        val sessionId: String,
+        val events: LinkedBlockingQueue<AcpPromptEvent>,
+    )
+
+    sealed class AcpPromptEvent {
+        data class Chunk(val text: String) : AcpPromptEvent()
+        data class Tool(val call: JSONObject) : AcpPromptEvent()
+        data class Done(val sessionId: String, val reply: String, val toolCalls: JSONArray, val stopReason: String) : AcpPromptEvent()
+        data class Error(val message: String) : AcpPromptEvent()
+    }
+
     private data class NodeProfile(
         val id: String,
         val kind: String,
@@ -514,6 +630,7 @@ class AcpAgentManager(
         private const val LOCAL_NODE_ID = "local"
         private const val LOCAL_KIND = "local"
         private const val ACP_KIND = "acp"
+        private const val CONNECT_TIMEOUT_SECONDS = 3L
 
         private fun defaultLocalNode() = NodeProfile(
             id = LOCAL_NODE_ID,
@@ -533,6 +650,10 @@ class AcpAgentManager(
             if (value.startsWith("http://", ignoreCase = true)) return "ws://" + value.substringAfter("://")
             if (value.startsWith("https://", ignoreCase = true)) return "wss://" + value.substringAfter("://")
             return "ws://$value"
+        }
+
+        private fun clearArray(array: JSONArray) {
+            while (array.length() > 0) array.remove(0)
         }
     }
 }

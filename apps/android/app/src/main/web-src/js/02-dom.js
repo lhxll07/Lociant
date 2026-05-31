@@ -128,7 +128,6 @@ const runtimeModelTokens = document.getElementById('runtimeModelTokens')
 const runtimeEffectiveTokens = document.getElementById('runtimeEffectiveTokens')
 const runtimeDeviceState = document.getElementById('runtimeDeviceState')
 const settingsHomePage = document.getElementById('settingsList')
-const homeRuntimePill = document.getElementById('homeRuntimePill')
 const homeRailToggle = document.getElementById('homeRailToggle')
 const homeSidebar = document.getElementById('homeSidebar')
 const homeSessionCount = document.getElementById('homeSessionCount')
@@ -138,6 +137,9 @@ const homeChatForm = document.getElementById('homeChatForm')
 const homeChatInput = document.getElementById('homeChatInput')
 const homeChatSendButton = document.getElementById('homeChatSendButton')
 const homeChatFeed = document.getElementById('homeChatFeed')
+const homeChatTitle = document.getElementById('homeChatTitle')
+const homeChatMeta = document.getElementById('homeChatMeta')
+const homeChatState = document.getElementById('homeChatState')
 const homeImageInput = document.getElementById('homeImageInput')
 const homeImagePreview = document.getElementById('homeImagePreview')
 const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
@@ -177,6 +179,7 @@ let activeScene = null
 let cameraPreviewRect = null
 let homeAttachedImage = null
 let homeBackendBusy = false
+let activePage = 'home'
 
 // ---- DOM helpers ----
 function el(tag, className, text) {
@@ -222,6 +225,7 @@ function showPanel(panel) {
 }
 
 function showPagePanel(page) {
+  activePage = page || 'home'
   if (page !== 'settings') {
     closeSettingsDetails()
     if (settingsHomePage) {
@@ -241,6 +245,7 @@ function hidePanels() {
 }
 
 function showSceneHost() {
+  activePage = 'scene'
   hidePanels()
   sceneHost.classList.add('active')
   animateSurface(sceneHost)

@@ -55,7 +55,7 @@ function navigateTo(page) {
     setModelView(modelView)
     loadModels()
   }
-  stateText.textContent = runtimeSnapshot && runtimeSnapshot.running ? t('state.background') : t('state.idle')
+  syncTopStatus()
   updateRuntimeStrip()
 }
 
@@ -146,6 +146,16 @@ function homeChatMessages(prompt, image) {
   return [{ role: 'user', content }]
 }
 
+function homeChatRequestBody(modelId, sessionId, prompt, image) {
+  return {
+    model: modelId,
+    stream: true,
+    stream_options: { include_usage: true },
+    sessionId,
+    messages: homeChatMessages(prompt, image)
+  }
+}
+
 function submitHomeChat(text) {
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
@@ -158,30 +168,133 @@ function submitHomeChat(text) {
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
   if (homeChatSendButton) homeChatSendButton.disabled = true
-  const pending = appendChatBubble('assistant', t('home.thinking'))
+  const pending = appendAssistantRun()
   const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
   const sessionId = homeCurrentSessionId()
   upsertHomeSessionPreview(sessionId, prompt || t('home.imageAttached'), 'user')
-  apiPost('/v1/chat/completions', {
-    model: modelId,
-    stream: false,
-    sessionId,
-    messages: homeChatMessages(prompt, image)
-  }).then(result => {
-    const reply = chatResponseText(result)
-    if (pending) renderChatMarkdown(pending, reply || t('home.emptyReply'))
-    else appendChatBubble('assistant', reply || t('home.emptyReply'))
-    if (result && result.sessionId) {
-      runtimeServiceState = Object.assign({}, runtimeServiceState || {}, { currentSessionId: result.sessionId })
-    }
-    upsertHomeSessionPreview((result && result.sessionId) || sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
-    refreshRuntimeServiceState()
-  }).catch(error => {
-    if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
-    else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
-  }).finally(() => {
-    if (homeChatSendButton) homeChatSendButton.disabled = false
+  Promise.resolve(homeChatRequestBody(modelId, sessionId, prompt, image))
+    .then(body => streamOpenAiHomeChat(body, pending))
+    .then(result => {
+      const toolCalls = Array.isArray(result && result.toolCalls) ? result.toolCalls : []
+      const text = (result && result.text) || ''
+      const reply = text || t('home.emptyReply')
+      if (pending && !text && !toolCalls.length) renderChatMarkdown(chatTextTarget(pending), reply)
+      upsertHomeSessionPreview(sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
+      refreshRuntimeServiceState()
+    }).catch(error => {
+      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
+      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+    }).finally(() => {
+      if (homeChatSendButton) homeChatSendButton.disabled = false
+    })
+}
+
+async function streamOpenAiHomeChat(body, target) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
+  const response = await fetch(apiUrl('/v1/chat/completions'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body || {})
   })
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}))
+    throw new Error((errorJson.error && errorJson.error.message) || errorJson.message || 'API request failed')
+  }
+  if (!response.body || !response.body.getReader) {
+    const json = await response.json()
+    const text = chatResponseText(json)
+    const toolCalls = collectToolCallsFromMessage(json)
+    toolCalls.forEach(call => appendToolBubble(call, target))
+    if (target) renderChatMarkdown(chatTextTarget(target), text || t('home.emptyReply'))
+    return { text, toolCalls }
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  const writer = target ? createChatTextStream(chatTextTarget(target)) : null
+  let buffer = ''
+  let text = ''
+  const toolAccumulator = createToolCallAccumulator()
+  const toolCalls = []
+  while (true) {
+    const read = await reader.read()
+    if (read.done) break
+    buffer += decoder.decode(read.value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() || ''
+    for (const event of events) {
+      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (!data || data === '[DONE]') continue
+        const json = JSON.parse(data)
+        const delta = json.choices && json.choices[0] && json.choices[0].delta
+        if (delta && typeof delta.content === 'string') {
+          text += delta.content
+          if (writer) writer.push(delta.content)
+        }
+        const calls = delta ? normalizeToolCalls(delta.tool_calls) : []
+        calls.forEach(call => {
+          const merged = toolAccumulator.push(call)
+          appendToolBubble(merged, target)
+        })
+      }
+    }
+  }
+  if (writer) writer.finish(text)
+  toolCalls.push.apply(toolCalls, toolAccumulator.values())
+  if (!text && target && !toolCalls.length) renderChatMarkdown(chatTextTarget(target), t('home.emptyReply'))
+  return { text, toolCalls }
+}
+
+function normalizeToolCalls(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw.map((call, index) => {
+    const fn = call && call.function ? call.function : {}
+    return {
+      id: (call && call.id) || String((call && call.index) !== undefined ? call.index : index),
+      index: (call && call.index) !== undefined ? call.index : index,
+      type: call && call.type,
+      name: fn.name || (call && call.name) || 'tool',
+      arguments: fn.arguments || (call && call.arguments) || ''
+    }
+  })
+}
+
+function createToolCallAccumulator() {
+  const calls = []
+  return {
+    push(part) {
+      const key = (part && part.id) || String((part && part.index) || calls.length)
+      let current = calls.find(call => call._key === key)
+      if (!current) {
+        current = { _key: key, id: part && part.id, index: part && part.index, type: part && part.type, name: '', arguments: '' }
+        calls.push(current)
+      }
+      if (part && part.id) current.id = part.id
+      if (part && part.type) current.type = part.type
+      if (part && part.name) current.name = part.name
+      if (part && part.arguments) current.arguments += part.arguments
+      return current
+    },
+    values() {
+      return calls.map(call => ({
+        id: call.id || call._key,
+        index: call.index,
+        type: call.type,
+        name: call.name || 'tool',
+        arguments: call.arguments || ''
+      }))
+    }
+  }
+}
+
+function collectToolCallsFromMessage(result) {
+  const choice = result && result.choices && result.choices[0]
+  const message = choice && choice.message
+  return normalizeToolCalls(message && message.tool_calls)
 }
 
 function submitAcpHomeChat(prompt) {
@@ -191,29 +304,94 @@ function submitAcpHomeChat(prompt) {
   clearHomeImageAttachment()
   homeBackendBusy = true
   if (homeChatSendButton) homeChatSendButton.disabled = true
-  const pending = appendChatBubble('assistant', t('home.thinking'))
-  const sessionId = (runtimeServiceState && runtimeServiceState.agentNetwork &&
-    runtimeServiceState.agentNetwork.agent && runtimeServiceState.agentNetwork.agent.sessionId) || ''
-  if (sessionId) upsertHomeSessionPreview(sessionId, prompt, 'user')
-  Promise.resolve(apiPost('/v1/runtime/agent.prompt', { text: prompt }))
+  const pending = appendAssistantRun()
+  const sessionId = homeCurrentSessionId()
+  const selected = sessionId ? runtimeApiCommand('agent.session.select', { sessionId }) : null
+  const activeSessionId = homeSessionIdFromState(selected) || sessionId
+  if (activeSessionId) upsertHomeSessionPreview(activeSessionId, prompt, 'user')
+  streamAcpHomeChat({ text: prompt }, pending)
     .then(result => {
-      updateRuntimeServiceState(result || {})
-      const reply = (result && result.reply) || t('home.emptyReply')
-      if (pending) renderChatMarkdown(pending, reply)
-      else appendChatBubble('assistant', reply)
+      refreshRuntimeServiceState()
+      const toolCalls = Array.isArray(result && result.toolCalls) ? result.toolCalls : []
+      const reply = (result && result.reply) || ''
+      if (pending && !reply && !toolCalls.length) {
+        renderChatMarkdown(chatTextTarget(pending), t('home.emptyReply'))
+      }
       const nextSessionId = (result && result.currentSessionId) ||
-        (result && result.agentNetwork && result.agentNetwork.agent && result.agentNetwork.agent.sessionId) ||
-        sessionId
+        activeSessionId
       if (nextSessionId) upsertHomeSessionPreview(nextSessionId, reply || prompt, 'assistant')
     })
     .catch(error => {
-      if (pending) renderChatMarkdown(pending, (error && error.message) || t('toast.modelImportFailed'))
+      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
       else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
     })
     .finally(() => {
       homeBackendBusy = false
       if (homeChatSendButton) homeChatSendButton.disabled = false
     })
+}
+
+async function streamAcpHomeChat(body, target) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
+  const response = await fetch(apiUrl('/v1/runtime/agent.prompt.stream'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body || {})
+  })
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}))
+    throw new Error((errorJson.error && errorJson.error.message) || errorJson.message || 'ACP request failed')
+  }
+  const reader = response.body && response.body.getReader ? response.body.getReader() : null
+  if (!reader) {
+    const json = await response.json()
+    return { text: json.reply || '', reply: json.reply || '', toolCalls: json.toolCalls || [], currentSessionId: json.currentSessionId || '' }
+  }
+  const decoder = new TextDecoder('utf-8')
+  const writer = target ? createChatTextStream(chatTextTarget(target)) : null
+  let buffer = ''
+  let text = ''
+  let currentSessionId = ''
+  const toolCalls = []
+  while (true) {
+    const read = await reader.read()
+    if (read.done) break
+    buffer += decoder.decode(read.value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() || ''
+    for (const event of events) {
+      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (!data || data === '[DONE]') continue
+        const json = JSON.parse(data)
+        if (json.type === 'start') currentSessionId = json.sessionId || currentSessionId
+        if (json.type === 'chunk' && typeof json.text === 'string') {
+          text += json.text
+          if (writer) writer.push(json.text)
+        }
+        if (json.type === 'tool_call' && json.toolCall) {
+          toolCalls.push(json.toolCall)
+          appendToolBubble(json.toolCall, target)
+        }
+        if (json.type === 'done') {
+          currentSessionId = json.sessionId || currentSessionId
+          const finalText = json.reply || text
+          const finalCalls = Array.isArray(json.toolCalls) && json.toolCalls.length ? json.toolCalls : toolCalls
+          if (writer) writer.finish(finalText)
+          else if (!text && finalText && target) renderChatMarkdown(chatTextTarget(target), finalText)
+          return { text: finalText, reply: finalText, toolCalls: finalCalls, currentSessionId }
+        }
+        if (json.type === 'error') {
+          throw new Error(json.message || 'ACP request failed')
+        }
+      }
+    }
+  }
+  if (writer) writer.finish(text)
+  return { text, reply: text, toolCalls, currentSessionId }
 }
 
 function chatResponseText(result) {
@@ -239,8 +417,9 @@ function loadHomeConversation(sessionId, options) {
       : runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
-    updateRuntimeServiceState(Object.assign({}, state || {}, { currentSessionId: target }))
+    updateRuntimeServiceState(markHomeSessionActive(state || {}, target))
     renderHomeConversation(target, messages)
+    if (typeof updateHomeChatContext === 'function') updateHomeChatContext()
   } catch (error) {
     clearHomeMessages()
     if (!silent) appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
