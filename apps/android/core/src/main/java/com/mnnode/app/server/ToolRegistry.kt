@@ -111,3 +111,43 @@ class ToolDefinition(
         else -> ToolExposure.Read
     }
 }
+
+fun tool(
+    name: String,
+    description: String,
+    properties: JSONObject = JSONObject(),
+    policy: ToolPolicy = ToolPolicy(),
+    handler: (JSONObject) -> JSONObject,
+): ToolDefinition = ToolDefinition(
+    name = name,
+    description = description,
+    parameters = objectSchema(properties),
+    policy = policy,
+    handler = handler,
+)
+
+private fun objectSchema(properties: JSONObject = JSONObject()): JSONObject =
+    JSONObject().put("type", "object").put("properties", properties)
+
+fun stringParam(description: String = ""): JSONObject =
+    typedParam("string", description)
+
+fun intParam(description: String = ""): JSONObject =
+    typedParam("integer", description)
+
+fun numberParam(description: String = ""): JSONObject =
+    typedParam("number", description)
+
+fun boolParam(description: String = ""): JSONObject =
+    typedParam("boolean", description)
+
+fun arrayParam(description: String = "", items: JSONObject = JSONObject()): JSONObject =
+    typedParam("array", description).put("items", items)
+
+fun objectParam(description: String = ""): JSONObject =
+    typedParam("object", description)
+
+private fun typedParam(type: String, description: String): JSONObject =
+    JSONObject().put("type", type).also {
+        if (description.isNotBlank()) it.put("description", description)
+    }

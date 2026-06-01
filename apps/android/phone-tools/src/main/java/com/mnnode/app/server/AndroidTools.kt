@@ -31,142 +31,100 @@ class AndroidTools(
     private val actionPolicy = ToolPolicy(sideEffect = true)
 
     override fun tools(): List<ToolDefinition> = listOf(
-        ToolDefinition(
+        tool(
             name = "device_status",
             description = "Return Android device state, battery, network, screen, and permission readiness.",
-            parameters = objectSchema(),
         ) { deviceStatus() },
-        ToolDefinition(
+        tool(
             name = "clipboard_read",
             description = "Read current Android clipboard text when Android allows clipboard access.",
-            parameters = objectSchema(),
             policy = readScreenPolicy,
         ) { clipboardRead() },
-        ToolDefinition(
+        tool(
             name = "clipboard_write",
             description = "Write plain text into the Android clipboard.",
-            parameters = objectSchema(JSONObject()
+            properties = JSONObject()
                 .put("text", stringParam("Text to copy to clipboard."))
-                .put("label", stringParam("Optional clipboard label."))),
+                .put("label", stringParam("Optional clipboard label.")),
             policy = actionPolicy,
         ) { args -> clipboardWrite(args) },
-        ToolDefinition(
+        tool(
             name = "app_open",
             description = "Open an installed Android app by package name, or open a safe deep link / URL.",
-            parameters = objectSchema(JSONObject()
+            properties = JSONObject()
                 .put("packageName", stringParam("Android package name to launch."))
-                .put("uri", stringParam("Optional http, https, geo, tel, mailto, or package URI."))),
+                .put("uri", stringParam("Optional http, https, geo, tel, mailto, or package URI.")),
             policy = actionPolicy,
         ) { args -> appOpen(args) },
-        ToolDefinition(
-            name = "ui_screen_text",
-            description = "Read visible text from the current Android screen via AccessibilityService.",
-            parameters = objectSchema(JSONObject()
-                .put("maxDepth", intParam("Maximum accessibility tree depth to scan. Default 8."))),
+        tool(
+            name = "ui_screen_state",
+            description = "Read the current Android UI as a compact actionable state. Prefer this before UI actions; it returns stable nodeId values for ui_click_node and can include a screenshot fallback.",
+            properties = JSONObject()
+                .put("query", stringParam("Optional text filter for visible node labels."))
+                .put("exact", boolParam("If true, query must match the full label. Default false."))
+                .put("maxDepth", intParam("Maximum tree depth to scan. Default 8."))
+                .put("maxNodes", intParam("Maximum visible nodes to return. Default 80."))
+                .put("includeScreenshot", boolParam("Include a compressed screenshot data URL. Default false."))
+                .put("screenshotMaxWidth", intParam("Maximum screenshot width. Default 720."))
+                .put("quality", intParam("JPEG quality from 45 to 95. Default 82.")),
             policy = readScreenPolicy,
-        ) { args -> uiScreenText(args) },
-        ToolDefinition(
-            name = "ui_screen_structure",
-            description = "Read the current Android accessibility tree as a stable JSON snapshot.",
-            parameters = objectSchema(JSONObject()
-                .put("maxDepth", intParam("Maximum tree depth. Default 5, capped at 12."))),
-            policy = readScreenPolicy,
-        ) { args -> uiScreenStructure(args) },
-        ToolDefinition(
-            name = "ui_clickable_elements",
-            description = "List visible clickable or long-clickable elements with labels and tap coordinates.",
-            parameters = objectSchema(JSONObject()
-                .put("maxDepth", intParam("Maximum tree depth to scan. Default 8."))),
-            policy = readScreenPolicy,
-        ) { args -> uiClickableElements(args) },
-        ToolDefinition(
-            name = "ui_find_text",
-            description = "Find visible text on the current Android screen and return stable bounds for matching elements.",
-            parameters = objectSchema(JSONObject()
-                .put("query", stringParam("Text to search for."))
-                .put("exact", boolParam("If true, match exact text. Default false."))
-                .put("maxDepth", intParam("Maximum tree depth to scan. Default 8."))),
-            policy = readScreenPolicy,
-        ) { args -> uiFindText(args) },
-        ToolDefinition(
-            name = "ui_click",
-            description = "Tap the current Android screen at the specified coordinates.",
-            parameters = objectSchema(JSONObject()
-                .put("x", intParam("Screen x coordinate."))
-                .put("y", intParam("Screen y coordinate."))),
+        ) { args -> uiScreenState(args) },
+        tool(
+            name = "ui_click_node",
+            description = "Click a nodeId returned by ui_screen_state. Uses Accessibility click first, then falls back to a tap at the node center.",
+            properties = JSONObject()
+                .put("nodeId", stringParam("nodeId returned by ui_screen_state."))
+                .put("longClick", boolParam("If true, perform a long click. Default false.")),
             policy = actionPolicy,
-        ) { args -> uiClick(args) },
-        ToolDefinition(
-            name = "ui_long_click",
-            description = "Long press the current Android screen at the specified coordinates.",
-            parameters = objectSchema(JSONObject()
+        ) { args -> uiClickNode(args) },
+        tool(
+            name = "ui_tap",
+            description = "Tap or long press the current Android screen at coordinates. Use only when ui_click_node is not possible.",
+            properties = JSONObject()
                 .put("x", intParam("Screen x coordinate."))
-                .put("y", intParam("Screen y coordinate."))),
+                .put("y", intParam("Screen y coordinate."))
+                .put("longClick", boolParam("If true, perform a long click. Default false.")),
             policy = actionPolicy,
-        ) { args -> uiLongClick(args) },
-        ToolDefinition(
+        ) { args -> uiTap(args) },
+        tool(
             name = "ui_swipe",
             description = "Swipe or drag from one screen coordinate to another.",
-            parameters = objectSchema(JSONObject()
+            properties = JSONObject()
                 .put("x1", intParam("Start x coordinate."))
                 .put("y1", intParam("Start y coordinate."))
                 .put("x2", intParam("End x coordinate."))
                 .put("y2", intParam("End y coordinate."))
-                .put("durationMs", intParam("Gesture duration in milliseconds. Default 260."))),
+                .put("durationMs", intParam("Gesture duration in milliseconds. Default 260.")),
             policy = actionPolicy,
         ) { args -> uiSwipe(args) },
-        ToolDefinition(
-            name = "ui_swipe_up",
-            description = "Swipe upward on the current screen.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { uiSwipeUp() },
-        ToolDefinition(
-            name = "ui_swipe_down",
-            description = "Swipe downward on the current screen.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { uiSwipeDown() },
-        ToolDefinition(
-            name = "ui_back",
-            description = "Press the Android Back button.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { globalAction("back") { it.pressBack() } },
-        ToolDefinition(
-            name = "ui_home",
-            description = "Press the Android Home button.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { globalAction("home") { it.pressHome() } },
-        ToolDefinition(
-            name = "ui_recent_apps",
-            description = "Open the Android recent apps overview.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { globalAction("recent_apps") { it.pressRecentApps() } },
-        ToolDefinition(
-            name = "ui_notifications",
-            description = "Open the Android notification shade.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { globalAction("notifications") { it.openNotifications() } },
-        ToolDefinition(
-            name = "ui_quick_settings",
-            description = "Open Android quick settings.",
-            parameters = objectSchema(),
-            policy = actionPolicy,
-        ) { globalAction("quick_settings") { it.openQuickSettings() } },
-        ToolDefinition(
-            name = "ui_find_and_click",
-            description = "Find visible text on the current screen and click the matching element or its actionable parent.",
-            parameters = objectSchema(JSONObject()
-                .put("text", stringParam("Text to search for and click."))
-                .put("exact", boolParam("If true, match exact text. Default false."))
-                .put("maxDepth", intParam("Maximum tree depth to scan. Default 8."))),
-            policy = actionPolicy,
-        ) { args -> uiFindAndClick(args) },
+        tool(
+            name = "ui_wait",
+            description = "Wait until Android UI becomes idle or until visible text appears. Use after actions before reading the next screen state.",
+            properties = JSONObject()
+                .put("text", stringParam("Optional visible text to wait for. If omitted, wait for idle."))
+                .put("exact", boolParam("If true, text must match exactly. Default false."))
+                .put("timeoutMs", intParam("Maximum wait time. Default 3000."))
+                .put("idleMs", intParam("Required idle duration without accessibility events. Default 500."))
+                .put("maxDepth", intParam("Maximum tree depth to scan for text. Default 8.")),
+            policy = readScreenPolicy,
+        ) { args -> uiWait(args) },
+        globalActionTool("ui_back", "Press the Android Back button.", "back") { it.pressBack() },
+        globalActionTool("ui_home", "Press the Android Home button.", "home") { it.pressHome() },
+        globalActionTool("ui_recent_apps", "Open the Android recent apps overview.", "recent_apps") { it.pressRecentApps() },
+        globalActionTool("ui_notifications", "Open the Android notification shade.", "notifications") { it.openNotifications() },
+        globalActionTool("ui_quick_settings", "Open Android quick settings.", "quick_settings") { it.openQuickSettings() },
     )
+
+    private fun globalActionTool(
+        name: String,
+        description: String,
+        action: String,
+        handler: (LociantAccessibilityService) -> Boolean,
+    ): ToolDefinition = tool(
+        name = name,
+        description = description,
+        policy = actionPolicy,
+    ) { globalAction(action, handler) }
 
     private fun deviceStatus(): JSONObject {
         val battery = context.registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -261,37 +219,31 @@ class AndroidTools(
             .put("message", if (targetPackage.isNotBlank()) "App opened." else "URI opened.")
     }
 
-    private fun uiScreenText(args: JSONObject): JSONObject =
-        requireAccessibility().readScreenText(maxDepth(args, 8))
+    private fun uiScreenState(args: JSONObject): JSONObject =
+        requireAccessibility().readScreenState(
+            maxDepth(args, 8),
+            args.optInt("maxNodes", 80).coerceIn(8, 200),
+            args.optString("query").trim(),
+            args.optBoolean("exact", false),
+            args.optBoolean("includeScreenshot", false),
+            args.optInt("screenshotMaxWidth", 720).coerceIn(320, 1440),
+            args.optInt("quality", 82).coerceIn(45, 95),
+        )
 
-    private fun uiScreenStructure(args: JSONObject): JSONObject =
-        requireAccessibility().readScreenStructure(maxDepth(args, 5))
+    private fun uiClickNode(args: JSONObject): JSONObject =
+        requireAccessibility().clickNode(
+            args.optString("nodeId").trim(),
+            args.optBoolean("longClick", false),
+        )
 
-    private fun uiClickableElements(args: JSONObject): JSONObject =
-        requireAccessibility().readClickableElements(maxDepth(args, 8))
-
-    private fun uiFindText(args: JSONObject): JSONObject {
-        val query = args.optString("query").trim()
-        require(query.isNotBlank()) { "query is required" }
-        return requireAccessibility().findText(query, args.optBoolean("exact", false), maxDepth(args, 8))
-    }
-
-    private fun uiClick(args: JSONObject): JSONObject {
+    private fun uiTap(args: JSONObject): JSONObject {
         val x = requiredCoordinate(args, "x")
         val y = requiredCoordinate(args, "y")
-        val success = requireAccessibility().gestureClick(x, y)
-        return gestureResult("click", success)
-            .put("x", x)
-            .put("y", y)
-    }
-
-    private fun uiLongClick(args: JSONObject): JSONObject {
-        val x = requiredCoordinate(args, "x")
-        val y = requiredCoordinate(args, "y")
-        val success = requireAccessibility().gestureLongClick(x, y)
-        return gestureResult("long_click", success)
-            .put("x", x)
-            .put("y", y)
+        return if (args.optBoolean("longClick", false)) {
+            requireAccessibility().gestureLongClick(x, y)
+        } else {
+            requireAccessibility().gestureClick(x, y)
+        }
     }
 
     private fun uiSwipe(args: JSONObject): JSONObject {
@@ -300,24 +252,17 @@ class AndroidTools(
         val x2 = requiredCoordinate(args, "x2")
         val y2 = requiredCoordinate(args, "y2")
         val durationMs = args.optLong("durationMs", 260L).coerceIn(50L, 2000L)
-        val success = requireAccessibility().gestureSwipe(x1, y1, x2, y2, durationMs)
-        return gestureResult("swipe", success)
-            .put("from", JSONObject().put("x", x1).put("y", y1))
-            .put("to", JSONObject().put("x", x2).put("y", y2))
-            .put("durationMs", durationMs)
+        return requireAccessibility().gestureSwipe(x1, y1, x2, y2, durationMs)
     }
 
-    private fun uiSwipeUp(): JSONObject =
-        gestureResult("swipe_up", requireAccessibility().gestureSwipeUp())
-
-    private fun uiSwipeDown(): JSONObject =
-        gestureResult("swipe_down", requireAccessibility().gestureSwipeDown())
-
-    private fun uiFindAndClick(args: JSONObject): JSONObject {
-        val text = args.optString("text").trim()
-        require(text.isNotBlank()) { "text is required" }
-        return requireAccessibility().clickText(text, args.optBoolean("exact", false), maxDepth(args, 8))
-    }
+    private fun uiWait(args: JSONObject): JSONObject =
+        requireAccessibility().waitForUi(
+            args.optString("text").trim(),
+            args.optBoolean("exact", false),
+            args.optLong("timeoutMs", 3000L).coerceIn(100L, 15000L),
+            args.optLong("idleMs", 500L).coerceIn(100L, 3000L),
+            maxDepth(args, 8),
+        )
 
     private fun globalAction(action: String, block: (LociantAccessibilityService) -> Boolean): JSONObject =
         gestureResult(action, block(requireAccessibility()))
@@ -401,15 +346,6 @@ class AndroidTools(
         failure?.let { throw it }
         return result
     }
-
-    private fun stringParam(description: String): JSONObject =
-        JSONObject().put("type", "string").put("description", description)
-
-    private fun intParam(description: String): JSONObject =
-        JSONObject().put("type", "integer").put("description", description)
-
-    private fun boolParam(description: String): JSONObject =
-        JSONObject().put("type", "boolean").put("description", description)
 
     companion object {
         private val SAFE_SCHEMES = setOf("http", "https", "geo", "tel", "mailto", "package")

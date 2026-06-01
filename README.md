@@ -2,12 +2,12 @@
 
 # Lociant
 
-### A physical-world interface for AI agents.
+### Android-native local AI runtime and phone capability layer for agents.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/platform-Android-3DDC84.svg)](apps/android)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-compatible-111827.svg)](docs/openai-compatible.md)
-[![Local First](https://img.shields.io/badge/local-first-0F766E.svg)](docs/unified-architecture.md)
+[![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-0F766E.svg)](docs/agent-integration.md)
 
 [English](#english) | [中文](#中文)
 
@@ -17,29 +17,31 @@
 
 ## English
 
-AI agents can reason, code, search, and use tools.
+Lociant turns an Android phone into a local AI node that agents can call over LAN.
 
-But they still do not know what is happening in the room.
+It is not a full agent framework and does not try to replace Codex, OpenCode, RikkaHub, Pi, or your own automation system. Lociant sits below them: it provides phone-local models, camera vision, Android state, screen tools, notifications, storage, and a standard API surface.
 
-**Lociant turns the Android phone you already own into local eyes, memory, alerts, and on-device intelligence for the agents you already use.**
+## What It Provides
 
-Put a spare phone on a desk, shelf, counter, or doorway. It becomes a private real-world interface that your PC agent, automation script, or chat client can call over the local network.
+- Local LLM/VLM inference through an OpenAI-compatible API and Ollama-style endpoints.
+- MCP Streamable HTTP server for direct agent integration.
+- Android-side tools: device status, clipboard, app launch, notifications, compact screen state, node click, screenshot-backed screen capture, tap, swipe, back/home/recent apps.
+- Camera vision: start vision runtime, capture camera frames, and pass images to local VLM models.
+- Persistent sessions and local storage for phone-side context.
+- ACP desktop node support, so the phone can act as a control surface for a Codex process running on a computer.
+- A visible Android runtime with foreground service, runtime window, permissions, and in-app WebView settings.
 
-What that means in practice:
+## Quick Start
 
-- 👁️ your agent can see a desk, room, pet, person, or scene
-- 🔔 it can notify you when something changes
-- 🧠 it can run local chat and vision models on the phone
-- 🌐 it works with OpenAI-compatible clients over LAN
-- 🪟 it stays visible and controllable through Android foreground runtime
-- 📦 it can import and download models directly on device
+1. Install the Android app.
+2. Start Runtime in the app.
+3. Confirm the phone shows a LAN address, for example:
 
-Under the hood, Lociant uses an Android app with a foreground runtime, local HTTP API, MNN model inference, CameraX camera access, NCNN vision, local sessions, storage, and tool calling. The point is not to replace your agent. The point is to give it a local body.
+```text
+http://10.238.125.4:11434
+```
 
-Zero-friction agent setup:
-
-1. Install the Android app and start Runtime.
-2. Add an MCP server in your agent client:
+4. Add Lociant to an MCP-capable agent client:
 
 ```text
 Name: Lociant
@@ -48,57 +50,161 @@ URL: http://<phone-ip>:11434/mcp
 Headers: empty
 ```
 
-3. Enable the MCP tools in the current chat.
-4. Ask: `Call runtime_status`, or `Start vision and capture a photo`.
+If API Token is enabled, add:
+
+```text
+Authorization: Bearer <token>
+```
+
+5. Enable the MCP tools in the current chat and test:
+
+```text
+Call runtime_status.
+Call device_status.
+Read the current phone UI with ui_screen_state.
+Ask the local VLM about the current screen with llm_chat and useScreenFrame.
+Start vision, then call camera_capture.
+```
+
+## OpenAI-Compatible API
+
+Use the phone as a local model provider:
+
+```text
+Base URL: http://<phone-ip>:11434/v1
+Model: one id from GET /v1/models
+API Key: blank, or any non-empty value if your client requires one
+```
+
+Useful endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `/v1/chat/completions` | OpenAI-style chat and streaming |
+| `/v1/models` | Installed and built-in models |
+| `/v1/tools` | Local tool manifest |
+| `/v1/tools/{name}/call` | Direct local tool call |
+| `/mcp` | MCP Streamable HTTP endpoint |
+| `/health` | Runtime health and discovery |
+
+## Build
 
 ```powershell
 cd apps/android
 .\gradlew.bat :app:assembleDebug
 ```
 
-[Architecture](docs/unified-architecture.md) · [OpenAI API](docs/openai-compatible.md) · [Agent Integration](docs/agent-integration.md)
+Debug APK:
+
+```text
+apps/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Design Boundary
+
+Lociant owns phone-side capabilities. Desktop agents should still own planning, workspace files, shell commands, code edits, and long-running task state.
+
+Keep the split simple:
+
+```text
+Agent client
+  -> planning, coding, workspace tools, UI
+  -> OpenAI API / MCP
+  -> Lociant on Android
+      -> local LLM/VLM
+      -> camera, screen, Android tools
+      -> notifications, sessions, storage
+```
+
+Android code is split by capability: `:core`, `:data`, `:local-runtime`, `:phone-tools`, `:mcp`, `:acp`, with `:app` kept as the composition shell.
+
+## Docs
+
+- [Unified Architecture](docs/unified-architecture.md)
+- [OpenAI-Compatible API](docs/openai-compatible.md)
+- [Agent Integration](docs/agent-integration.md)
 
 ---
 
 ## 中文
 
-AI agent 已经会推理、写代码、搜索和调用工具。
+Lociant 把 Android 手机变成一个可被 Agent 通过局域网调用的本地 AI 节点。
 
-但它们仍然不知道房间里正在发生什么。
+它不是完整的 Agent 框架，也不替代 Codex、OpenCode、RikkaHub、Pi 或你自己的自动化系统。Lociant 位于它们下层：提供手机本地模型、摄像头视觉、Android 状态、屏幕工具、通知、存储，以及标准化 API。
 
-**Lociant 把你已经拥有的 Android 手机，变成你正在使用的 agent 的本地眼睛、记忆、提醒和端侧智能。**
+## 能力
 
-把一台闲置手机放在桌上、架子上、柜台边或门口。它就会成为一个私有的现实世界接口，让你的电脑 agent、自动化脚本或聊天客户端可以在局域网内调用。
+- 通过 OpenAI-compatible API 和 Ollama 风格接口运行本地 LLM/VLM。
+- 提供 MCP Streamable HTTP server，Agent 可以直接接入。
+- Android 本地工具：设备状态、剪贴板、打开 App、通知、屏幕文字、屏幕结构、截屏、点击、滑动、返回、主页、最近任务。
+- 摄像头视觉：启动视觉 runtime、捕获画面、把图片传给本地 VLM。
+- 本地会话和存储，用于保存手机侧上下文。
+- 支持 ACP 桌面节点，让手机作为电脑端 Codex 进程的控制台。
+- 可见 Android runtime：前台服务、悬浮运行窗口、权限管理、WebView 设置页。
 
-这意味着：
+## 快速开始
 
-- 👁️ agent 可以看到书桌、房间、宠物、人物或场景
-- 🔔 现实发生变化时，它可以提醒你
-- 🧠 手机可以运行本地聊天和视觉模型
-- 🌐 现有 OpenAI-compatible 客户端可以通过局域网连接
-- 🪟 Android 前台 runtime 让它保持可见、可控
-- 📦 可以直接在手机上导入和下载模型
+1. 安装 Android App。
+2. 在 App 里启动 Runtime。
+3. 确认手机显示局域网地址，例如：
 
-底层实现上，Lociant 是一个 Android App：有前台 runtime、本地 HTTP API、MNN 模型推理、CameraX 摄像头、NCNN 视觉、本地会话、存储和工具调用。它不是要替代你的 agent，而是给 agent 一个本地身体。
+```text
+http://10.238.125.4:11434
+```
 
-零成本接入 agent：
-
-1. 安装 Android App，并启动 Runtime。
-2. 在 agent 客户端添加 MCP server：
+4. 在支持 MCP 的 Agent 客户端里添加：
 
 ```text
 名称：Lociant
-传输类型：Streamable HTTP
-服务器地址：http://<phone-ip>:11434/mcp
-请求头：留空
+传输：Streamable HTTP
+URL：http://<phone-ip>:11434/mcp
+Headers：留空
 ```
 
-3. 在当前对话里启用 MCP 工具。
-4. 直接问：`调用 runtime_status`，或 `启动视觉并拍一张照片`。
+如果启用了 API Token，添加：
+
+```text
+Authorization: Bearer <token>
+```
+
+5. 在当前对话里启用 MCP tools，然后测试：
+
+```text
+调用 runtime_status。
+调用 device_status。
+用 ui_screen_state 获取当前屏幕状态。
+启动 vision，再调用 camera_capture。
+```
+
+## OpenAI-Compatible API
+
+把手机作为本地模型服务：
+
+```text
+Base URL: http://<phone-ip>:11434/v1
+Model: 从 GET /v1/models 里选择
+API Key: 留空，或按客户端要求填任意非空值
+```
+
+## 构建
 
 ```powershell
 cd apps/android
 .\gradlew.bat :app:assembleDebug
 ```
 
-[架构](docs/unified-architecture.md) · [OpenAI API](docs/openai-compatible.md) · [Agent 集成](docs/agent-integration.md)
+输出 APK：
+
+```text
+apps/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+## 边界
+
+Lociant 只负责手机侧能力。桌面 Agent 仍然应该负责规划、工作区文件、Shell、代码编辑和长期任务状态。
+
+更多文档：
+
+- [统一架构](docs/unified-architecture.md)
+- [OpenAI-Compatible API](docs/openai-compatible.md)
+- [Agent 集成](docs/agent-integration.md)

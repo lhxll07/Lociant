@@ -21,20 +21,20 @@ class NotificationTools(
     init { ensureNotificationChannel() }
 
     override fun tools(): List<ToolDefinition> = listOf(
-        ToolDefinition(
+        tool(
             name = "notification_post",
             description = "Post a local Android notification. Useful for alerts triggered by sensor conditions.",
-            parameters = objectSchema(JSONObject()
-                .put("title", JSONObject().put("type", "string").put("description", "Notification title"))
-                .put("body", JSONObject().put("type", "string").put("description", "Notification body text"))),
+            properties = JSONObject()
+                .put("title", stringParam("Notification title"))
+                .put("body", stringParam("Notification body text")),
             policy = ToolPolicy(sideEffect = true),
         ) { args -> postNotification(args) },
-        ToolDefinition(
+        tool(
             name = "webhook_post",
             description = "POST JSON to an external URL. Used by triggers to notify external agents or a custom server.",
-            parameters = objectSchema(JSONObject()
-                .put("url", JSONObject().put("type", "string").put("description", "Target webhook URL"))
-                .put("payload", JSONObject().put("type", "object").put("description", "JSON payload to POST"))),
+            properties = JSONObject()
+                .put("url", stringParam("Target webhook URL"))
+                .put("payload", objectParam("JSON payload to POST")),
             policy = ToolPolicy(sideEffect = true),
         ) { args -> callWebhook(args) },
     )

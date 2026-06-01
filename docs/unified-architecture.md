@@ -34,7 +34,10 @@ Scene iframe / LAN client / agent client
         -> MnnRuntime / NcnnRuntime / VisionAnalysisController / Room / Android services
 ```
 
-`MainActivity` owns WebView, permissions, camera preview surface, and Android UI concerns.
+`MainActivity` owns WebView, permission entry points, and Android UI concerns. CameraX vision belongs to `:local-runtime` and is attached by the foreground runtime service when needed.
+
+The Android project is split by runtime capability rather than by UI page:
+`:core` keeps protocol-neutral contracts, `:data` owns persistence, `:local-runtime` owns MNN/NCNN and CameraX vision, `:phone-tools` owns Android device tools, `:mcp` and `:acp` are protocol adapters, and `:app` is the composition shell.
 
 `MNNodeRuntime` and `MNNodeRuntimeService` are still internal implementation names. They own shared runtime singletons, foreground service lifecycle, and the Runtime Window overlay. They do not define the public product name.
 
@@ -97,6 +100,10 @@ Current local tools:
 | `vision_start` | Start continuous camera vision analysis |
 | `camera_capture` | Capture the latest camera frame as a JPEG data URL |
 | `vision_stop` | Stop continuous camera vision analysis |
+| `ui_screen_state` | Read a compact Android UI state with stable `nodeId` values and optional screenshot |
+| `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
+| `ui_tap` / `ui_swipe` | Coordinate fallback for tap, long press, or swipe |
+| `ui_wait` | Wait for UI idle or visible text after an action |
 | `event_record` | Persist a runtime event |
 | `store_increment` | Increment a numeric local-store value |
 | `notification_post` | Send Android notification |
@@ -242,6 +249,10 @@ Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool ca
 | `vision_start` | 启动连续摄像头视觉分析 |
 | `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
 | `vision_stop` | 停止连续摄像头视觉分析 |
+| `ui_screen_state` | 读取紧凑 Android UI 状态，可返回 `nodeId` 和可选截图 |
+| `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
+| `ui_tap` / `ui_swipe` | 坐标兜底点击、长按或滑动 |
+| `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
 | `event_record` | 持久化 runtime 事件 |
 | `store_increment` | 递增本地存储里的数值 |
 | `notification_post` | 发送 Android 通知 |

@@ -110,6 +110,10 @@ Current Lociant-local tools:
 | `vision_start` | Start continuous camera vision analysis |
 | `camera_capture` | Capture the latest camera frame as a JPEG data URL |
 | `vision_stop` | Stop continuous camera vision analysis |
+| `ui_screen_state` | Read a compact Android UI state with stable `nodeId` values and optional screenshot |
+| `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
+| `ui_tap` / `ui_swipe` | Coordinate fallback for tap, long press, or swipe |
+| `ui_wait` | Wait for UI idle or visible text after an action |
 | `store_get` | Read a local-store value |
 | `store_set` | Write a local-store value |
 | `store_list` | List a local-store namespace |
@@ -130,6 +134,16 @@ For desktop agents, `llm_chat` is the simplest way to use the Android phone as a
 ```
 
 `llm_chat` also accepts `image` or `images` as data URLs, and OpenAI-style `messages[].content[].image_url`. Image input requires a VLM model. By default `llm_chat` does not persist chat history. Pass `sessionId` when you want Lociant to reuse and save phone-local context.
+
+To analyze the current Android screen without manually passing a screenshot, call `llm_chat` with `useScreenFrame: true`:
+
+```json
+{
+  "prompt": "Describe the current phone screen and suggest the next tap.",
+  "useScreenFrame": true,
+  "maxTokens": 160
+}
+```
 
 When the image comes from the phone camera, prefer `useCameraFrame: true` after starting vision. MCP responses intentionally compact large media in `structuredContent`, so copying the placeholder text from `camera_capture` back into `llm_chat` will not work.
 
@@ -409,6 +423,10 @@ API Key: 留空或任意非空字符串，取决于客户端
 | `vision_start` | 启动连续摄像头视觉分析 |
 | `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
 | `vision_stop` | 停止连续摄像头视觉分析 |
+| `ui_screen_state` | 读取紧凑 Android UI 状态，可返回 `nodeId` 和可选截图 |
+| `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
+| `ui_tap` / `ui_swipe` | 坐标兜底点击、长按或滑动 |
+| `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
 | `store_get` | 读取本地存储值 |
 | `store_set` | 写入本地存储值 |
 | `store_list` | 列出本地存储 namespace |

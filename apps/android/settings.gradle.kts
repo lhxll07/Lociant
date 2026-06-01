@@ -27,3 +27,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "MNNodeAndroid"
 include(":app")
+include(":core")
+include(":data")
+include(":local-runtime")
+include(":phone-tools")
+include(":mcp")
+include(":acp")

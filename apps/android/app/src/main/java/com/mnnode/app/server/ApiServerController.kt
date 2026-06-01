@@ -2,6 +2,7 @@ package com.mnnode.app.server
 
 import android.content.Context
 import android.util.Log
+import com.mnnode.app.LociantAccessibilityService
 import com.mnnode.app.agent.AcpAgentManager
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
@@ -63,6 +64,7 @@ class ApiServerController(
     private val sessionStore: SessionStore,
     private val triggerEngine: TriggerEngine,
     private val acpAgentManager: AcpAgentManager,
+    private val startVisionRuntime: (JSONObject) -> Unit,
 ) {
     @Volatile private var server: EmbeddedServer<*, *>? = null
     @Volatile private var starting = false
@@ -100,7 +102,7 @@ class ApiServerController(
                     runtimeState = { runtimeSummary() },
                     chat = { llmToolChat(it) },
                 ),
-                VisionTools(context),
+                VisionTools(context, startVisionRuntime),
                 StorageTools(sessionStore, localStore),
                 notificationTools,
             )
@@ -490,6 +492,9 @@ class ApiServerController(
                 ?: throw IllegalArgumentException("useCameraFrame requires an active vision runtime with a latest preview frame")
             images += ModelChatPart.Image("image/jpeg", bytes)
         }
+        if (args.optBoolean("useScreenFrame", false) || args.optBoolean("useScreenshot", false)) {
+            images += captureScreenChatImage(args)
+        }
         val image = args.optString("image")
         if (image.isNotBlank()) {
             images += ModelChatPart.decodeImagePart(image)
@@ -506,6 +511,20 @@ class ApiServerController(
             }
         }
         return images
+    }
+
+    private fun captureScreenChatImage(args: JSONObject): ModelChatPart.Image {
+        val service = LociantAccessibilityService.instance
+            ?: throw IllegalArgumentException("useScreenFrame requires Lociant AccessibilityService to be enabled and connected")
+        val snapshot = service.takeScreenShot(
+            maxWidth = args.optInt("screenshotMaxWidth", 720).coerceIn(320, 1440),
+            quality = args.optInt("screenshotQuality", 82).coerceIn(45, 95),
+        )
+        if (!snapshot.optBoolean("ok", false)) {
+            throw IllegalArgumentException(snapshot.optString("message", "Android screen capture failed"))
+        }
+        return ModelChatPart.decodeImagePart(snapshot.optString("image"))
+            ?: throw IllegalArgumentException("Android screen capture returned an invalid image")
     }
 
     private fun appendImagesToLastUserMessage(

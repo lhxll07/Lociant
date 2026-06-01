@@ -9,55 +9,52 @@ class StorageTools(
     private val localStore: LocalStore,
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
-        ToolDefinition(
+        tool(
             name = "store_get",
             description = "Read a value from Lociant's local persistent key-value store.",
-            parameters = objectSchema(JSONObject()
-                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))
-                .put("key", JSONObject().put("type", "string").put("description", "Key to read"))),
+            properties = storeKeyParams("Key to read"),
         ) { args ->
             localStore.get(args.optString("namespace", "default"), args.optString("key", "value"))
         },
-        ToolDefinition(
+        tool(
             name = "store_set",
             description = "Write a JSON-compatible value to Lociant's local persistent key-value store.",
-            parameters = objectSchema(JSONObject()
-                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))
-                .put("key", JSONObject().put("type", "string").put("description", "Key to write"))
-                .put("value", JSONObject().put("description", "JSON-compatible value"))),
+            properties = storeKeyParams("Key to write")
+                .put("value", JSONObject().put("description", "JSON-compatible value")),
             policy = ToolPolicy(sideEffect = true),
         ) { args ->
             val value = if (args.has("value")) args.opt("value") else JSONObject.NULL
             localStore.set(args.optString("namespace", "default"), args.optString("key", "value"), value)
         },
-        ToolDefinition(
+        tool(
             name = "store_list",
             description = "List all values in a Lociant local persistent key-value namespace.",
-            parameters = objectSchema(JSONObject()
-                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))),
+            properties = JSONObject().put("namespace", stringParam("Store namespace")),
         ) { args ->
             localStore.list(args.optString("namespace", "default"))
         },
-        ToolDefinition(
+        tool(
             name = "event_record",
             description = "Record a runtime event to local persistent storage (Room). Useful for sensor-driven data logging.",
-            parameters = objectSchema(JSONObject()
-                .put("sceneId", JSONObject().put("type", "string").put("description", "Scene identifier for this event"))
-                .put("type", JSONObject().put("type", "string").put("description", "Event type label"))
-                .put("level", JSONObject().put("type", "string").put("description", "info | warn | error"))
-                .put("payload", JSONObject().put("type", "object").put("description", "Arbitrary payload JSON"))),
+            properties = JSONObject()
+                .put("sceneId", stringParam("Scene identifier for this event"))
+                .put("type", stringParam("Event type label"))
+                .put("level", stringParam("info | warn | error"))
+                .put("payload", objectParam("Arbitrary payload JSON")),
             policy = ToolPolicy(sideEffect = true),
         ) { args -> recordEvent(args) },
-        ToolDefinition(
+        tool(
             name = "store_increment",
             description = "Read-modify-write a numeric value (delta) in the local persistent key-value store. Use for trigger-driven accumulators like focus_seconds.",
-            parameters = objectSchema(JSONObject()
-                .put("namespace", JSONObject().put("type", "string").put("description", "Store namespace"))
-                .put("key", JSONObject().put("type", "string").put("description", "Key to increment"))
-                .put("value", JSONObject().put("type", "number").put("description", "Delta value to add"))),
+            properties = storeKeyParams("Key to increment")
+                .put("value", numberParam("Delta value to add")),
             policy = ToolPolicy(sideEffect = true),
         ) { args -> storeValue(args) },
     )
+
+    private fun storeKeyParams(keyDescription: String): JSONObject = JSONObject()
+        .put("namespace", stringParam("Store namespace"))
+        .put("key", stringParam(keyDescription))
 
     private fun recordEvent(args: JSONObject): JSONObject {
         val sceneId = args.optString("sceneId", "runtime")

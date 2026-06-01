@@ -11,15 +11,13 @@ class RuntimeTools(
     private val runtimeState: () -> JSONObject,
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
-        ToolDefinition(
+        tool(
             name = "runtime_resources",
             description = "Return Android package and local runtime resource information.",
-            parameters = objectSchema(),
         ) { deviceInfo() },
-        ToolDefinition(
+        tool(
             name = "runtime_status",
             description = "Return Lociant API runtime status.",
-            parameters = objectSchema(),
         ) { runtimeState() },
     )
 
@@ -40,25 +38,23 @@ class ModelTools(
     private val cancelChat: () -> Unit,
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
-        ToolDefinition(
+        tool(
             name = "model_list",
             description = "List installed and built-in models visible to Lociant.",
-            parameters = objectSchema(),
         ) { JSONObject().put("models", JSONArray(modelManager.listModelsJson())) },
-        ToolDefinition(
+        tool(
             name = "model_preload",
             description = "Queue model preload for the selected chat model.",
-            parameters = objectSchema(JSONObject().put("model", JSONObject().put("type", "string"))),
+            properties = JSONObject().put("model", stringParam()),
             policy = ToolPolicy(sideEffect = true),
         ) { args ->
             val model = ModelManager.normalizeId(args.optString("model"))
             preloadModel(model)
             JSONObject().put("queued", true).put("model", model)
         },
-        ToolDefinition(
+        tool(
             name = "inference_cancel",
             description = "Cancel the currently running chat inference request.",
-            parameters = objectSchema(),
             policy = ToolPolicy(sideEffect = true),
         ) {
             cancelChat()
@@ -73,50 +69,28 @@ class LlmTools(
     private val chat: (JSONObject) -> JSONObject,
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
-        ToolDefinition(
+        tool(
             name = "llm_status",
             description = "Return phone-local LLM readiness, selected model, context, and available chat models.",
-            parameters = objectSchema(),
         ) { llmStatus() },
-        ToolDefinition(
+        tool(
             name = "llm_chat",
             description = "Ask the phone-local LLM to answer a prompt through Lociant's shared inference queue. Use this when a desktop agent wants the Android phone to act as a local reasoning node.",
-            parameters = objectSchema(JSONObject()
-                .put("prompt", JSONObject()
-                    .put("type", "string")
-                    .put("description", "User prompt. Use either prompt or messages."))
-                .put("messages", JSONObject()
-                    .put("type", "array")
-                    .put("description", "Optional OpenAI-style text or image messages.")
-                    .put("items", JSONObject().put("type", "object")))
-                .put("image", JSONObject()
-                    .put("type", "string")
-                    .put("description", "Optional image data URL or base64 image bytes."))
-                .put("images", JSONObject()
-                    .put("type", "array")
-                    .put("description", "Optional image data URLs or base64 image bytes. Only one image is currently used.")
-                    .put("items", JSONObject().put("type", "string")))
-                .put("useCameraFrame", JSONObject()
-                    .put("type", "boolean")
-                    .put("description", "Use the latest camera frame from the active vision runtime as the image input."))
-                .put("system", JSONObject()
-                    .put("type", "string")
-                    .put("description", "Optional system instruction used with prompt."))
-                .put("model", JSONObject()
-                    .put("type", "string")
-                    .put("description", "Optional model id. Defaults to Lociant runtime setting."))
-                .put("modelId", JSONObject()
-                    .put("type", "string")
-                    .put("description", "Alias for model."))
-                .put("maxTokens", JSONObject()
-                    .put("type", "integer")
-                    .put("description", "Optional output token limit."))
-                .put("sessionId", JSONObject()
-                    .put("type", "string")
-                    .put("description", "Optional Lociant model session id for persistent context."))
-                .put("timeoutMs", JSONObject()
-                    .put("type", "integer")
-                    .put("description", "Optional sync timeout, capped by the runtime queue timeout."))),
+            properties = JSONObject()
+                .put("prompt", stringParam("User prompt. Use either prompt or messages."))
+                .put("messages", arrayParam("Optional OpenAI-style text or image messages.", objectParam()))
+                .put("image", stringParam("Optional image data URL or base64 image bytes."))
+                .put("images", arrayParam("Optional image data URLs or base64 image bytes. Only one image is currently used.", stringParam()))
+                .put("useCameraFrame", boolParam("Use the latest camera frame from the active vision runtime as the image input."))
+                .put("useScreenFrame", boolParam("Capture the current Android screen and use it as the image input. Requires Accessibility screenshot support and a VLM model."))
+                .put("screenshotMaxWidth", intParam("Maximum screen capture width when useScreenFrame is true. Default 720."))
+                .put("screenshotQuality", intParam("JPEG quality for screen capture when useScreenFrame is true. Default 82."))
+                .put("system", stringParam("Optional system instruction used with prompt."))
+                .put("model", stringParam("Optional model id. Defaults to Lociant runtime setting."))
+                .put("modelId", stringParam("Alias for model."))
+                .put("maxTokens", intParam("Optional output token limit."))
+                .put("sessionId", stringParam("Optional Lociant model session id for persistent context."))
+                .put("timeoutMs", intParam("Optional sync timeout, capped by the runtime queue timeout.")),
         ) { args -> chat(args) },
     )
 
@@ -159,6 +133,3 @@ class LlmTools(
         return runtime == "mnn" || type == "vlm" || type == "chat" || type == "llm"
     }
 }
-
-internal fun objectSchema(properties: JSONObject = JSONObject()): JSONObject =
-    JSONObject().put("type", "object").put("properties", properties)

@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp")
 }
 
 val buildWebUi by tasks.registering(Exec::class) {
@@ -18,8 +17,6 @@ val buildWebUi by tasks.registering(Exec::class) {
 android {
     namespace = "com.mnnode.app"
     compileSdk = 36
-    buildToolsVersion = "36.0.0"
-    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.mnnode.app"
@@ -27,17 +24,6 @@ android {
         targetSdk = 36
         versionCode = 4
         versionName = "0.4.0"
-
-        externalNativeBuild {
-            cmake {
-                cppFlags += listOf("-std=c++17")
-                arguments += listOf("-DANDROID_STL=c++_shared")
-            }
-        }
-
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
     }
 
     compileOptions {
@@ -49,16 +35,8 @@ android {
         jvmTarget = "17"
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-
     sourceSets {
         getByName("main") {
-            jniLibs.srcDir("../../../tools/mnn_3.5.0_android_armv7_armv8_cpu_opencl_vulkan")
             assets.srcDir("../../../scenes")
         }
     }
@@ -91,21 +69,17 @@ tasks.named("preBuild") {
 }
 
 dependencies {
-    val cameraxVersion = "1.4.2"
     val ktorVersion = "3.1.3"
-    val okhttpVersion = "4.12.0"
-    val roomVersion = "2.7.2"
 
+    implementation(project(":core"))
+    implementation(project(":data"))
+    implementation(project(":local-runtime"))
+    implementation(project(":phone-tools"))
+    implementation(project(":mcp"))
+    implementation(project(":acp"))
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.webkit:webkit:1.12.1")
-    implementation("androidx.camera:camera-core:$cameraxVersion")
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
-    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("androidx.lifecycle:lifecycle-runtime:2.9.0")
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
 }

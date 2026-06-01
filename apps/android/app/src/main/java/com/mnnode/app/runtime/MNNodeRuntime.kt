@@ -62,6 +62,7 @@ object MNNodeRuntime {
                 sessionStore,
                 triggerEngine,
                 acpAgent,
+                startVisionRuntime = { payload -> MNNodeRuntimeService.startRuntime(appContext, payload) },
             )
             triggerEngine.setCallTool { name, args -> apiServer.callTool(name, args) }
             return Holder(
