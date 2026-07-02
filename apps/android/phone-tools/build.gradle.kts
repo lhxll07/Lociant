@@ -26,4 +26,5 @@ dependencies {
     api(project(":data"))
     api(project(":local-runtime"))
     implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.documentfile:documentfile:1.1.0")
 }

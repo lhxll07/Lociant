@@ -5,6 +5,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Bundle
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -14,6 +15,8 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.mnnode.app.util.jsonError
+import com.mnnode.app.util.jsonOk
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -95,7 +98,7 @@ class LociantAccessibilityService : AccessibilityService() {
                 .put("query", filter)
                 .put("exact", exact)
                 .put("cacheSize", cache.size)
-                .put("message", "Use nodeId with ui_click_node for semantic actions; use ui_tap only as a coordinate fallback.")
+                .put("message", "Use nodeId with ui_click_node for semantic actions; use ui_gesture only as a coordinate fallback.")
             if (includeScreenshot) {
                 result.put("screenshot", takeScreenShot(screenshotMaxWidth, screenshotQuality))
             }
@@ -112,7 +115,7 @@ class LociantAccessibilityService : AccessibilityService() {
                 .put("ok", false)
                 .put("code", "node_not_found")
                 .put("nodeId", nodeId)
-                .put("message", "Node is not in the latest ui_screen_state cache. Call ui_screen_state again.")
+                .put("message", "Node is not in the latest screen_context cache. Call screen_context again.")
         if (longClick) {
             return gestureLongClick(cached.bounds.centerX(), cached.bounds.centerY())
                 .put("nodeId", nodeId)
@@ -143,6 +146,91 @@ class LociantAccessibilityService : AccessibilityService() {
             .put("method", "gesture_fallback")
     }
 
+    fun setNodeText(nodeId: String, text: String, submit: Boolean = false): JSONObject {
+        require(nodeId.isNotBlank()) { "nodeId is required" }
+        val cached = synchronized(nodeCache) { nodeCache[nodeId] }
+            ?: return JSONObject()
+                .put("ok", false)
+                .put("code", "node_not_found")
+                .put("nodeId", nodeId)
+                .put("message", "Node is not in the latest screen_context cache. Call screen_context again.")
+        val root = rootInActiveWindow ?: return unavailable("No active accessibility window.").put("nodeId", nodeId)
+        try {
+            val node = findNode(root, cached.path)
+                ?: return JSONObject()
+                    .put("ok", false)
+                    .put("code", "node_not_found")
+                    .put("nodeId", nodeId)
+                    .put("message", "Node is no longer present. Call screen_context again.")
+            try {
+                val target = editableTarget(node)
+                    ?: return JSONObject()
+                        .put("ok", false)
+                        .put("code", "node_not_editable")
+                        .put("nodeId", nodeId)
+                        .put("target", cached.toJson())
+                        .put("message", "Target node is not editable.")
+                try {
+                    val focused = performNodeActionOnMain(target, AccessibilityNodeInfo.ACTION_FOCUS)
+                    val args = Bundle().apply {
+                        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+                    }
+                    val success = performNodeActionOnMain(target, AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                    return JSONObject()
+                        .put("ok", success)
+                        .put("action", "ui_set_text")
+                        .put("method", "accessibility_set_text")
+                        .put("nodeId", nodeId)
+                        .put("focused", focused)
+                        .put("submitRequested", submit)
+                        .put("submitted", false)
+                        .put("length", text.length)
+                        .put("target", cached.toJson())
+                        .put("message", if (success) "Text set on editable node." else "Android rejected ACTION_SET_TEXT.")
+                } finally {
+                    if (target !== node) target.recycle()
+                }
+            } finally {
+                node.recycle()
+            }
+        } finally {
+            root.recycle()
+        }
+    }
+
+    fun pasteIntoFocusedText(textLength: Int = 0): JSONObject {
+        val root = rootInActiveWindow ?: return unavailable("No active accessibility window.")
+        try {
+            val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                ?: return JSONObject()
+                    .put("ok", false)
+                    .put("code", "focused_input_not_found")
+                    .put("message", "No focused input field is available for paste.")
+            try {
+                val target = editableTarget(focused)
+                    ?: return JSONObject()
+                        .put("ok", false)
+                        .put("code", "focused_node_not_editable")
+                        .put("message", "Focused node is not editable.")
+                try {
+                    val pasted = performNodeActionOnMain(target, AccessibilityNodeInfo.ACTION_PASTE)
+                    return JSONObject()
+                        .put("ok", pasted)
+                        .put("action", "ui_paste_text")
+                        .put("method", "accessibility_paste")
+                        .put("length", textLength)
+                        .put("message", if (pasted) "Clipboard text pasted into focused input." else "Android rejected ACTION_PASTE.")
+                } finally {
+                    if (target !== focused) target.recycle()
+                }
+            } finally {
+                focused.recycle()
+            }
+        } finally {
+            root.recycle()
+        }
+    }
+
     fun waitForUi(
         text: String = "",
         exact: Boolean = false,
@@ -157,31 +245,14 @@ class LociantAccessibilityService : AccessibilityService() {
             if (target.isNotBlank()) {
                 val state = readScreenState(maxDepth = maxDepth, maxNodes = DEFAULT_STATE_NODES, query = target, exact = exact)
                 if (state.optJSONArray("nodes")?.length() ?: 0 > 0) {
-                    return JSONObject()
-                        .put("ok", true)
-                        .put("mode", "text")
-                        .put("text", target)
-                        .put("elapsedMs", SystemClock.uptimeMillis() - startedAt)
-                        .put("state", state)
+                    return jsonOk("mode" to "text", "text" to target, "elapsedMs" to SystemClock.uptimeMillis() - startedAt, "state" to state)
                 }
             } else if (System.currentTimeMillis() - lastEventTimeMs >= idleMs) {
-                return JSONObject()
-                    .put("ok", true)
-                    .put("mode", "idle")
-                    .put("idleMs", idleMs)
-                    .put("elapsedMs", SystemClock.uptimeMillis() - startedAt)
-                    .put("lastEvent", lastEventJson())
+                return jsonOk("mode" to "idle", "idleMs" to idleMs, "elapsedMs" to SystemClock.uptimeMillis() - startedAt, "lastEvent" to lastEventJson())
             }
             SystemClock.sleep(WAIT_POLL_MS)
         }
-        return JSONObject()
-            .put("ok", false)
-            .put("code", "ui_wait_timeout")
-            .put("mode", if (target.isBlank()) "idle" else "text")
-            .put("text", target)
-            .put("timeoutMs", timeoutMs)
-            .put("elapsedMs", SystemClock.uptimeMillis() - startedAt)
-            .put("lastEvent", lastEventJson())
+        return jsonError("ui_wait_timeout", "UI wait timed out", "mode" to if (target.isBlank()) "idle" else "text", "text" to target, "timeoutMs" to timeoutMs, "elapsedMs" to SystemClock.uptimeMillis() - startedAt, "lastEvent" to lastEventJson())
     }
 
     fun takeScreenShot(
@@ -189,14 +260,10 @@ class LociantAccessibilityService : AccessibilityService() {
         quality: Int = DEFAULT_SCREENSHOT_QUALITY,
     ): JSONObject {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            return unavailable("Screen capture requires Android 11 or later.")
-                .put("code", "screenshot_unavailable")
-                .put("minSdk", Build.VERSION_CODES.R)
-                .put("sdk", Build.VERSION.SDK_INT)
+            return jsonError("screenshot_unavailable", "Screen capture requires Android 11 or later.", "minSdk" to Build.VERSION_CODES.R, "sdk" to Build.VERSION.SDK_INT, "lastEvent" to lastEventJson())
         }
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            return unavailable("Screen capture cannot block the Android main thread.")
-                .put("code", "screenshot_main_thread")
+            return jsonError("screenshot_main_thread", "Screen capture cannot block the Android main thread.", "lastEvent" to lastEventJson())
         }
 
         val result = AtomicReference<JSONObject>()
@@ -208,11 +275,7 @@ class LociantAccessibilityService : AccessibilityService() {
             }
 
             override fun onFailure(errorCode: Int) {
-                result.set(JSONObject()
-                    .put("ok", false)
-                    .put("code", "screenshot_failed")
-                    .put("errorCode", errorCode)
-                    .put("message", "Android rejected the screen capture request. Secure windows and system policy can block screenshots."))
+                result.set(jsonError("screenshot_failed", "Android rejected the screen capture request. Secure windows and system policy can block screenshots.", "errorCode" to errorCode))
                 latch.countDown()
             }
         }
@@ -224,16 +287,12 @@ class LociantAccessibilityService : AccessibilityService() {
             }.getOrDefault(false)
         }
         if (!started) {
-            return unavailable("Screen capture request could not be started.")
-                .put("code", "screenshot_start_failed")
+            return jsonError("screenshot_start_failed", "Screen capture request could not be started.", "lastEvent" to lastEventJson())
         }
         if (!latch.await(SCREENSHOT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-            return unavailable("Screen capture timed out.")
-                .put("code", "screenshot_timeout")
-                .put("timeoutMs", SCREENSHOT_TIMEOUT_MS)
+            return jsonError("screenshot_timeout", "Screen capture timed out.", "timeoutMs" to SCREENSHOT_TIMEOUT_MS, "lastEvent" to lastEventJson())
         }
-        return result.get() ?: unavailable("Screen capture returned no result.")
-            .put("code", "screenshot_empty")
+        return result.get() ?: jsonError("screenshot_empty", "Screen capture returned no result.", "lastEvent" to lastEventJson())
     }
 
     fun gestureClick(x: Int, y: Int): JSONObject =
@@ -320,12 +379,7 @@ class LociantAccessibilityService : AccessibilityService() {
                 if (isClickableStateNode(current)) {
                     val bounds = boundsOf(current)
                     val success = performNodeActionOnMain(current, AccessibilityNodeInfo.ACTION_CLICK)
-                    return JSONObject()
-                        .put("ok", success)
-                        .put("action", action)
-                        .put("method", "accessibility_action")
-                        .put("tap", boundsJson(bounds))
-                        .put("message", if (success) "Clicked accessibility node." else "Accessibility click action failed.")
+                    return jsonOk("action" to action, "method" to "accessibility_action", "tap" to boundsJson(bounds), "message" to if (success) "Clicked accessibility node." else "Accessibility click action failed.").apply { put("ok", success) }
                 }
                 val parent = current.parent
                 if (recycleCurrent) current.recycle()
@@ -336,6 +390,21 @@ class LociantAccessibilityService : AccessibilityService() {
             if (recycleCurrent) current?.recycle()
         }
         return JSONObject().put("ok", false)
+    }
+
+    private fun editableTarget(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var current: AccessibilityNodeInfo? = AccessibilityNodeInfo.obtain(node)
+        var recycleCurrent = true
+        while (current != null) {
+            if (current.isEnabled && current.isVisibleToUser && current.isEditable) {
+                return current
+            }
+            val parent = current.parent
+            if (recycleCurrent) current.recycle()
+            current = parent
+            recycleCurrent = true
+        }
+        return null
     }
 
     private fun dispatchGesture(action: String, description: GestureDescription, durationMs: Long): JSONObject {
@@ -420,15 +489,9 @@ class LociantAccessibilityService : AccessibilityService() {
         var image: Bitmap? = null
         return try {
             val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
-                ?: return JSONObject()
-                    .put("ok", false)
-                    .put("code", "screenshot_decode_failed")
-                    .put("message", "Android returned a screenshot buffer that could not be decoded.")
+                ?: return jsonError("screenshot_decode_failed", "Android returned a screenshot buffer that could not be decoded.")
             source = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false)
-                ?: return JSONObject()
-                    .put("ok", false)
-                    .put("code", "screenshot_copy_failed")
-                    .put("message", "Android screenshot buffer could not be copied.")
+                ?: return jsonError("screenshot_copy_failed", "Android screenshot buffer could not be copied.")
             val requestedMaxWidth = maxWidth.coerceIn(MIN_SCREENSHOT_WIDTH, MAX_SCREENSHOT_WIDTH)
             image = if (source.width > requestedMaxWidth) {
                 val scale = requestedMaxWidth.toFloat() / source.width.toFloat()
@@ -441,27 +504,13 @@ class LociantAccessibilityService : AccessibilityService() {
                 stream.toByteArray()
             }
             val data = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            JSONObject()
-                .put("ok", true)
-                .put("mimeType", "image/jpeg")
-                .put("width", image.width)
-                .put("height", image.height)
-                .put("sourceWidth", source.width)
-                .put("sourceHeight", source.height)
-                .put("quality", quality.coerceIn(MIN_SCREENSHOT_QUALITY, MAX_SCREENSHOT_QUALITY))
-                .put("bytes", bytes.size)
-                .put("image", "data:image/jpeg;base64,$data")
-                .put("capturedAt", System.currentTimeMillis())
-                .also {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        it.put("hardwareTimestamp", screenshot.timestamp)
-                    }
+            jsonOk("mimeType" to "image/jpeg", "width" to image.width, "height" to image.height, "sourceWidth" to source.width, "sourceHeight" to source.height, "quality" to quality.coerceIn(MIN_SCREENSHOT_QUALITY, MAX_SCREENSHOT_QUALITY), "bytes" to bytes.size, "image" to "data:image/jpeg;base64,$data", "capturedAt" to System.currentTimeMillis()).also {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    it.put("hardwareTimestamp", screenshot.timestamp)
                 }
+            }
         } catch (error: Throwable) {
-            JSONObject()
-                .put("ok", false)
-                .put("code", "screenshot_encode_failed")
-                .put("message", error.message ?: "Failed to encode Android screenshot.")
+            jsonError("screenshot_encode_failed", error.message ?: "Failed to encode Android screenshot.")
         } finally {
             image?.takeIf { it !== source }?.recycle()
             source?.recycle()
@@ -474,6 +523,9 @@ class LociantAccessibilityService : AccessibilityService() {
 
     private fun performNodeActionOnMain(node: AccessibilityNodeInfo, action: Int): Boolean =
         runOnMainBoolean(ACTION_TIMEOUT_MS) { node.performAction(action) }
+
+    private fun performNodeActionOnMain(node: AccessibilityNodeInfo, action: Int, args: Bundle): Boolean =
+        runOnMainBoolean(ACTION_TIMEOUT_MS) { node.performAction(action, args) }
 
     private fun runOnMainBoolean(timeoutMs: Long, block: () -> Boolean): Boolean {
         if (Looper.myLooper() == Looper.getMainLooper()) return runCatching { block() }.getOrDefault(false)
@@ -663,10 +715,10 @@ class LociantAccessibilityService : AccessibilityService() {
         private const val SNAPSHOT_TIMEOUT_MS = 900L
         private const val MAX_SNAPSHOT_NODES = 650
         private const val SCREENSHOT_TIMEOUT_MS = 2500L
-        private const val DEFAULT_WAIT_TIMEOUT_MS = 3000L
-        private const val DEFAULT_IDLE_MS = 500L
+        private const val DEFAULT_WAIT_TIMEOUT_MS = 1600L
+        private const val DEFAULT_IDLE_MS = 220L
         private const val MAX_WAIT_TIMEOUT_MS = 15000L
-        private const val WAIT_POLL_MS = 120L
+        private const val WAIT_POLL_MS = 80L
         private const val DEFAULT_SCREENSHOT_MAX_WIDTH = 720
         private const val MIN_SCREENSHOT_WIDTH = 320
         private const val MAX_SCREENSHOT_WIDTH = 1440

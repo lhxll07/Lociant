@@ -1,65 +1,30 @@
 package com.mnnode.app.server
 
-import android.content.Context
 import com.mnnode.app.config.RuntimeDefaults
 import com.mnnode.app.model.ModelManager
+import com.mnnode.app.util.jsonOk
 import org.json.JSONArray
 import org.json.JSONObject
 
 class RuntimeTools(
-    private val context: Context,
     private val runtimeState: () -> JSONObject,
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
-        tool(
-            name = "runtime_resources",
-            description = "Return Android package and local runtime resource information.",
-        ) { deviceInfo() },
         tool(
             name = "runtime_status",
             description = "Return Lociant API runtime status.",
         ) { runtimeState() },
     )
-
-    private fun deviceInfo(): JSONObject {
-        val runtime = Runtime.getRuntime()
-        return JSONObject()
-            .put("packageName", context.packageName)
-            .put("availableProcessors", runtime.availableProcessors())
-            .put("maxMemory", runtime.maxMemory())
-            .put("totalMemory", runtime.totalMemory())
-            .put("freeMemory", runtime.freeMemory())
-    }
 }
 
 class ModelTools(
     private val modelManager: ModelManager,
-    private val preloadModel: (String) -> Unit,
-    private val cancelChat: () -> Unit,
 ) : ToolProvider {
     override fun tools(): List<ToolDefinition> = listOf(
         tool(
             name = "model_list",
             description = "List installed and built-in models visible to Lociant.",
         ) { JSONObject().put("models", JSONArray(modelManager.listModelsJson())) },
-        tool(
-            name = "model_preload",
-            description = "Queue model preload for the selected chat model.",
-            properties = JSONObject().put("model", stringParam()),
-            policy = ToolPolicy(sideEffect = true),
-        ) { args ->
-            val model = ModelManager.normalizeId(args.optString("model"))
-            preloadModel(model)
-            JSONObject().put("queued", true).put("model", model)
-        },
-        tool(
-            name = "inference_cancel",
-            description = "Cancel the currently running chat inference request.",
-            policy = ToolPolicy(sideEffect = true),
-        ) {
-            cancelChat()
-            JSONObject().put("cancelled", true)
-        },
     )
 }
 
@@ -96,18 +61,7 @@ class LlmTools(
 
     private fun llmStatus(): JSONObject {
         val state = runtimeState()
-        return JSONObject()
-            .put("ok", true)
-            .put("running", state.optBoolean("running", false))
-            .put("modelId", state.optString("modelId"))
-            .put("modelLoaded", state.optBoolean("modelLoaded", false))
-            .put("modelLoading", state.optBoolean("modelLoading", false))
-            .put("contextWindowTokens", state.opt("contextWindowTokens") ?: JSONObject.NULL)
-            .put("effectiveMaxOutputTokens", state.opt("effectiveMaxOutputTokens") ?: JSONObject.NULL)
-            .put("maxOutputTokens", state.opt("maxOutputTokens") ?: JSONObject.NULL)
-            .put("lastError", state.opt("lastError") ?: JSONObject.NULL)
-            .put("queueTimeoutMs", RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
-            .put("readyModels", readyChatModels())
+        return jsonOk("running" to state.optBoolean("running", false), "modelId" to state.optString("modelId"), "modelLoaded" to state.optBoolean("modelLoaded", false), "modelLoading" to state.optBoolean("modelLoading", false), "contextWindowTokens" to (state.opt("contextWindowTokens") ?: JSONObject.NULL), "effectiveMaxOutputTokens" to (state.opt("effectiveMaxOutputTokens") ?: JSONObject.NULL), "maxOutputTokens" to (state.opt("maxOutputTokens") ?: JSONObject.NULL), "lastError" to (state.opt("lastError") ?: JSONObject.NULL), "queueTimeoutMs" to RuntimeDefaults.Queue.CHAT_TIMEOUT_MS, "readyModels" to readyChatModels())
     }
 
     private fun readyChatModels(): JSONArray {

@@ -105,19 +105,8 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
     }
 
     private fun feedVisionToTriggers(frame: JSONObject) {
-        val detections = frame.optJSONArray("detections") ?: return
-        val confs = mutableMapOf<Int, Double>()
-        for (i in 0 until detections.length()) {
-            val det = detections.optJSONObject(i) ?: continue
-            val cid = det.optInt("classId", -1)
-            val score = det.optDouble("score", 0.0)
-            if (cid >= 0) confs[cid] = maxOf(confs[cid] ?: 0.0, score)
-        }
-        MNNodeRuntime.triggerEngine(this).feed(SensorSample(
-            source = "camera:yolov8n",
-            timestamp = frame.optLong("timestamp", System.currentTimeMillis()),
-            confidenceByClass = confs,
-        ))
+        // Trigger-based scene automation was removed. Keep the hook as a no-op
+        // so the vision pipeline can evolve without reworking the frame callback.
     }
 
     private fun stopRuntime() {

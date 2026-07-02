@@ -228,7 +228,7 @@ def handle_request(message: dict[str, Any], config: Config) -> dict[str, Any] | 
                 "protocolVersion": client_version or DEFAULT_PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": "lociant", "version": "0.1.0"},
-                "instructions": "Use Lociant tools for phone-side sensing, notifications, runtime state, and local Android capabilities.",
+                "instructions": "Use Lociant tools for Android-native sensing, screen context, local phone models, camera frames, and explicit phone UI actions.",
             })
         if method == "ping":
             return result(message_id, {})

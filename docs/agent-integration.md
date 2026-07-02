@@ -1,6 +1,6 @@
 # Agent Integration
 
-> Version: 0.2 | Updated: 2026-05-18
+ > Version: 0.3 | Updated: 2026-07-03
 
 [English](#english) | [中文](#中文)
 
@@ -22,8 +22,8 @@ Lociant on Android
   -> local LLM / VLM
   -> camera / vision
   -> sensors and runtime state
-  -> notifications
-  -> sessions, events, and local storage
+  -> Android screen context
+  -> explicit Android UI actions
 ```
 
 This division keeps the phone useful without asking it to behave like a desktop coding workstation.
@@ -68,7 +68,7 @@ Runtime settings can limit exposed tools. Open the in-app WebView UI (Settings �
 |---|---|
 | `read` | runtime/model status |
 | `sensor` | read tools plus camera/vision tools |
-| `action` | all local tools, including notifications and webhooks |
+| `action` | all Android-native action tools, including app launch, clipboard writes, and UI actions |
 
 ## OpenAI Connection
 
@@ -95,32 +95,28 @@ Current Lociant-local tools:
 
 | Tool | Purpose |
 |---|---|
-| `runtime_status` | API/runtime status |
-| `runtime_resources` | Android package and resource info |
-| `device_status` | Battery, network, screen, and permission state |
-| `clipboard_read` | Read Android clipboard text when available |
-| `clipboard_write` | Write Android clipboard text |
-| `app_open` | Open an installed app or safe deep link |
-| `model_list` | Installed/built-in models |
-| `model_preload` | Queue model preload |
-| `inference_cancel` | Cancel current inference |
-| `llm_status` | Phone-local LLM readiness and available chat models |
-| `llm_chat` | Ask the phone-local LLM through MCP or direct tool calls |
-| `vision_status` | Camera/vision runtime status |
-| `vision_start` | Start continuous camera vision analysis |
-| `camera_capture` | Capture the latest camera frame as a JPEG data URL |
-| `vision_stop` | Stop continuous camera vision analysis |
-| `ui_screen_state` | Read a compact Android UI state with stable `nodeId` values and optional screenshot |
-| `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
-| `ui_tap` / `ui_swipe` | Coordinate fallback for tap, long press, or swipe |
-| `ui_wait` | Wait for UI idle or visible text after an action |
-| `store_get` | Read a local-store value |
-| `store_set` | Write a local-store value |
-| `store_list` | List a local-store namespace |
-| `event_record` | Persist a runtime event |
-| `store_increment` | Increment a numeric local-store value |
-| `notification_post` | Send Android notification |
-| `webhook_post` | Queue JSON webhook POST |
+ | `runtime_status` | API/runtime status |
+ | `device_status` | Battery, network, screen, and permission state |
+ | `clipboard_read` | Read Android clipboard text when available |
+ | `clipboard_write` | Write Android clipboard text |
+ | `app_open` | Open an installed app or safe deep link |
+ | `ui_screen_state` | One-call screen context: device state, permissions, foreground package, UI text, actionable nodes, and optional screenshot |
+ | `model_list` | Installed/built-in models |
+ | `llm_status` | Phone-local LLM readiness and available chat models |
+ | `llm_chat` | Ask the phone-local LLM through MCP or direct tool calls |
+ | `vision_status` | Camera/vision runtime status |
+ | `vision_start` | Start continuous camera vision analysis |
+ | `camera_capture` | Capture the latest camera frame as a JPEG data URL |
+ | `vision_stop` | Stop continuous camera vision analysis |
+ | `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
+ | `ui_tap` | Tap at screen coordinates |
+ | `ui_swipe` | Swipe between two screen coordinates |
+ | `ui_back` | Press the Android Back button |
+ | `ui_home` | Press the Android Home button |
+ | `ui_recent_apps` | Open the Android recent apps overview |
+ | `ui_notifications` | Open the Android notification shade |
+ | `ui_quick_settings` | Open Android quick settings |
+ | `ui_wait` | Wait for a fixed duration, UI idle, or visible text after an action |
 
 These tools should describe Android-side capabilities. Do not add PC workspace tools to Lociant unless they map to real phone-side behavior.
 
@@ -146,6 +142,45 @@ To analyze the current Android screen without manually passing a screenshot, cal
 ```
 
 When the image comes from the phone camera, prefer `useCameraFrame: true` after starting vision. MCP responses intentionally compact large media in `structuredContent`, so copying the placeholder text from `camera_capture` back into `llm_chat` will not work.
+
+ For external agents such as Hermes, prefer `ui_screen_state` when they need phone state in one call:
+
+```json
+{
+  "includeScreenshot": true,
+  "maxNodes": 40,
+  "screenshotMaxWidth": 720
+}
+```
+
+ `ui_screen_state` is intentionally read-only. It returns current device/network/permission state plus a compact accessibility summary with `nodeId` values. If the agent needs to act, it should explicitly call `ui_click_node`, `ui_tap`, `ui_swipe`, `ui_back`, `ui_home`, `ui_recent_apps`, `ui_notifications`, `ui_quick_settings`, or another action tool after inspecting the context.
+
+
+For timing, use `ui_wait` with `durationMs` when the agent needs a real fixed sleep:
+
+```json
+{
+  "durationMs": 1000
+}
+```
+
+Use `text` or `idleMs` when the agent is waiting for a screen condition instead. For compatibility, `ui_wait` also treats `timeoutMs` as a fixed duration when no `text` or `idleMs` is provided.
+
+## Hermes On Android
+
+Hermes is better treated as an agent runtime that connects to Lociant, not code that should be embedded directly into the APK. The practical Android setup is:
+
+```text
+Termux on Android
+  -> runs Hermes / agent CLI
+  -> connects to Lociant MCP at http://127.0.0.1:11434/mcp or LAN IP
+
+Lociant app
+  -> owns Android permissions, foreground service, local LLM/VLM, camera, screen tools
+  -> exposes OpenAI-compatible API and MCP tools
+```
+
+ This keeps Android permissions and native runtime inside the app, while Hermes keeps ownership of planning and agent state. Start Lociant Runtime first, then add the phone MCP endpoint to Hermes. Use `ui_screen_state` for observation, `llm_chat` for phone-local reasoning, and the `ui_*` tools only when a user-approved action is needed.
 
 For photo capture, use `camera_capture`. It intentionally reuses the active vision runtime instead of opening a second camera path. Start vision first, then capture:
 
@@ -212,25 +247,6 @@ With API Token enabled:
 
 Both paths expose the same underlying `ToolRegistry`. MCP is only a protocol adapter over `/v1/tools`, not another capability system. Prefer the phone-native `/mcp` endpoint when the client supports Streamable HTTP.
 
-## Phone Console For Desktop Codex
-
-Lociant can also use ACP to treat a desktop Codex process as another node. In this mode the phone is the control surface, while Codex still runs on the computer and owns the workspace.
-
-Start the desktop bridge on the computer:
-
-```bash
-npx -y @rebornix/stdio-to-ws --port 3000 --persist --grace-period -1 "npx -y @zed-industries/codex-acp@latest"
-```
-
-Then open Lociant on the phone:
-
-1. Open Nodes from the top node chip.
-2. Enter `ws://<desktop-ip>:3000/`.
-3. Optionally enter the desktop working directory.
-4. Save and Connect.
-5. Return Home and chat normally.
-
-The desktop bridge uses ACP over WebSocket. `--persist --grace-period -1` keeps the Codex process alive across brief phone disconnects. Lociant auto-allows ACP permission prompts in this first implementation, so only use it on a trusted LAN and trusted workspace.
 
 ## Client-Owned Tools
 
@@ -337,8 +353,8 @@ Android 上的 Lociant
   -> local LLM / VLM
   -> camera / vision
   -> sensors and runtime state
-  -> notifications
-  -> sessions, events, and local storage
+  -> Android screen context
+  -> explicit Android UI actions
 ```
 
 这个划分可以让手机持续有用，而不要求它伪装成桌面代码工作站。
@@ -410,30 +426,28 @@ API Key: 留空或任意非空字符串，取决于客户端
 
 | Tool | 用途 |
 |---|---|
-| `runtime_status` | API/runtime 状态 |
-| `runtime_resources` | Android 包和资源信息 |
-| `device_status` | 电量、网络、屏幕和权限状态 |
-| `clipboard_read` | 在系统允许时读取 Android 剪贴板文本 |
-| `clipboard_write` | 写入 Android 剪贴板文本 |
-| `app_open` | 打开已安装应用或安全 deep link |
-| `model_list` | 已安装和内置模型 |
-| `model_preload` | 排队预加载模型 |
-| `inference_cancel` | 取消当前推理 |
-| `vision_status` | 摄像头/视觉 runtime 状态 |
-| `vision_start` | 启动连续摄像头视觉分析 |
-| `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
-| `vision_stop` | 停止连续摄像头视觉分析 |
-| `ui_screen_state` | 读取紧凑 Android UI 状态，可返回 `nodeId` 和可选截图 |
-| `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
-| `ui_tap` / `ui_swipe` | 坐标兜底点击、长按或滑动 |
-| `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
-| `store_get` | 读取本地存储值 |
-| `store_set` | 写入本地存储值 |
-| `store_list` | 列出本地存储 namespace |
-| `event_record` | 持久化 runtime 事件 |
-| `store_increment` | 递增本地存储里的数值 |
-| `notification_post` | 发送 Android 通知 |
-| `webhook_post` | 排队发送 JSON webhook |
+ | `runtime_status` | API/runtime 状态 |
+ | `device_status` | 电量、网络、屏幕和权限状态 |
+ | `clipboard_read` | 在系统允许时读取 Android 剪贴板文本 |
+ | `clipboard_write` | 写入 Android 剪贴板文本 |
+ | `app_open` | 打开已安装应用或安全 deep link |
+ | `ui_screen_state` | 一次性读取屏幕上下文、设备状态、可操作 `nodeId` 和可选截图 |
+ | `model_list` | 已安装和内置模型 |
+ | `llm_status` | 手机本地 LLM 就绪状态和可用对话模型 |
+ | `llm_chat` | 通过 MCP 或直接调用向手机本地 LLM 提问 |
+ | `vision_status` | 摄像头/视觉 runtime 状态 |
+ | `vision_start` | 启动连续摄像头视觉分析 |
+ | `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
+ | `vision_stop` | 停止连续摄像头视觉分析 |
+ | `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
+ | `ui_tap` | 在屏幕坐标处点击 |
+ | `ui_swipe` | 在两个屏幕坐标之间滑动 |
+ | `ui_back` | 按 Android 返回键 |
+ | `ui_home` | 按 Android Home 键 |
+ | `ui_recent_apps` | 打开 Android 最近任务视图 |
+ | `ui_notifications` | 打开 Android 通知栏 |
+ | `ui_quick_settings` | 打开 Android 快捷设置 |
+ | `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
 
 这些工具应该描述 Android 侧能力。不要把 PC 工作区工具加进 Lociant，除非它真的映射到手机侧行为。
 

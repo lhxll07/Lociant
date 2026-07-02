@@ -1,6 +1,6 @@
 # OpenAI-Compatible API
 
-> Version: 0.3 | Updated: 2026-05-18
+ > Version: 0.4 | Updated: 2026-07-03
 
 [English](#english) | [中文](#中文)
 
@@ -21,12 +21,16 @@ API Key: blank or any non-empty string, depending on the client
 Common endpoints:
 
 ```text
-GET  /health
-GET  /v1/models
-POST /v1/chat/completions
-POST /api/chat
-GET  /v1/tools
-POST /v1/tools/{name}/call
+ GET  /health
+ GET  /v1/models
+ GET  /v1/sessions
+ POST /v1/runtime/{command}
+ GET  /v1/tools
+ POST /v1/tools/{name}/call
+ POST /v1/chat/completions
+ POST /api/chat
+ GET  /v1/chat/status/{requestId}
+ GET  /v1/chat/queue
 ```
 
 Keep the server on trusted LAN only.
@@ -243,8 +247,12 @@ API Key: 留空或任意非空字符串，取决于客户端
 ```text
 GET  /health
 GET  /v1/models
+GET  /v1/sessions
+POST /v1/runtime/{command}
 POST /v1/chat/completions
 POST /api/chat
+GET  /v1/chat/status/{requestId}
+GET  /v1/chat/queue
 GET  /v1/tools
 POST /v1/tools/{name}/call
 ```

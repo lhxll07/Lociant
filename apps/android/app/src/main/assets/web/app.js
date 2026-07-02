@@ -142,6 +142,10 @@ const i18n = {
     'settings.toolRead': 'Read',
     'settings.toolSensor': 'Sensor',
     'settings.toolAction': 'Action',
+    'settings.wearableTitle': 'Wearable',
+    'settings.wearableSub': 'Gadgetbridge export folder',
+    'settings.wearableReady': 'Folder access ready',
+    'settings.chooseFolder': 'Choose',
     'settings.defaultTokens': 'Default',
     'settings.modelTokens': 'Model',
     'settings.effectiveTokens': 'Effective',
@@ -392,6 +396,10 @@ const i18n = {
     'settings.toolRead': '只读',
     'settings.toolSensor': '感知',
     'settings.toolAction': '动作',
+    'settings.wearableTitle': '手环',
+    'settings.wearableSub': 'Gadgetbridge 导出目录',
+    'settings.wearableReady': '目录访问已就绪',
+    'settings.chooseFolder': '选择',
     'settings.defaultTokens': '默认',
     'settings.modelTokens': '模型',
     'settings.effectiveTokens': '生效',
@@ -610,6 +618,8 @@ const runtimeCapabilitiesBack = document.getElementById('runtimeCapabilitiesBack
 const runtimeVisionText = document.getElementById('runtimeVisionText')
 const runtimeVisionButton = document.getElementById('runtimeVisionButton')
 const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
+const runtimeWearableText = document.getElementById('runtimeWearableText')
+const runtimeWearableFolderButton = document.getElementById('runtimeWearableFolderButton')
 const runtimeWindowAutoInput = document.getElementById('runtimeWindowAutoInput')
 const runtimeWindowButton = document.getElementById('runtimeWindowButton')
 const runtimeModelButton = document.getElementById('runtimeModelButton')
@@ -1080,6 +1090,12 @@ function updateRuntimeServiceState(state) {
     }
   }
   if (runtimeServiceState.toolExposure) runtimeToolExposureInput.value = runtimeServiceState.toolExposure
+  if (runtimeWearableText) {
+    const wearable = runtimeServiceState.wearable || {}
+    runtimeWearableText.textContent = wearable.gadgetbridgeDirectoryGranted
+      ? t('settings.wearableReady')
+      : t('settings.wearableSub')
+  }
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }
@@ -3335,6 +3351,11 @@ batteryPermissionButton.addEventListener('click', () => {
 if (accessibilityPermissionButton) {
   accessibilityPermissionButton.addEventListener('click', () => {
     handlePermissionAction(accessibilityPermissionButton, 'requestAccessibilityPermission', 'accessibility')
+  })
+}
+if (runtimeWearableFolderButton) {
+  runtimeWearableFolderButton.addEventListener('click', () => {
+    native('chooseGadgetbridgeExportFolder')
   })
 }
 

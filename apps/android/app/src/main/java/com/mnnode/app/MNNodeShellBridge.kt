@@ -12,6 +12,7 @@ class MNNodeShellBridge(private val host: Host) {
         fun requestOverlayPermission()
         fun requestBatteryOptimizationExemption()
         fun requestAccessibilityPermission()
+        fun chooseGadgetbridgeExportFolder()
         fun openAppSettings()
         fun openPermissionSettings(kind: String)
         fun runtimeShellCommand(command: String, payloadJson: String?): String
@@ -57,6 +58,12 @@ class MNNodeShellBridge(private val host: Host) {
     fun requestAccessibilityPermission(): String {
         host.requestAccessibilityPermission()
         return ok("permission_requested")
+    }
+
+    @JavascriptInterface
+    fun chooseGadgetbridgeExportFolder(): String {
+        host.chooseGadgetbridgeExportFolder()
+        return ok("picker_opened")
     }
 
     @JavascriptInterface

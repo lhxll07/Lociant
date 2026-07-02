@@ -50,6 +50,8 @@ object RuntimeDefaults {
         const val WINDOW_NAMESPACE = "runtime/settings"
         const val WINDOW_KEY = "window"
         const val FLOATING_WINDOW_KEY = "floating-window"
+        const val WEARABLE_NAMESPACE = "runtime/wearable"
+        const val WEARABLE_KEY = "gadgetbridge"
     }
 
     object NativeRuntime {

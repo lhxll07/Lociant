@@ -61,7 +61,7 @@ class McpController(
         .put("protocolVersion", params?.optString("protocolVersion")?.takeIf { it.isNotBlank() } ?: ProtocolVersion)
         .put("capabilities", JSONObject().put("tools", JSONObject().put("listChanged", false)))
         .put("serverInfo", JSONObject().put("name", "lociant").put("version", "0.1.0"))
-        .put("instructions", "Use Lociant tools for phone-side sensing, notifications, runtime state, and local Android capabilities.")
+        .put("instructions", "Use Lociant tools for Android-native sensing, screen context, local phone models, camera frames, and explicit phone UI actions.")
 
     private fun mcpTools(): JSONArray {
         val output = JSONArray()

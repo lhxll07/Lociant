@@ -76,7 +76,6 @@ dependencies {
     implementation(project(":local-runtime"))
     implementation(project(":phone-tools"))
     implementation(project(":mcp"))
-    implementation(project(":acp"))
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.0")

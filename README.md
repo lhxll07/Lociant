@@ -17,18 +17,17 @@
 
 ## English
 
-Lociant turns an Android phone into a local AI node that agents can call over LAN.
+Lociant turns an Android phone into an Android-native capability node that agents can call over LAN.
 
-It is not a full agent framework and does not try to replace Codex, OpenCode, RikkaHub, Pi, or your own automation system. Lociant sits below them: it provides phone-local models, camera vision, Android state, screen tools, notifications, storage, and a standard API surface.
+It is not a full agent framework and does not try to replace Codex, Hermes, OpenCode, RikkaHub, Pi, or your own automation system. Lociant sits below them: it provides phone-local models, camera vision, Android state, screen tools, and a standard API surface.
 
 ## What It Provides
 
 - Local LLM/VLM inference through an OpenAI-compatible API and Ollama-style endpoints.
 - MCP Streamable HTTP server for direct agent integration.
-- Android-side tools: device status, clipboard, app launch, notifications, compact screen state, node click, screenshot-backed screen capture, tap, swipe, back/home/recent apps.
+ - Android-side tools: device status, clipboard, app launch, `ui_screen_state` for screen context with accessibility hierarchy and optional screenshot, node click, tap, swipe, back, home, recent apps, notifications, quick settings, and UI idle wait.
 - Camera vision: start vision runtime, capture camera frames, and pass images to local VLM models.
 - Persistent sessions and local storage for phone-side context.
-- ACP desktop node support, so the phone can act as a control surface for a Codex process running on a computer.
 - A visible Android runtime with foreground service, runtime window, permissions, and in-app WebView settings.
 
 ## Quick Start
@@ -59,11 +58,11 @@ Authorization: Bearer <token>
 5. Enable the MCP tools in the current chat and test:
 
 ```text
-Call runtime_status.
-Call device_status.
-Read the current phone UI with ui_screen_state.
-Ask the local VLM about the current screen with llm_chat and useScreenFrame.
-Start vision, then call camera_capture.
+ Call runtime_status.
+ Call device_status.
+ Read the current phone UI with ui_screen_state.
+ Ask the local VLM about the current screen with llm_chat and useScreenFrame.
+ Start vision, then call camera_capture.
 ```
 
 ## OpenAI-Compatible API
@@ -113,10 +112,10 @@ Agent client
   -> Lociant on Android
       -> local LLM/VLM
       -> camera, screen, Android tools
-      -> notifications, sessions, storage
+      -> device state and Android UI actions
 ```
 
-Android code is split by capability: `:core`, `:data`, `:local-runtime`, `:phone-tools`, `:mcp`, `:acp`, with `:app` kept as the composition shell.
+ Android code is split by capability: `:core`, `:data`, `:local-runtime`, `:phone-tools`, `:mcp`, with `:app` kept as the composition shell.
 
 ## Docs
 
@@ -136,10 +135,9 @@ Lociant 把 Android 手机变成一个可被 Agent 通过局域网调用的本�
 
 - 通过 OpenAI-compatible API 和 Ollama 风格接口运行本地 LLM/VLM。
 - 提供 MCP Streamable HTTP server，Agent 可以直接接入。
-- Android 本地工具：设备状态、剪贴板、打开 App、通知、屏幕文字、屏幕结构、截屏、点击、滑动、返回、主页、最近任务。
+ - Android 本地工具：设备状态、剪贴板、打开 App、屏幕上下文（`ui_screen_state`，含无障碍层级和可选截图）、节点点击、点击、滑动、返回、主页、最近任务、通知栏、快捷设置、UI 空闲等待。
 - 摄像头视觉：启动视觉 runtime、捕获画面、把图片传给本地 VLM。
 - 本地会话和存储，用于保存手机侧上下文。
-- 支持 ACP 桌面节点，让手机作为电脑端 Codex 进程的控制台。
 - 可见 Android runtime：前台服务、悬浮运行窗口、权限管理、WebView 设置页。
 
 ## 快速开始
@@ -170,10 +168,10 @@ Authorization: Bearer <token>
 5. 在当前对话里启用 MCP tools，然后测试：
 
 ```text
-调用 runtime_status。
-调用 device_status。
-用 ui_screen_state 获取当前屏幕状态。
-启动 vision，再调用 camera_capture。
+ 调用 runtime_status。
+ 调用 device_status。
+ 用 ui_screen_state 获取当前屏幕状态。
+ 启动 vision，再调用 camera_capture。
 ```
 
 ## OpenAI-Compatible API

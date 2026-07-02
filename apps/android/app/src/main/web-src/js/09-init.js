@@ -194,6 +194,11 @@ if (accessibilityPermissionButton) {
     handlePermissionAction(accessibilityPermissionButton, 'requestAccessibilityPermission', 'accessibility')
   })
 }
+if (runtimeWearableFolderButton) {
+  runtimeWearableFolderButton.addEventListener('click', () => {
+    native('chooseGadgetbridgeExportFolder')
+  })
+}
 
 // ---- Server settings ----
 runtimePortInput.addEventListener('change', () => {

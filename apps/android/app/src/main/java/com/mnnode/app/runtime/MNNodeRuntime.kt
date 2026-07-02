@@ -1,12 +1,9 @@
 package com.mnnode.app.runtime
 
 import android.content.Context
-import com.mnnode.app.agent.AcpAgentManager
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.model.MnnRuntime
-import com.mnnode.app.scene.SceneManager
-import com.mnnode.app.scene.ScenePackInstaller
 import com.mnnode.app.server.ApiServerController
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
@@ -21,17 +18,9 @@ object MNNodeRuntime {
 
     fun modelManager(context: Context): ModelManager = get(context).modelManager
 
-    fun sceneManager(context: Context): SceneManager = get(context).sceneManager
-
-    fun scenePackInstaller(context: Context): ScenePackInstaller = get(context).scenePackInstaller
-
-    fun triggerEngine(context: Context): TriggerEngine = get(context).triggerEngine
-
     fun sessionStore(context: Context): SessionStore = get(context).sessionStore
 
     fun localStore(context: Context): LocalStore = get(context).localStore
-
-    fun acpAgent(context: Context): AcpAgentManager = get(context).acpAgent
 
     fun serviceState(context: Context) = get(context).apiServer.serviceState()
 
@@ -47,32 +36,20 @@ object MNNodeRuntime {
             val modelManager = ModelManager(appContext)
             val localStore = LocalStore(appContext)
             val sessionStore = SessionStore(appContext)
-            val sceneManager = SceneManager(appContext)
-            val scenePackInstaller = ScenePackInstaller(appContext)
             val mnnRuntime = MnnRuntime(appContext)
             val chatCapability = ChatCapability(modelManager, mnnRuntime)
-            val triggerEngine = TriggerEngine()
-            val acpAgent = AcpAgentManager(localStore, sessionStore)
             val apiServer = ApiServerController(
                 appContext,
                 modelManager,
-                sceneManager,
                 chatCapability,
                 localStore,
                 sessionStore,
-                triggerEngine,
-                acpAgent,
                 startVisionRuntime = { payload -> MNNodeRuntimeService.startRuntime(appContext, payload) },
             )
-            triggerEngine.setCallTool { name, args -> apiServer.callTool(name, args) }
             return Holder(
                 modelManager = modelManager,
                 localStore = localStore,
                 sessionStore = sessionStore,
-                sceneManager = sceneManager,
-                scenePackInstaller = scenePackInstaller,
-                triggerEngine = triggerEngine,
-                acpAgent = acpAgent,
                 mnnRuntime = mnnRuntime,
                 chatCapability = chatCapability,
                 apiServer = apiServer,
@@ -84,10 +61,7 @@ object MNNodeRuntime {
         val modelManager: ModelManager,
         val localStore: LocalStore,
         val sessionStore: SessionStore,
-        val sceneManager: SceneManager,
-        val scenePackInstaller: ScenePackInstaller,
-        val triggerEngine: TriggerEngine,
-        val acpAgent: AcpAgentManager,
+        
         val mnnRuntime: MnnRuntime,
         val chatCapability: ChatCapability,
         val apiServer: ApiServerController,

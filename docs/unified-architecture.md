@@ -1,6 +1,6 @@
 # Unified Architecture
 
-> Version: 0.4 | Updated: 2026-05-18
+ > Version: 0.5 | Updated: 2026-07-03
 
 [English](#english) | [中文](#中文)
 
@@ -14,15 +14,15 @@ One capability should have one runtime entry point:
 
 | Capability | Entry point |
 |---|---|
-| Chat / VLM | `/v1/chat/completions`, `/api/chat` |
-| Models | `/v1/models` |
-| Runtime state | `/health`, runtime commands |
-| Tools | `/v1/tools`, `/v1/tools/{name}/call` |
-| MCP | `/mcp` |
-| Storage | `/v1/store/{namespace}/{key}` |
-| Scenes | `/v1/scenes`, `/v1/scenes/{sceneId}/load` |
+ | Chat / VLM | `/v1/chat/completions`, `/api/chat` |
+ | Models | `/v1/models` |
+ | Sessions | `/v1/sessions` |
+ | Runtime state | `/health`, `/v1/runtime/{command}` |
+ | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
+ | Chat status | `/v1/chat/status/{requestId}`, `/v1/chat/queue` |
+ | MCP | `/mcp` |
 
-Everything user-facing should become either a client of these APIs or a narrow Android UI action. Runtime services should not be hidden inside Scene Packs.
+Everything user-facing should become either a client of these APIs or a narrow Android UI action. Runtime services should not be hidden inside app-level scene code.
 
 ## Runtime Shape
 
@@ -30,14 +30,14 @@ Everything user-facing should become either a client of these APIs or a narrow A
 Scene iframe / LAN client / agent client
   -> Ktor HTTP API
     -> ApiServerController
-      -> ChatController / ToolRegistry / SceneManager / LocalStore / TriggerEngine
+      -> ChatController / ToolRegistry / LocalStore
         -> MnnRuntime / NcnnRuntime / VisionAnalysisController / Room / Android services
 ```
 
 `MainActivity` owns WebView, permission entry points, and Android UI concerns. CameraX vision belongs to `:local-runtime` and is attached by the foreground runtime service when needed.
 
 The Android project is split by runtime capability rather than by UI page:
-`:core` keeps protocol-neutral contracts, `:data` owns persistence, `:local-runtime` owns MNN/NCNN and CameraX vision, `:phone-tools` owns Android device tools, `:mcp` and `:acp` are protocol adapters, and `:app` is the composition shell.
+ `:core` keeps protocol-neutral contracts, `:data` owns persistence, `:local-runtime` owns MNN/NCNN and CameraX vision, `:phone-tools` owns Android device tools, `:mcp` is the MCP protocol adapter, and `:app` is the composition shell.
 
 `MNNodeRuntime` and `MNNodeRuntimeService` are still internal implementation names. They own shared runtime singletons, foreground service lifecycle, and the Runtime Window overlay. They do not define the public product name.
 
@@ -54,8 +54,8 @@ Pi / OpenClaw / OpenCode / RikkaHub / custom agent
   -> Lociant
       -> local LLM / VLM
       -> camera and vision
-      -> Android notifications and runtime state
-      -> local sessions and events
+      -> Android screen context and runtime state
+      -> explicit Android UI actions
 ```
 
 Keep these out of Lociant:
@@ -79,9 +79,9 @@ Lociant is a visible phone runtime, not an invisible daemon. Android background 
 
 Locked-screen and fully headless behavior remain best-effort system behavior, not a core guarantee.
 
-The in-app WebView UI (`assets/web/index.html`) is the primary UX surface for configuring server port, API Token, tool exposure level, default model, vision, and runtime window behavior. Scene Packs and LAN clients use the same HTTP API.
+The in-app WebView UI (`assets/web/index.html`) is the primary UX surface for configuring server port, API Token, tool exposure level, default model, vision, and runtime window behavior.
 
-The WebView UI source lives in `web-src/` (split into HTML, CSS, and JS modules by function). Run `python web-src/build.py` to concatenate and copy to `assets/web/`. App icons live under the Android resource tree.
+The WebView UI source lives in `apps/android/app/src/main/web-src/` and compiles into the `assets/web/` directory. App icons live under the Android resource tree.
 
 ## Tool System
 
@@ -89,44 +89,32 @@ Tools are protocol-neutral phone capabilities. OpenAI tool calling, direct HTTP 
 
 Current local tools:
 
-| Tool | Purpose |
-|---|---|
-| `runtime_status` | API/runtime status |
-| `runtime_resources` | Android package and resource info |
-| `model_list` | Installed and built-in models |
-| `model_preload` | Queue model preload |
-| `inference_cancel` | Cancel current inference |
-| `vision_status` | Camera/vision runtime status |
-| `vision_start` | Start continuous camera vision analysis |
-| `camera_capture` | Capture the latest camera frame as a JPEG data URL |
-| `vision_stop` | Stop continuous camera vision analysis |
-| `ui_screen_state` | Read a compact Android UI state with stable `nodeId` values and optional screenshot |
-| `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
-| `ui_tap` / `ui_swipe` | Coordinate fallback for tap, long press, or swipe |
-| `ui_wait` | Wait for UI idle or visible text after an action |
-| `event_record` | Persist a runtime event |
-| `store_increment` | Increment a numeric local-store value |
-| `notification_post` | Send Android notification |
-| `webhook_post` | Queue JSON webhook POST |
+ | Tool | Purpose |
+ |---|---|
+ | `runtime_status` | API/runtime status |
+ | `model_list` | Installed and built-in models |
+ | `llm_status` | Phone-local LLM readiness and available chat models |
+ | `llm_chat` | Ask the phone-local LLM through MCP or direct tool calls |
+ | `vision_status` | Camera/vision runtime status |
+ | `vision_start` | Start continuous camera vision analysis |
+ | `camera_capture` | Capture the latest camera frame as a JPEG data URL |
+ | `vision_stop` | Stop continuous camera vision analysis |
+ | `device_status` | Battery, network, screen, and permission state |
+ | `clipboard_read` | Read Android clipboard text when Android allows it |
+ | `clipboard_write` | Write Android clipboard text |
+ | `app_open` | Open an installed app or safe deep link |
+ | `ui_screen_state` | One-call screen context with device state, UI text, actionable `nodeId` values, and optional screenshot |
+ | `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
+ | `ui_tap` | Tap at screen coordinates |
+ | `ui_swipe` | Swipe between two screen coordinates |
+ | `ui_back` | Press the Android Back button |
+ | `ui_home` | Press the Android Home button |
+ | `ui_recent_apps` | Open the Android recent apps overview |
+ | `ui_notifications` | Open the Android notification shade |
+ | `ui_quick_settings` | Open Android quick settings |
+ | `ui_wait` | Wait for a fixed duration, UI idle, or visible text after an action |
 
-Tool definitions carry policy metadata so LAN visibility, auth, side effects, and Activity requirements can be enforced without inventing another capability system. Runtime settings expose a small remote visibility policy: `read`, `sensor`, or `action`.
-
-## Scene Packs
-
-Scene Packs are app-level experiences. They should not own model-server lifecycle and should not add private native bridge methods.
-
-Scene code should call the same HTTP API used by LAN clients:
-
-```javascript
-await fetch('/v1/tools/vision_start/call', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ arguments: { modelId: 'yolov8n' } })
-})
-```
-
-Scene Packs remain useful for phone-local UX. They are not the runtime boundary. `study-desk` is the current reference scene: it starts vision through `vision_start`, captures frames through `camera_capture`, and can ask the local model for a short desk insight.
-
+ Tool definitions carry policy metadata so LAN visibility, auth, side effects, and Activity requirements can be enforced without inventing another capability system. Runtime settings expose a small remote visibility policy: `read`, `sensor`, or `action`.
 ## Model Runtime
 
 MNN is the current LLM/VLM backend. NCNN is the current vision backend. Both are implementation details below the HTTP capability layer.
@@ -149,10 +137,9 @@ The product name can be Lociant while old internal identifiers remain until ther
 ## Next Work
 
 1. Keep LAN auth and remote tool visibility rules simple enough for normal users to understand. (The in-app WebView UI already exposes API Token and tool exposure level settings.)
-2. Keep model import and model-market metadata config-driven.
-3. Improve Runtime Window diagnostics and recovery.
-4. Keep `study-desk` as the only built-in Scene Pack until the scene model proves stable.
-5. Keep MCP policy as a thin projection of `ToolRegistry`, not a second tool system.
+ 2. Keep model import and model-market metadata config-driven.
+ 3. Improve Runtime Window diagnostics and recovery.
+4. Keep MCP policy as a thin projection of `ToolRegistry`, not a second tool system.
 
 ---
 
@@ -164,17 +151,17 @@ Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是�
 
 一个能力只保留一个 runtime 入口：
 
-| 能力 | 入口 |
-|---|---|
-| Chat / VLM | `/v1/chat/completions`, `/api/chat` |
-| Models | `/v1/models` |
-| Runtime state | `/health`, runtime commands |
-| Tools | `/v1/tools`, `/v1/tools/{name}/call` |
-| MCP | `/mcp` |
-| Storage | `/v1/store/{namespace}/{key}` |
-| Scenes | `/v1/scenes`, `/v1/scenes/{sceneId}/load` |
+ | 能力 | 入口 |
+ |---|---|
+ | Chat / VLM | `/v1/chat/completions`, `/api/chat` |
+ | Models | `/v1/models` |
+ | Sessions | `/v1/sessions` |
+ | Runtime state | `/health`, `/v1/runtime/{command}` |
+ | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
+ | Chat status | `/v1/chat/status/{requestId}`, `/v1/chat/queue` |
+ | MCP | `/mcp` |
 
-所有面向用户的功能都应该成为这些 API 的客户端，或者是很窄的 Android UI 操作。Runtime 服务不应该藏在 Scene Pack 里。
+所有面向用户的功能都应该成为这些 API 的客户端，或者是很窄的 Android UI 操作。Runtime 服务不应该藏在应用层场景代码里。
 
 ## Runtime 形态
 
@@ -182,7 +169,7 @@ Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是�
 Scene iframe / LAN client / agent client
   -> Ktor HTTP API
     -> ApiServerController
-      -> ChatController / ToolRegistry / SceneManager / LocalStore / TriggerEngine
+      -> ChatController / ToolRegistry / LocalStore
         -> MnnRuntime / NcnnRuntime / VisionAnalysisController / Room / Android services
 ```
 
@@ -203,8 +190,8 @@ Pi / OpenClaw / OpenCode / RikkaHub / custom agent
   -> Lociant
       -> local LLM / VLM
       -> camera and vision
-      -> Android notifications and runtime state
-      -> local sessions and events
+      -> Android screen context and runtime state
+      -> explicit Android UI actions
 ```
 
 这些职责不放进 Lociant：
@@ -228,9 +215,9 @@ Lociant 是可见手机 runtime，不是隐藏 daemon。Android 后台执行高�
 
 锁屏和完全 headless 行为只能视为系统层面的 best-effort，不作为核心保证。
 
-App 内 WebView UI（`assets/web/index.html`）是配置端口、API Token、工具暴露级别、默认模型、视觉和悬浮窗行为的主要 UX 界面。Scene Pack 和 LAN 客户端使用相同的 HTTP API。
+App 内 WebView UI（`assets/web/index.html`）是配置端口、API Token、工具暴露级别、默认模型、视觉和悬浮窗行为的主要 UX 界面。
 
-WebView UI 源码在 `web-src/` 中（按功能拆分为 HTML、CSS 和 JS 模块）。运行 `python web-src/build.py` 拼合并复制到 `assets/web/`。App 图标保存在 Android resource tree 中。
+WebView UI 源码在 `apps/android/app/src/main/web-src/`，构建后输出到 `assets/web/`。App 图标保存在 Android resource tree 中。
 
 ## 工具系统
 
@@ -241,41 +228,29 @@ Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool ca
 | Tool | 用途 |
 |---|---|
 | `runtime_status` | API/runtime 状态 |
-| `runtime_resources` | Android 包和资源信息 |
 | `model_list` | 已安装和内置模型 |
-| `model_preload` | 排队预加载模型 |
-| `inference_cancel` | 取消当前推理 |
+| `llm_status` | 手机本地 LLM 就绪状态和可用的聊天模型 |
+| `llm_chat` | 通过 MCP 或直接工具调用询问手机本地 LLM |
 | `vision_status` | 摄像头/视觉 runtime 状态 |
 | `vision_start` | 启动连续摄像头视觉分析 |
 | `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
 | `vision_stop` | 停止连续摄像头视觉分析 |
-| `ui_screen_state` | 读取紧凑 Android UI 状态，可返回 `nodeId` 和可选截图 |
-| `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
-| `ui_tap` / `ui_swipe` | 坐标兜底点击、长按或滑动 |
-| `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
-| `event_record` | 持久化 runtime 事件 |
-| `store_increment` | 递增本地存储里的数值 |
-| `notification_post` | 发送 Android 通知 |
-| `webhook_post` | 排队发送 JSON webhook |
+ | `device_status` | 电量、网络、屏幕和权限状态 |
+ | `clipboard_read` | 在系统允许时读取 Android 剪贴板文本 |
+ | `clipboard_write` | 写入 Android 剪贴板文本 |
+ | `app_open` | 打开已安装应用或安全 deep link |
+ | `ui_screen_state` | 一次性读取屏幕上下文、设备状态、可操作 `nodeId` 和可选截图 |
+ | `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
+ | `ui_tap` | 在屏幕坐标处点击 |
+ | `ui_swipe` | 在两个屏幕坐标之间滑动 |
+ | `ui_back` | 按 Android 返回键 |
+ | `ui_home` | 按 Android Home 键 |
+ | `ui_recent_apps` | 打开 Android 最近任务视图 |
+ | `ui_notifications` | 打开 Android 通知栏 |
+ | `ui_quick_settings` | 打开 Android 快捷设置 |
+ | `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
 
 工具定义带策略元数据，用于执行 LAN 可见性、auth、副作用和 Activity 依赖规则，而不引入第二套能力系统。Runtime 设置提供一个很小的远程可见性策略：`read`、`sensor` 或 `action`。
-
-## Scene Packs
-
-Scene Pack 是应用层体验，不拥有 model-server 生命周期，也不新增私有 native bridge 方法。
-
-场景代码应该调用和 LAN 客户端相同的 HTTP API：
-
-```javascript
-await fetch('/v1/tools/vision_start/call', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ arguments: { modelId: 'yolov8n' } })
-})
-```
-
-Scene Pack 对手机本地 UX 仍然有价值，但它不是 runtime 边界。`study-desk` 是当前参考场景：通过 `vision_start` 启动视觉，通过 `camera_capture` 获取画面，并可以让本地模型生成简短桌面分析。
-
 ## 模型 Runtime
 
 MNN 是当前 LLM/VLM 后端。NCNN 是当前视觉后端。两者都是 HTTP capability layer 下面的实现细节。
@@ -298,7 +273,6 @@ MNN 是当前 LLM/VLM 后端。NCNN 是当前视觉后端。两者都是 HTTP ca
 ## 下一步
 
 1. 保持 LAN auth 和远程工具可见性规则足够简单，让普通用户能理解。（App 内 WebView UI 已提供 API Token 和工具暴露级别的设置入口。）
-2. 保持模型导入和模型市场元数据由 config 驱动。
-3. 改进 Runtime Window 诊断和恢复能力。
-4. 在 scene 模型稳定前，只保留 `study-desk` 作为内置 Scene Pack。
-5. 让 MCP policy 始终只是 `ToolRegistry` 的薄投影，不成为第二套工具系统。
+ 2. 保持模型导入和模型市场元数据由 config 驱动。
+ 3. 改进 Runtime Window 诊断和恢复能力。
+4. 让 MCP policy 始终只是 `ToolRegistry` 的薄投影，不成为第二套工具系统。

@@ -3,7 +3,6 @@ package com.mnnode.app.server
 import android.content.Context
 import android.util.Log
 import com.mnnode.app.LociantAccessibilityService
-import com.mnnode.app.agent.AcpAgentManager
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
 import com.mnnode.app.model.ModelChatMessage
@@ -11,18 +10,16 @@ import com.mnnode.app.model.ModelChatPart
 import com.mnnode.app.model.ModelChatRequest
 import com.mnnode.app.model.ModelToolCall
 import com.mnnode.app.model.ModelToolChoice
-import com.mnnode.app.model.ModelMarket
-import com.mnnode.app.model.MnnRuntime
-import com.mnnode.app.runtime.TriggerEngine
-import com.mnnode.app.runtime.DeviceInteraction
 import com.mnnode.app.config.RuntimeDefaults
+import com.mnnode.app.model.MnnRuntime
+import com.mnnode.app.runtime.DeviceInteraction
 import com.mnnode.app.runtime.VisionRuntime
-import com.mnnode.app.scene.SceneManager
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.ApplicationRequest
 import io.ktor.server.application.call
 import io.ktor.server.response.header
 import io.ktor.server.engine.EmbeddedServer
@@ -33,7 +30,6 @@ import io.ktor.server.request.header
 import io.ktor.server.request.path
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.options
@@ -41,29 +37,23 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import org.json.JSONArray
 import org.json.JSONObject
+import io.ktor.http.content.OutgoingContent
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeStringUtf8
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.Inet4Address
 import java.net.NetworkInterface
-import java.io.File
 import java.security.SecureRandom
 import java.util.UUID
 import java.util.concurrent.Executors
-import io.ktor.http.content.OutgoingContent
-import io.ktor.utils.io.ByteWriteChannel
-import io.ktor.utils.io.writeFully
-import io.ktor.utils.io.writeStringUtf8
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 class ApiServerController(
     private val context: Context,
     private val modelManager: ModelManager,
-    private val sceneManager: SceneManager,
     private val chatCapability: ChatCapability,
     private val localStore: LocalStore,
     private val sessionStore: SessionStore,
-    private val triggerEngine: TriggerEngine,
-    private val acpAgentManager: AcpAgentManager,
     private val startVisionRuntime: (JSONObject) -> Unit,
 ) {
     @Volatile private var server: EmbeddedServer<*, *>? = null
@@ -85,26 +75,19 @@ class ApiServerController(
     }
 
     private val chatController = ChatController(chatCapability, sessionStore)
-    private val modelMarket by lazy { ModelMarket(context, modelManager) }
-    private val notificationTools by lazy { NotificationTools(context) }
     private val toolRegistry: ToolRegistry by lazy {
         ToolRegistry(
             listOf(
-                RuntimeTools(context, runtimeState = { runtimeSummary() }),
+                RuntimeTools(runtimeState = { runtimeSummary() }),
                 AndroidTools(context),
-                ModelTools(
-                    modelManager = modelManager,
-                    preloadModel = { chatController.preload(it.ifBlank { modelId }) },
-                    cancelChat = { chatController.cancelCurrent() },
-                ),
+                ModelTools(modelManager = modelManager),
                 LlmTools(
                     modelManager = modelManager,
                     runtimeState = { runtimeSummary() },
                     chat = { llmToolChat(it) },
                 ),
                 VisionTools(context, startVisionRuntime),
-                StorageTools(sessionStore, localStore),
-                notificationTools,
+
             )
         )
     }
@@ -122,7 +105,6 @@ class ApiServerController(
     // ---- Public API ----
 
     fun command(command: String, payload: JSONObject = JSONObject()): JSONObject {
-        if (isAgentCommand(command)) return withAgentState(acpAgentManager.command(command, payload))
         synchronized(this) {
             when (command) {
                 "start" -> start(payload)
@@ -150,7 +132,6 @@ class ApiServerController(
     @Synchronized fun stopForService() { stop() }
     fun close() {
         stop()
-        runCatching { notificationTools.close() }
     }
 
     fun state(): JSONObject = buildStateJson("api.server.state", includeSensitive = true)
@@ -182,29 +163,13 @@ class ApiServerController(
                     routing {
                         options("/{...}") { call.withCors(); call.respondText("", JsonContentType, HttpStatusCode.NoContent) }
                         get("/health") { call.withCors(); call.respondText(healthJson().toString(), JsonContentType) }
-                        get("/v1/scenes") { call.withCors(); call.respondText(sceneManager.listScenesJson(), JsonContentType) }
-                        post("/v1/scenes/{sceneId}/load") { call.withCors(); handleSceneLoad(call) }
-                        post("/v1/scenes/{sceneId}/delete") { call.withCors(); handleSceneDelete(call) }
-                        get("/v1/events/{sceneId}") { call.withCors(); handleEvents(call) }
-                        get("/v1/preview") { call.withCors(); handlePreview(call) }
-                        get("/v1/preview/stream") { call.withCors(); handlePreviewStream(call) }
                         get("/v1/models") {
                             call.withCors()
                             val response = modelsJson()
                             chatController.recordRequestAsync(call.request.httpMethod.value, call.request.path(), 200, 0, modelId)
                             call.respondText(response.toString(), JsonContentType)
                         }
-                        get("/v1/models/full") { call.withCors(); call.respondText(modelManager.listModelsJson(), JsonContentType) }
-                        get("/v1/models/market") { call.withCors(); handleModelMarket(call) }
-                        get("/v1/models/market/{modelId}/progress") { call.withCors(); handleModelMarketProgress(call) }
-                        post("/v1/models/market/{modelId}/install") { call.withCors(); handleModelMarketInstall(call) }
-                        post("/v1/models/{modelId}/delete") { call.withCors(); handleModelDelete(call) }
-                        get("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreGet(call) }
-                        get("/v1/store/{namespace}") { call.withCors(); handleStoreList(call) }
-                        post("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreSet(call) }
-                        post("/v1/store/{namespace}/{key}/delete") { call.withCors(); handleStoreRemove(call) }
                         get("/v1/sessions") { call.withCors(); handleSessionGet(call) }
-                        post("/v1/runtime/agent.prompt.stream") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleAgentPromptStream(call) }
                         post("/v1/runtime/{command}") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleRuntimeCommand(call) }
                         get("/v1/tools") {
                             call.withCors()
@@ -607,166 +572,12 @@ class ApiServerController(
         call.respondText(command(call.parameters["command"].orEmpty(), requestJson(call)).toString(), JsonContentType)
     }
 
-    private suspend fun handleAgentPromptStream(call: ApplicationCall) {
-        call.respond(agentPromptStreamContent(requestJson(call)))
-    }
-
-    private fun agentPromptStreamContent(payload: JSONObject) =
-        object : OutgoingContent.WriteChannelContent() {
-            override val contentType = ContentType.Text.EventStream.withParameter("charset", "utf-8")
-            override suspend fun writeTo(channel: ByteWriteChannel) {
-                writeAgentPromptStream(channel, payload)
-            }
-        }
-
-    private suspend fun writeAgentPromptStream(channel: ByteWriteChannel, payload: JSONObject) {
-        val stream = acpAgentManager.promptStream(payload)
-        channel.writeSse(JSONObject().put("type", "start").put("sessionId", stream.sessionId))
-        while (true) {
-            when (val event = withContext(Dispatchers.IO) { stream.events.take() }) {
-                is AcpAgentManager.AcpPromptEvent.Chunk -> channel.writeSse(JSONObject()
-                    .put("type", "chunk")
-                    .put("text", event.text))
-                is AcpAgentManager.AcpPromptEvent.Tool -> channel.writeSse(JSONObject()
-                    .put("type", "tool_call")
-                    .put("toolCall", event.call))
-                is AcpAgentManager.AcpPromptEvent.Done -> {
-                    channel.writeSse(JSONObject()
-                        .put("type", "done")
-                        .put("sessionId", event.sessionId)
-                        .put("reply", event.reply)
-                        .put("toolCalls", event.toolCalls)
-                        .put("stopReason", event.stopReason))
-                    channel.writeStringUtf8("data: [DONE]\n\n")
-                    return
-                }
-                is AcpAgentManager.AcpPromptEvent.Error -> {
-                    channel.writeSse(JSONObject()
-                        .put("type", "error")
-                        .put("message", event.message))
-                    channel.writeStringUtf8("data: [DONE]\n\n")
-                    return
-                }
-            }
-        }
-    }
 
     private suspend fun ByteWriteChannel.writeSse(json: JSONObject) {
         writeStringUtf8("data: $json\n\n")
         flush()
     }
 
-    private suspend fun handleSceneLoad(call: ApplicationCall) {
-        val sceneId = call.parameters["sceneId"].orEmpty()
-        val scene = sceneManager.findScene(sceneId)
-        if (scene == null) {
-            call.respondText(errorJson("scene_not_found", "Scene not found: $sceneId").toString(), JsonContentType, HttpStatusCode.NotFound)
-            return
-        }
-        triggerEngine.loadFromJson(scene.triggers)
-        call.respondText(JSONObject()
-            .put("ok", true)
-            .put("sceneId", sceneId)
-            .put("triggersLoaded", scene.triggers.length())
-            .toString(), JsonContentType)
-    }
-
-    private suspend fun handleSceneDelete(call: ApplicationCall) {
-        val sceneId = call.parameters["sceneId"].orEmpty()
-        val ok = runCatching { sceneManager.uninstallScene(sceneId) }.getOrDefault(false)
-        call.respondText(JSONObject().put("ok", ok).put("id", sceneId).toString(), JsonContentType)
-    }
-
-    private suspend fun handleEvents(call: ApplicationCall) {
-        val sceneId = call.parameters["sceneId"].orEmpty()
-        val type = call.request.queryParameters["type"].orEmpty().takeIf { it.isNotBlank() }
-        val limit = call.request.queryParameters["limit"]?.toIntOrNull()?.coerceIn(1, 100) ?: 20
-        val events = sessionStore.queryEvents(sceneId, type, limit)
-        call.respondText(events.toString(), JsonContentType)
-    }
-
-    private suspend fun handlePreview(call: ApplicationCall) {
-        val bytes = VisionRuntime.previewBytes()
-        if (bytes == null) {
-            call.respondText("No preview available", ContentType.Text.Plain, HttpStatusCode.NotFound)
-            return
-        }
-        call.respondBytes(bytes, ContentType.Image.JPEG, HttpStatusCode.OK)
-    }
-
-    private suspend fun handlePreviewStream(call: ApplicationCall) {
-        call.respond(object : OutgoingContent.WriteChannelContent() {
-            override val contentType = ContentType.parse("multipart/x-mixed-replace; boundary=MNNodeBoundary")
-            override suspend fun writeTo(channel: io.ktor.utils.io.ByteWriteChannel) {
-                var first = true
-                while (true) {
-                    val bytes = VisionRuntime.previewBytes()
-                    if (bytes != null) {
-                        if (first) { channel.writeStringUtf8("--MNNodeBoundary\r\n"); first = false }
-                        else { channel.writeStringUtf8("\r\n--MNNodeBoundary\r\n") }
-                        channel.writeStringUtf8("Content-Type: image/jpeg\r\nContent-Length: ${bytes.size}\r\n\r\n")
-                        channel.writeFully(bytes)
-                    }
-                    delay(50)
-                }
-            }
-        })
-    }
-
-    private suspend fun handleModelDelete(call: ApplicationCall) {
-        call.respondText(modelManager.deleteModel(call.parameters["modelId"].orEmpty()).toString(), JsonContentType)
-    }
-
-    private suspend fun handleModelMarket(call: ApplicationCall) {
-        val query = call.request.queryParameters["q"].orEmpty()
-        val refresh = call.request.queryParameters["refresh"] == "true"
-        val response = withContext(Dispatchers.IO) {
-            JSONObject().put("source", "modelscope").put("models", modelMarket.catalog(query, refresh))
-        }
-        call.respondText(response.toString(), JsonContentType)
-    }
-
-    private suspend fun handleModelMarketProgress(call: ApplicationCall) {
-        val modelId = call.parameters["modelId"].orEmpty()
-        val response = withContext(Dispatchers.IO) {
-            modelMarket.installProgress(modelId) ?: JSONObject().put("modelId", modelId).put("active", false)
-        }
-        call.respondText(response.toString(), JsonContentType)
-    }
-
-    private suspend fun handleModelMarketInstall(call: ApplicationCall) {
-        val id = call.parameters["modelId"].orEmpty()
-        val response = withContext(Dispatchers.IO) {
-            runCatching {
-                modelMarket.installAsync(id)
-            }.fold(
-                onSuccess = { json -> json },
-                onFailure = { error -> JSONObject().put("ok", false).put("message", error.message ?: "Model install failed") },
-            )
-        }
-        call.respondText(response.toString(), JsonContentType, if (response.optBoolean("ok")) HttpStatusCode.Accepted else HttpStatusCode.BadRequest)
-    }
-
-    private suspend fun handleStoreGet(call: ApplicationCall) {
-        call.respondText(localStore.get(storeNamespace(call), storeKey(call)).toString(), JsonContentType)
-    }
-
-    private suspend fun handleStoreSet(call: ApplicationCall) {
-        val body = call.receiveText()
-        val value = runCatching {
-            val json = JSONObject(body.ifBlank { "{}" })
-            if (json.has("value")) json.opt("value") else localStore.parseValue(body)
-        }.getOrElse { localStore.parseValue(body) }
-        call.respondText(localStore.set(storeNamespace(call), storeKey(call), value).toString(), JsonContentType)
-    }
-
-    private suspend fun handleStoreRemove(call: ApplicationCall) {
-        call.respondText(localStore.remove(storeNamespace(call), storeKey(call)).toString(), JsonContentType)
-    }
-
-    private suspend fun handleStoreList(call: ApplicationCall) {
-        call.respondText(localStore.list(storeNamespace(call)).toString(), JsonContentType)
-    }
 
     private suspend fun handleSessionGet(call: ApplicationCall) {
         if (!call.authorized()) return call.respondUnauthorized()
@@ -818,7 +629,6 @@ class ApiServerController(
                 .put("requestCount", sessionStore.apiRequestCount())
                 .put("recentRequests", sessionStore.recentApiRequests())
         }
-        json.put("agentNetwork", acpAgentManager.state())
         return json
     }
 
@@ -957,7 +767,6 @@ class ApiServerController(
     private fun deleteSession(rawSessionId: String) {
         val deletedId = sessionStore.normalizeModelSessionId(rawSessionId)
         if (sessionStore.deleteModelSession(deletedId)) {
-            acpAgentManager.clearSessionIfMatches(deletedId)
             if (deletedId == currentSessionId) {
                 currentSessionId = DEFAULT_SESSION_ID
                 chatController.resetSessionCache()
@@ -971,49 +780,35 @@ class ApiServerController(
         return state().put("session", details)
     }
 
-    private fun withAgentState(agent: JSONObject): JSONObject {
-        val output = state()
-        agent.keys().forEach { key ->
-            if (key == "currentSessionId") {
-                output.put("agentCurrentSessionId", agent.opt(key))
-            } else {
-                output.put(key, agent.opt(key))
-            }
-        }
-        val network = acpAgentManager.state()
-        val agentState = network.optJSONObject("agent")
-        output.put("agentCurrentSessionId", agentState?.optString("sessionId")?.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
-        return output.put("agentNetwork", network)
-    }
-
-    private fun isAgentCommand(command: String): Boolean =
-        command == "agent.status" ||
-            command == "agent.saveNode" ||
-            command == "agent.selectNode" ||
-            command == "agent.connect" ||
-            command == "agent.disconnect" ||
-            command == "agent.session.create" ||
-            command == "agent.session.select" ||
-            command == "agent.prompt"
-
-    // ---- Extensions ----
-
-    private fun ModelChatRequest.withHeaderSession(headerSessionId: String) =
-        if (sessionId.isBlank() && headerSessionId.isNotBlank()) copy(sessionId = headerSessionId) else this
-
-    private fun io.ktor.server.request.ApplicationRequest.headerSessionId() =
-        header("X-MNNode-Session-Id") ?: header("X-Session-Id") ?: ""
-
-    private fun ApplicationCall.authorized(): Boolean {
-        val token = authToken
-        if (token.isBlank()) return true
-        val header = request.header("Authorization").orEmpty()
-        val bearer = if (header.startsWith("Bearer ", ignoreCase = true)) header.substringAfter(' ').trim() else ""
-        return bearer == token || request.header("X-Lociant-Token") == token
-    }
 
     private suspend fun ApplicationCall.respondUnauthorized() {
         respondText(errorJson("unauthorized", "Missing or invalid API token").toString(), JsonContentType, HttpStatusCode.Unauthorized)
+    }
+
+    private fun ApplicationCall.authorized(): Boolean {
+        if (authToken.isBlank()) return true
+        val bearer = request.header("Authorization")
+            ?.trim()
+            ?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }
+            ?.substringAfter(' ', "")
+            ?.trim()
+            .orEmpty()
+        val direct = request.header("X-Lociant-Token")?.trim().orEmpty()
+        return bearer == authToken || direct == authToken
+    }
+
+    private fun ApplicationRequest.headerSessionId(): String? {
+        return listOf(
+            header("X-MNNode-Session-Id"),
+            header("X-Session-Id"),
+            header("Mcp-Session-Id"),
+        ).firstOrNull { !it.isNullOrBlank() }?.trim()
+    }
+
+    private fun ModelChatRequest.withHeaderSession(headerSessionId: String?): ModelChatRequest {
+        val session = headerSessionId?.trim().orEmpty()
+        if (session.isBlank() || sessionId.isNotBlank()) return this
+        return copy(sessionId = session)
     }
 
     // ---- Network ----
@@ -1032,8 +827,6 @@ class ApiServerController(
         return runCatching { JSONObject(call.receiveText().ifBlank { "{}" }) }.getOrDefault(JSONObject())
     }
 
-    private fun storeNamespace(call: ApplicationCall) = call.parameters["namespace"].orEmpty()
-    private fun storeKey(call: ApplicationCall) = call.parameters["key"].orEmpty()
 
     private fun isPortAvailable(port: Int): Boolean = runCatching {
         java.net.ServerSocket(port).use { it.close() }; true

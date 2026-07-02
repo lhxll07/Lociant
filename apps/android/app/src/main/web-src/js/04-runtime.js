@@ -102,6 +102,12 @@ function updateRuntimeServiceState(state) {
     }
   }
   if (runtimeServiceState.toolExposure) runtimeToolExposureInput.value = runtimeServiceState.toolExposure
+  if (runtimeWearableText) {
+    const wearable = runtimeServiceState.wearable || {}
+    runtimeWearableText.textContent = wearable.gadgetbridgeDirectoryGranted
+      ? t('settings.wearableReady')
+      : t('settings.wearableSub')
+  }
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }

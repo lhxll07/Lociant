@@ -35,13 +35,10 @@ import androidx.webkit.WebViewAssetLoader
 import com.mnnode.app.config.RuntimeDefaults
 import com.mnnode.app.model.ModelInstaller
 import com.mnnode.app.model.ModelManager
-import com.mnnode.app.scene.SceneManager
-import com.mnnode.app.scene.ScenePackInstaller
-import com.mnnode.app.runtime.TriggerEngine
 import com.mnnode.app.runtime.DeviceInteraction
+import com.mnnode.app.runtime.MNNodeRuntime
 import com.mnnode.app.runtime.VisionRuntime
 import com.mnnode.app.server.ApiServerController
-import com.mnnode.app.runtime.MNNodeRuntime
 import com.mnnode.app.runtime.MNNodeRuntimeService
 import com.mnnode.app.session.SessionStore
 import com.mnnode.app.storage.LocalStore
@@ -55,12 +52,9 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     private lateinit var webView: WebView
     private lateinit var modelManager: ModelManager
     private lateinit var modelInstaller: ModelInstaller
-    private lateinit var sceneManager: SceneManager
-    private lateinit var scenePackInstaller: ScenePackInstaller
     private lateinit var apiServerController: ApiServerController
     private lateinit var localStore: LocalStore
     private lateinit var sessionStore: SessionStore
-    private lateinit var triggerEngine: TriggerEngine
     private val modelInstallExecutor = Executors.newSingleThreadExecutor()
 
     private var pendingWebPermissionRequest: PermissionRequest? = null
@@ -92,9 +86,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         refreshRuntimeStateIfNeeded()
     }
 
-    private val installScenePackage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) notifySceneInstallResult(false, "cancelled", null) else handleScenePackage(uri)
-    }
 
     private val installModelPackage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) notifyModelInstallResult(false, "cancelled", null) else handleModelPackage(uri)
@@ -113,21 +104,17 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         enterImmersiveMode()
 
-        sceneManager = MNNodeRuntime.sceneManager(this)
-        scenePackInstaller = MNNodeRuntime.scenePackInstaller(this)
         localStore = MNNodeRuntime.localStore(this)
         sessionStore = MNNodeRuntime.sessionStore(this)
         modelManager = MNNodeRuntime.modelManager(this)
         modelInstaller = ModelInstaller(this, modelManager)
         apiServerController = MNNodeRuntime.apiServer(this)
         apiServerController.startForService(JSONObject().put("source", "activity"))
-        triggerEngine = MNNodeRuntime.triggerEngine(this)
         windowSettings = loadWindowSettings()
 
         val assetLoader = WebViewAssetLoader.Builder()
             .setHttpAllowed(true)
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
-            .addPathHandler("/installed-scenes/", WebViewAssetLoader.InternalStoragePathHandler(this, sceneManager.scenesDir()))
             .build()
 
         webView = WebView(this).apply {
@@ -193,7 +180,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                 MNNodeShellBridge(host = this@MainActivity),
                 "MNNodeShell",
             )
-            loadUrl("${SceneManager.LOCAL_ORIGIN}/assets/web/index.html")
+            loadUrl("${"https://appassets.androidplatform.net"}/assets/web/index.html")
         }
 
         root = FrameLayout(this).apply {
@@ -273,7 +260,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
     }
 
     override fun openScenePackPicker() {
-        runOnUiThread { installScenePackage.launch(PACKAGE_MIME_TYPES) }
+        notifySceneInstallResult(false, "Scene package install is no longer supported in this build.", null)
     }
 
     override fun openModelPackagePicker() {
@@ -312,6 +299,8 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         }
     }
 
+    override fun chooseGadgetbridgeExportFolder() {}
+
     override fun openPermissionSettings(kind: String) {
         runOnUiThread {
             when (kind) {
@@ -321,13 +310,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                 else -> openAppSettingsScreen()
             }
         }
-    }
-
-    private fun handleScenePackage(uri: Uri) {
-        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        runCatching { scenePackInstaller.installFromUri(uri) }
-            .onSuccess { scene -> notifySceneInstallResult(true, "installed", scene.toJson()) }
-            .onFailure { error -> notifySceneInstallResult(false, error.message ?: "install failed", null) }
     }
 
     private fun handleModelPackage(uri: Uri) {
@@ -403,9 +385,7 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             "vision.status" -> runtimeSummaryWithWindow().put("vision", apiServerController.callToolResult("vision_status"))
             "settings" -> apiServerController.command(command, payload).toRuntimeUiState()
             "model.release" -> apiServerController.command(command, payload).withRuntimeState()
-            "agent.status", "agent.saveNode", "agent.selectNode", "agent.connect", "agent.disconnect",
-            "agent.session.create", "agent.session.select", "agent.prompt" -> apiServerController.command(command, payload).withRuntimeState()
-            "session.create", "session.select", "session.delete", "session.details" -> apiServerController.command(command, payload).withRuntimeState()
+                        "session.create", "session.select", "session.delete", "session.details" -> apiServerController.command(command, payload).withRuntimeState()
             "status" -> runtimeSummaryWithWindow()
             else -> JSONObject().put("ok", false).put("message", "Unknown shell command: $command")
         }.toString()
@@ -459,7 +439,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             .put("headlessCapable", true)
             .put("vision", VisionRuntime.status())
             .put("device", DeviceInteraction.snapshot(this@MainActivity))
-            .put("triggers", triggerEngine.snapshot())
             .put("cameraPermissionGranted", hasPermission(Manifest.permission.CAMERA))
             .put("windowSupported", isFloatingWindowSupported())
             .put("windowAutoShow", windowSettings.optBoolean("autoShow", false))
