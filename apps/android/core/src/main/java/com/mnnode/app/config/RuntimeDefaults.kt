@@ -22,9 +22,6 @@ object RuntimeDefaults {
         const val MODEL_SERVER_SESSION_ID = "model-server/default"
         const val MODEL_SERVER_KIND = "model-server"
         const val MODEL_CHAT_KIND = "model-chat"
-        const val AGENT_SCENE_ID = "agent-network"
-        const val AGENT_ACP_KIND = "agent-acp"
-        const val AGENT_ACP_PREFIX = "agent/acp/"
         const val CHAT_PREFIX = "model-server/chat/"
         const val DEFAULT_CHAT_ID = "${CHAT_PREFIX}default"
         const val RECENT_LIMIT = 8
@@ -45,13 +42,9 @@ object RuntimeDefaults {
     object Settings {
         const val SERVER_NAMESPACE = "runtime/model-server/settings"
         const val SERVER_KEY = "server"
-        const val NODES_NAMESPACE = "runtime/nodes"
-        const val NODES_KEY = "profiles"
         const val WINDOW_NAMESPACE = "runtime/settings"
         const val WINDOW_KEY = "window"
         const val FLOATING_WINDOW_KEY = "floating-window"
-        const val WEARABLE_NAMESPACE = "runtime/wearable"
-        const val WEARABLE_KEY = "gadgetbridge"
     }
 
     object NativeRuntime {

@@ -2,7 +2,7 @@
 """Unified desktop-side test and debug tool for Lociant.
 
 No third-party dependencies. Use it to test the phone runtime, OpenAI-compatible
-chat, tools, MCP, scenes, streaming, and to proxy/log real agent traffic.
+chat, tools, MCP, streaming, and to proxy/log real agent traffic.
 """
 
 from __future__ import annotations
@@ -24,7 +24,6 @@ DEFAULT_BASE_URL = "http://10.238.125.4:11434"
 DEFAULT_LISTEN = "127.0.0.1"
 DEFAULT_PROXY_PORT = 11435
 DEFAULT_TOOL = "runtime_status"
-DEFAULT_SCENE = "study-desk"
 MCP_PROTOCOL_VERSION = "2025-06-18"
 
 
@@ -327,15 +326,6 @@ def run_full(args: argparse.Namespace) -> int:
     if not model:
         fail("no model available")
 
-    scenes = request("GET", api_url(base_url, "/v1/scenes"), headers=headers, timeout=args.timeout)
-    if scenes.status == 200:
-        scene_list = json.loads(scenes.body.decode("utf-8"))
-        if not isinstance(scene_list, list):
-            fail(f"/v1/scenes did not return a list: {scene_list}")
-        ok("scenes", f"{scenes.elapsed_ms}ms ids={[item.get('id') for item in scene_list if isinstance(item, dict)]}")
-    else:
-        warn("scenes", f"HTTP {scenes.status}: {scenes.body[:200]!r}")
-
     tool = args.tool if args.tool in names else (names[0] if names else "")
     if not tool:
         fail("no tool available for OpenAI tool test")
@@ -537,7 +527,7 @@ def main() -> int:
     quick.add_argument("--chat-timeout", type=int, default=120)
     quick.set_defaults(func=run_quick)
 
-    full = sub.add_parser("full", help="quick plus scenes, OpenAI tools, Ollama, and streaming")
+    full = sub.add_parser("full", help="quick plus OpenAI tools, Ollama, and streaming")
     add_common(full)
     full.add_argument("--expect-auth", action="store_true")
     full.add_argument("--tool", default=DEFAULT_TOOL)

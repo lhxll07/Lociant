@@ -122,6 +122,7 @@ class ModelMarket(
             }
             tempRoot.deleteRecursively()
             backupDir.deleteRecursively()
+            modelManager.invalidateCache()
             updateTask(repo.modelId, 1.0, "Model installed", false)
             onProgress(1.0, "Model installed")
             return modelManager.resolve(spec.id)
@@ -130,6 +131,7 @@ class ModelMarket(
             val target = targetDir
             if (target != null) backupDir?.takeIf { it.exists() }?.renameTo(target)
             tempRoot.deleteRecursively()
+            modelManager.invalidateCache()
             updateTask(repo.modelId, null, error.message ?: "Model install failed", false)
             throw error
         }

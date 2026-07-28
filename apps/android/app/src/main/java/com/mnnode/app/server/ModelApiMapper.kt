@@ -44,17 +44,6 @@ object ModelApiMapper {
         )
     }
 
-    fun parseSceneChat(json: JSONObject): ModelChatRequest {
-        return ModelChatRequest(
-            modelId = json.optString("model", json.optString("modelId", DEFAULT_MODEL_ID)),
-            messages = parseSceneMessages(json),
-            maxTokens = optionalInt(json, "max_tokens") ?: optionalInt(json, "maxTokens"),
-            stream = false,
-            source = "scene.model-chat",
-            sessionId = parseSessionId(json),
-        )
-    }
-
     fun openAiResponse(result: ModelChatResult): JSONObject {
         if (result.toolCalls.isNotEmpty()) {
             return openAiToolCallResponse(result.modelId, result.toolCalls)
@@ -157,19 +146,6 @@ object ModelApiMapper {
             toolCallId = toolCall.id,
             name = toolCall.name,
         )
-    }
-
-    private fun parseSceneMessages(json: JSONObject): List<ModelChatMessage> {
-        val messages = json.optJSONArray("messages")
-        if (messages != null && messages.length() > 0) return parseOpenAiMessages(messages)
-
-        val parts = buildList {
-            json.optString("prompt").takeIf { it.isNotBlank() }?.let { add(ModelChatPart.Text(it)) }
-            json.optString("image").takeIf { it.isNotBlank() }?.let { image ->
-                ModelChatPart.decodeImagePart(image)?.let { add(it) }
-            }
-        }
-        return listOf(ModelChatMessage("user", parts))
     }
 
     private fun parseOpenAiContent(content: Any?): List<ModelChatPart> {

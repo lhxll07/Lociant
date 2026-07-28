@@ -23,7 +23,14 @@ Common endpoints:
 ```text
  GET  /health
  GET  /v1/models
+ GET  /v1/models/full
+ GET  /v1/models/market
+ POST /v1/models/market/{modelId}/install
+ GET  /v1/models/market/{modelId}/progress
+ POST /v1/models/{modelId}/delete
  GET  /v1/sessions
+ GET  /v1/store/{namespace}/{key}
+ POST /v1/store/{namespace}/{key}
  POST /v1/runtime/{command}
  GET  /v1/tools
  POST /v1/tools/{name}/call
@@ -247,7 +254,14 @@ API Key: 留空或任意非空字符串，取决于客户端
 ```text
 GET  /health
 GET  /v1/models
+GET  /v1/models/full
+GET  /v1/models/market
+POST /v1/models/market/{modelId}/install
+GET  /v1/models/market/{modelId}/progress
+POST /v1/models/{modelId}/delete
 GET  /v1/sessions
+GET  /v1/store/{namespace}/{key}
+POST /v1/store/{namespace}/{key}
 POST /v1/runtime/{command}
 POST /v1/chat/completions
 POST /api/chat

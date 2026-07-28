@@ -12,16 +12,15 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <package android:name="nodomain.freeyourgadget.gadgetbridge" />
-        <package android:name="nodomain.freeyourgadget.gadgetbridge.nightly" />
-        <package android:name="nodomain.freeyourgadget.gadgetbridge.nightly_nopebble" />
-        <package android:name="com.espruino.gadgetbridge.banglejs" />
-        <package android:name="com.espruino.gadgetbridge.banglejs.nightly" />
     </queries>
 
     <application

@@ -19,10 +19,6 @@
           <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-5 5v-5.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg></span>
           <span class="nav-label" data-i18n="nav.home">主页</span>
         </button>
-        <button class="nav-item pressable" data-page="scenes">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg></span>
-          <span class="nav-label" data-i18n="nav.scenes">场景</span>
-        </button>
         <button class="nav-item pressable" data-page="settings">
           <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></span>
           <span class="nav-label" data-i18n="nav.settings">设置</span>
@@ -31,10 +27,6 @@
           <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
           <span class="nav-label" data-i18n="nav.models">模型</span>
         </button>
-        <button class="nav-item pressable mobile-only" data-page="nodes">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8 15.8 7.2"/><path d="M8.2 13.2 15.8 16.8"/></svg></span>
-          <span class="nav-label" data-i18n="nav.nodes">节点</span>
-        </button>
       </nav>
 
       <div class="version">v0.4</div>
@@ -42,8 +34,6 @@
 
     <main class="main">
       <section class="top-bar">
-        <button class="back-button pressable" id="backButton" data-i18n="common.back">返回</button>
-        <button class="scene-settings-button pressable" id="sceneSettingsButton" data-i18n="nav.settings">设置</button>
         <div class="top-spacer"></div>
         <div class="top-history">
           <button class="home-rail-toggle pressable floating-glass-button" id="homeRailToggle" type="button">
@@ -66,33 +56,7 @@
           <span class="status-dot" id="stateDot"></span>
           <span id="stateText" class="status-text" data-i18n="state.idle">待机</span>
         </span>
-        <button class="node-chip pressable" id="topNodeButton" type="button">
-          <span class="node-chip-dot"></span>
-          <span id="topNodeText" data-i18n="nodes.localNode">本机节点</span>
-          <span class="node-chip-arrow">›</span>
-        </button>
         <span class="clock" id="clock">--:--:--</span>
-      </section>
-
-      <button class="runtime-strip pressable" id="runtimeStrip" type="button" aria-hidden="true">
-        <span class="runtime-strip-dot"></span>
-        <span class="runtime-strip-body">
-          <span class="runtime-strip-title" id="runtimeSceneName">Scene</span>
-          <span class="runtime-strip-text" id="runtimeEventText">-</span>
-        </span>
-        <span class="runtime-strip-text" id="runtimeWindowText">Window</span>
-        <span class="runtime-strip-text" id="runtimeStateText">-</span>
-        <span class="runtime-strip-text" id="runtimeElapsedText">-</span>
-      </button>
-
-      <section class="alert-banner" id="alertBanner" aria-hidden="true">
-        <span class="alert-scene-name" id="alertSceneName">Scene</span>
-        <span class="alert-title" id="alertTitle">Alert</span>
-        <span class="alert-message" id="alertMessage">Message</span>
-        <span class="alert-actions">
-          <button class="alert-action pressable" id="alertOpenButton" data-i18n="common.open">Open</button>
-          <button class="alert-action pressable" id="alertCloseButton">x</button>
-        </span>
       </section>
 
       <section class="panel active home-panel" id="page-home">
@@ -109,7 +73,6 @@
             <div class="chat-suggestions">
               <button class="suggestion-chip pressable" type="button" data-home-action="diagnostics" data-i18n="home.quickDiagnostics">运行诊断</button>
               <button class="suggestion-chip pressable" type="button" data-home-action="copy-config" data-i18n="home.quickConnection">复制连接配置</button>
-              <button class="suggestion-chip pressable" type="button" data-home-action="scenes" data-i18n="home.quickScenes">打开场景</button>
             </div>
             <div class="chat-attachment-preview" id="homeImagePreview" aria-hidden="true">
               <img id="homeImagePreviewImg" alt="">
@@ -126,21 +89,6 @@
             </form>
           </section>
         </div>
-      </section>
-
-      <section class="panel" id="page-scenes">
-        <header class="page-head">
-          <div>
-            <p class="eyebrow">Lociant</p>
-            <h1 class="section-title" data-i18n="page.scenesTitle">场景</h1>
-            <p class="section-subtitle" data-i18n="page.scenesSub">运行手机侧工作流与能力包</p>
-          </div>
-          <div class="head-actions">
-            <button class="tonal-button pressable" id="reloadButton" data-i18n="common.refresh">刷新</button>
-            <button class="filled-button pressable" id="installButton" data-i18n="common.install">安装</button>
-          </div>
-        </header>
-        <div class="surface-list scene-list" id="sceneList"></div>
       </section>
 
       <section class="panel" id="page-settings">
@@ -359,7 +307,7 @@
             <button class="back-chip pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">返回</button>
             <div>
               <h2 data-i18n="settings.capabilitiesTitle">能力</h2>
-              <p data-i18n="settings.capabilitiesIntro">提供给场景和 Agent 的手机能力</p>
+              <p data-i18n="settings.capabilitiesIntro">提供给本地服务和远程客户端的手机能力</p>
             </div>
           </div>
           <div class="surface-list">
@@ -380,13 +328,6 @@
                 <option value="sensor" data-i18n="settings.toolSensor">感知</option>
                 <option value="action" data-i18n="settings.toolAction">动作</option>
               </select>
-            </div>
-            <div class="settings-section">
-              <span class="settings-section-main">
-                <span class="settings-section-title" data-i18n="settings.wearableTitle">Wearable</span>
-                <span class="settings-section-sub" id="runtimeWearableText" data-i18n="settings.wearableSub">Gadgetbridge export folder</span>
-              </span>
-              <button class="tonal-button pressable" id="runtimeWearableFolderButton" type="button" data-i18n="settings.chooseFolder">Choose</button>
             </div>
           </div>
           <h3 class="group-title">Limits</h3>
@@ -501,12 +442,12 @@
             </div>
             <div class="list-inset" id="runtimeSessionList"></div>
           </div>
-          <h3 class="group-title" data-i18n="diagnostics.title">Agent Diagnostics</h3>
+          <h3 class="group-title" data-i18n="diagnostics.title">Runtime Diagnostics</h3>
           <div class="surface-list diagnostics-panel">
             <div class="settings-section settings-action-section diagnostics-action-row">
               <span class="settings-section-main">
-                <span class="settings-section-title" data-i18n="diagnostics.agentTitle">Agent connection</span>
-                <span class="settings-section-sub" id="runtimeDiagSummaryText" data-i18n="diagnostics.agentSub">Check runtime, tools, model, and vision readiness</span>
+                <span class="settings-section-title" data-i18n="diagnostics.summaryTitle">Runtime readiness</span>
+                <span class="settings-section-sub" id="runtimeDiagSummaryText" data-i18n="diagnostics.summarySub">Check runtime, tools, model, and vision readiness</span>
               </span>
               <button class="tonal-button pressable" id="runtimeDiagRunButton" type="button" data-i18n="diagnostics.run">Run check</button>
             </div>
@@ -574,56 +515,6 @@
           </div>
           <div class="surface-list market-list" id="modelMarketList"></div>
         </div>
-      </section>
-
-      <section class="panel" id="page-nodes">
-        <header class="page-head">
-          <div>
-            <p class="eyebrow">Network</p>
-            <h1 class="section-title" data-i18n="page.nodesTitle">节点</h1>
-            <p class="section-subtitle" data-i18n="page.nodesSub">在手机本机模型和桌面 Codex Agent 之间切换。</p>
-          </div>
-          <div class="head-actions">
-            <button class="tonal-button pressable" id="nodeCopyMcpButton" type="button" data-i18n="nodes.copyStarter">复制启动命令</button>
-          </div>
-        </header>
-        <div class="surface-list">
-          <button class="settings-section pressable" id="nodeLocalButton" type="button">
-            <span class="scene-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m18.4 5.6-2.1 2.1"/><path d="m7.7 16.3-2.1 2.1"/></svg></span>
-            <span class="settings-section-main">
-              <span class="settings-section-title" data-i18n="nodes.localNode">本机节点</span>
-              <span class="settings-section-sub" id="nodeLocalSub" data-i18n="nodes.localSub">当前设备作为能力节点运行</span>
-            </span>
-            <span class="status-pill" id="nodeLocalState" data-i18n="status.stopped">已停止</span>
-          </button>
-          <button class="settings-section pressable" id="nodeOpenServerButton" type="button">
-            <span class="settings-section-main">
-              <span class="settings-section-title" data-i18n="nodes.connectionTitle">连接入口</span>
-              <span class="settings-section-sub" id="nodeConnectionText">--</span>
-            </span>
-            <span class="status-pill">MCP</span>
-          </button>
-          <div class="settings-section node-editor">
-            <span class="scene-icon"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="10" rx="2"/><path d="M8 19h8"/><path d="M12 15v4"/><path d="M8 9h8"/></svg></span>
-            <span class="settings-section-main">
-              <span class="settings-section-title" data-i18n="nodes.codexNode">桌面 Codex</span>
-              <span class="settings-section-sub" id="nodeCodexState">--</span>
-              <span class="node-field-list">
-                <input class="settings-token-input" id="nodeCodexUrlInput" type="url" inputmode="url" placeholder="ws://192.168.1.2:3000/">
-                <input class="settings-token-input" id="nodeCodexCwdInput" type="text" data-i18n-placeholder="nodes.cwdPlaceholder" placeholder="电脑上的工作目录">
-              </span>
-            </span>
-            <span class="node-actions">
-              <button class="tonal-button pressable" id="nodePairQrButton" type="button" data-i18n="nodes.qrPair">扫码</button>
-              <button class="tonal-button pressable" id="nodeSaveCodexButton" type="button" data-i18n="common.save">保存</button>
-              <button class="filled-button pressable" id="nodeConnectCodexButton" type="button" data-i18n="nodes.connect">连接</button>
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <section class="scene-host" id="sceneHost">
-        <iframe class="scene-frame" id="sceneFrame" title="Scene Pack" allow="camera; microphone"></iframe>
       </section>
 
       <div class="model-progress" id="modelProgress">

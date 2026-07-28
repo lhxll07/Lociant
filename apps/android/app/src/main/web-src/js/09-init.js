@@ -1,23 +1,10 @@
 /* ── Lociant WebUI — Event binding and initialization ── */
 
-// ---- Scene frame events ----
-sceneFrame.addEventListener('load', () => {
-  installSceneApiClient()
-  resizeSceneFrame()
-  window.setTimeout(resizeSceneFrame, 80)
-  window.setTimeout(resizeSceneFrame, 300)
-  window.setTimeout(syncRuntimeSnapshot, 120)
-})
-
-window.addEventListener('resize', resizeSceneFrame)
 window.addEventListener('resize', syncKeyboardOffset)
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', syncKeyboardOffset)
   window.visualViewport.addEventListener('scroll', syncKeyboardOffset)
 }
-sceneHost.addEventListener('scroll', () => syncCameraPreviewRect(), { passive: true })
-app.addEventListener('transitionend', () => syncCameraPreviewRect())
-
 // ---- Sidebar ----
 menuButton.addEventListener('pointerdown', event => {
   event.preventDefault()
@@ -55,21 +42,6 @@ navItems.forEach(item => {
 })
 
 // ---- Buttons ----
-backButton.addEventListener('click', goHome)
-sceneSettingsButton.addEventListener('click', toggleSceneSettings)
-alertOpenButton.addEventListener('click', openAlertScene)
-alertCloseButton.addEventListener('click', clearAlert)
-runtimeStrip.addEventListener('click', () => {
-  const scene = runtimeScene()
-  if (scene) openScene(scene)
-})
-runtimeWindowText.addEventListener('click', event => {
-  event.stopPropagation()
-  runtimeWindowCommand()
-})
-if (topNodeButton) {
-  topNodeButton.addEventListener('click', () => navigateTo('nodes'))
-}
 if (homeRailToggle && homeSidebar) {
   homeRailToggle.setAttribute('aria-expanded', 'false')
   homeRailToggle.addEventListener('click', () => {
@@ -93,9 +65,7 @@ if (homeRailToggle && homeSidebar) {
 }
 if (homeNewChatButton) {
   homeNewChatButton.addEventListener('click', () => {
-    const next = activeNodeKind() === 'acp'
-      ? apiPost('/v1/runtime/agent.session.create', {})
-      : runtimeApiCommand('session.create', {})
+    const next = runtimeApiCommand('session.create', {})
     Promise.resolve(next).then(state => {
       clearHomeMessages()
       const sessionId = homeSessionIdFromState(state) || homeCurrentSessionId()
@@ -194,12 +164,6 @@ if (accessibilityPermissionButton) {
     handlePermissionAction(accessibilityPermissionButton, 'requestAccessibilityPermission', 'accessibility')
   })
 }
-if (runtimeWearableFolderButton) {
-  runtimeWearableFolderButton.addEventListener('click', () => {
-    native('chooseGadgetbridgeExportFolder')
-  })
-}
-
 // ---- Server settings ----
 runtimePortInput.addEventListener('change', () => {
   const value = Math.max(1024, Math.min(65535, Math.round(Number(runtimePortInput.value) || 11434)))
@@ -305,64 +269,8 @@ runtimeSessionNewButton.addEventListener('click', () => {
   runtimeApiCommand('session.create', {})
 })
 if (runtimeDiagRunButton) {
-  runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
+  runtimeDiagRunButton.addEventListener('click', runRuntimeDiagnostics)
 }
-if (nodeCopyMcpButton) {
-  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(() => t('nodes.starterCommand')))
-}
-if (nodeLocalButton) {
-  nodeLocalButton.addEventListener('click', () => {
-    updateRuntimeServiceState(runtimeApiCommand('agent.selectNode', { nodeId: 'local' }) || {})
-    restoreHomeConversation()
-    showToast(t('nodes.localActive'))
-  })
-}
-if (nodeOpenServerButton) {
-  nodeOpenServerButton.addEventListener('click', openRuntimeServerFromHome)
-}
-if (nodeSaveCodexButton) {
-  nodeSaveCodexButton.addEventListener('click', () => {
-    const node = {
-      id: 'desktop-codex',
-      kind: 'acp',
-      name: t('nodes.codexNode'),
-      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
-      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
-      token: ''
-    }
-    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
-    restoreHomeConversation()
-    showToast(t('common.save'))
-  })
-}
-if (nodeConnectCodexButton) {
-  nodeConnectCodexButton.addEventListener('click', () => {
-    const network = runtimeServiceState && runtimeServiceState.agentNetwork
-    const active = network && network.activeNode && network.activeNode.kind === 'acp'
-    const connected = network && network.agent && network.agent.connected
-    if (active && connected) {
-      updateRuntimeServiceState(runtimeApiCommand('agent.disconnect', {}) || {})
-      return
-    }
-    const node = {
-      id: 'desktop-codex',
-      kind: 'acp',
-      name: t('nodes.codexNode'),
-      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
-      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
-      token: ''
-    }
-    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
-    restoreHomeConversation()
-    Promise.resolve(apiPost('/v1/runtime/agent.connect', {}))
-      .then(state => updateRuntimeServiceState(state || {}))
-      .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
-  })
-}
-if (nodePairQrButton) {
-  nodePairQrButton.addEventListener('click', () => showToast(t('nodes.qrTodo')))
-}
-
 // ---- Language ----
 languageControl.addEventListener('click', event => {
   const button = event.target.closest('.segmented-option')
@@ -371,7 +279,7 @@ languageControl.addEventListener('click', event => {
 
 // ---- Model actions ----
 modelReloadButton.addEventListener('click', () => {
-  loadModels()
+  loadModels(true)
   showToast(t('toast.modelsReloaded'))
 })
 modelImportButton.addEventListener('click', () => {
@@ -393,30 +301,8 @@ modelMarketSearch.addEventListener('input', () => {
     loadModelMarket()
   }, 250)
 })
-reloadButton.addEventListener('click', () => {
-  loadScenes()
-  showToast(t('toast.scenesReloaded'))
-})
-
-// ---- Scene install ----
-installButton.addEventListener('click', () => {
-  native('installScenePack')
-})
-
-// ---- Expose helpers ----
-window.MNNodeShellUi = { goHome }
-
 // ---- PostMessage handlers ----
 window.MNNodeEvents = {
-  onSceneInstallResult(result) {
-    if (result && result.ok) {
-      loadScenes()
-      showToast(t('toast.sceneInstalled'))
-      syncTopStatus()
-    } else if (result) {
-      showToast(result.message || t('toast.installFailed'))
-    }
-  },
   onModelInstallResult(result) {
     if (result && result.state === 'installing') {
       setModelProgress(result)
@@ -428,14 +314,6 @@ window.MNNodeEvents = {
       setModelProgress(Object.assign({ state: 'error' }, result))
       showToast(result.message || t('toast.modelImportFailed'))
     }
-  },
-  onVisionState(result) {
-    postToScene(Object.assign({ type: 'vision.state' }, result || {}))
-    if (result && result.state === 'running') showToast(t('toast.visionStarted'))
-    if (result && result.state === 'error') showToast(result.message || 'Vision failed')
-  },
-  onVisionFrame(frame) {
-    postToScene(Object.assign({ type: 'vision.frame' }, frame || {}))
   },
   onRuntimeMessage(message) {
     handleRuntimeMessage(message)
@@ -449,26 +327,9 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
-const messageHandlers = {
-  'scene.ready': () => {
-    syncTopStatus()
-    broadcastLocale()
-    syncRuntimeSnapshot()
-  },
-  'runtime.subscribe': () => syncRuntimeSnapshot(),
-  'runtime.command': data => sendRuntimeCommand(data.sceneId || (activeScene && activeScene.id) || '', data.command || '', data.payload || {})
-}
-
-window.addEventListener('message', event => {
-  const data = event.data || {}
-  const handler = messageHandlers[data.type]
-  if (handler) handler(data)
-})
-
 // ---- Bootstrap ----
 refreshRuntimeServiceState()
 restoreHomeConversation()
-loadScenes()
 loadModels()
 loadLocaleSetting()
 tick()

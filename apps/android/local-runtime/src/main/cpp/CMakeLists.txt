@@ -17,10 +17,10 @@ message(STATUS "Using ncnn package: ${NCNN_PACKAGE_DIR}")
 find_package(ncnn REQUIRED CONFIG)
 
 set(MNN_PREBUILT_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.5.0_android_armv7_armv8_cpu_opencl_vulkan/${MNNODE_ABI}")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan/${MNNODE_ABI}")
 get_filename_component(MNN_PREBUILT_DIR "${MNN_PREBUILT_DIR}" ABSOLUTE)
 set(MNN_SOURCE_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.5.0_headers")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.6.1_headers")
 get_filename_component(MNN_SOURCE_DIR "${MNN_SOURCE_DIR}" ABSOLUTE)
 
 message(STATUS "Using MNN prebuilt: ${MNN_PREBUILT_DIR}")

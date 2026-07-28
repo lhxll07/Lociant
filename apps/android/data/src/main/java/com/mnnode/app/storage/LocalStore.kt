@@ -10,9 +10,11 @@ import java.io.File
 class LocalStore(context: Context) {
     private val file = AtomicFile(File(context.filesDir, "store/local-store.json"))
     private val lock = Any()
+    private var root = JSONObject()
 
     init {
         file.baseFile.parentFile?.mkdirs()
+        root = readRootFromDisk()
     }
 
     fun get(namespace: String, key: String): JSONObject {
@@ -43,10 +45,11 @@ class LocalStore(context: Context) {
         val ns = cleanNamespace(namespace)
         val name = cleanKey(key)
         synchronized(lock) {
-            val root = readRoot()
-            val bucket = root.optJSONObject(ns) ?: JSONObject().also { root.put(ns, it) }
+            val nextRoot = JSONObject(root.toString())
+            val bucket = nextRoot.optJSONObject(ns) ?: JSONObject().also { nextRoot.put(ns, it) }
             bucket.put(name, copyJsonValue(value))
-            writeRoot(root)
+            writeRoot(nextRoot)
+            root = nextRoot
             return JSONObject()
                 .put("ok", true)
                 .put("namespace", ns)
@@ -59,12 +62,13 @@ class LocalStore(context: Context) {
         val ns = cleanNamespace(namespace)
         val name = cleanKey(key)
         synchronized(lock) {
-            val root = readRoot()
-            val bucket = root.optJSONObject(ns)
+            val nextRoot = JSONObject(root.toString())
+            val bucket = nextRoot.optJSONObject(ns)
             val existed = bucket?.has(name) == true
             bucket?.remove(name)
-            if (bucket != null && bucket.length() == 0) root.remove(ns)
-            writeRoot(root)
+            if (bucket != null && bucket.length() == 0) nextRoot.remove(ns)
+            writeRoot(nextRoot)
+            root = nextRoot
             return JSONObject()
                 .put("ok", true)
                 .put("namespace", ns)
@@ -76,7 +80,7 @@ class LocalStore(context: Context) {
     fun list(namespace: String): JSONObject {
         val ns = cleanNamespace(namespace)
         synchronized(lock) {
-            val values = readRoot().optJSONObject(ns) ?: JSONObject()
+            val values = root.optJSONObject(ns) ?: JSONObject()
             return JSONObject()
                 .put("ok", true)
                 .put("namespace", ns)
@@ -84,7 +88,7 @@ class LocalStore(context: Context) {
         }
     }
 
-    private fun readRoot(): JSONObject {
+    private fun readRootFromDisk(): JSONObject {
         return runCatching {
             if (!file.baseFile.isFile) return JSONObject()
             JSONObject(file.openRead().bufferedReader(Charsets.UTF_8).use { it.readText() })
@@ -92,8 +96,7 @@ class LocalStore(context: Context) {
     }
 
     private fun getValueLocked(namespace: String, key: String): Any {
-        return readRoot()
-            .optJSONObject(namespace)
+        return root.optJSONObject(namespace)
             ?.opt(key)
             ?.let { copyJsonValue(it) }
             ?: JSONObject.NULL

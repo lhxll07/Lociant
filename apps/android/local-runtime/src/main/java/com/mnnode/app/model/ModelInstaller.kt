@@ -39,6 +39,7 @@ class ModelInstaller(
             }
             tempRoot.deleteRecursively()
             backupDir.deleteRecursively()
+            modelManager.invalidateCache()
             onProgress(1.0, "Model installed")
             modelManager.resolve(spec.id)
         } catch (error: Throwable) {
@@ -46,6 +47,7 @@ class ModelInstaller(
             val target = targetDir
             if (target != null) backupDir?.takeIf { it.exists() }?.renameTo(target)
             tempRoot.deleteRecursively()
+            modelManager.invalidateCache()
             throw error
         }
     }
@@ -144,4 +146,3 @@ private class CountingInputStream(input: InputStream) : FilterInputStream(input)
         return count
     }
 }
-

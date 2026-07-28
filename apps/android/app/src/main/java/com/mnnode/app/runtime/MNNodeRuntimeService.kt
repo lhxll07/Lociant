@@ -95,18 +95,10 @@ class MNNodeRuntimeService : Service(), LifecycleOwner {
                     recordRuntimeEvent("runtime", "vision.state", payload = state)
                     runtimeWindow().refresh()
                 },
-                onFrame = { frame ->
-                    feedVisionToTriggers(frame)
-                    runtimeWindow().refresh()
-                },
+                onFrame = { runtimeWindow().refresh() },
             )
         }
         visionController?.let { VisionRuntime.attach(it) }
-    }
-
-    private fun feedVisionToTriggers(frame: JSONObject) {
-        // Trigger-based scene automation was removed. Keep the hook as a no-op
-        // so the vision pipeline can evolve without reworking the frame callback.
     }
 
     private fun stopRuntime() {

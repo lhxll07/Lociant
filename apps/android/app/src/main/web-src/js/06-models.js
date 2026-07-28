@@ -17,8 +17,9 @@ function setModelView(view) {
   }
 }
 
-function loadModels() {
-  retryApi(() => apiGet('/v1/models/full'), []).then(data => {
+function loadModels(refresh) {
+  const path = refresh ? '/v1/models/full?refresh=true' : '/v1/models/full'
+  retryApi(() => apiGet(path), () => []).then(data => {
     runtimeModels = Array.isArray(data) ? data : []
     renderModels(runtimeModels)
     updateModelHomeState()

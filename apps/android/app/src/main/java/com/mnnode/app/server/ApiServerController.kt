@@ -5,6 +5,7 @@ import android.util.Log
 import com.mnnode.app.LociantAccessibilityService
 import com.mnnode.app.model.ChatCapability
 import com.mnnode.app.model.ModelManager
+import com.mnnode.app.model.ModelMarket
 import com.mnnode.app.model.ModelChatMessage
 import com.mnnode.app.model.ModelChatPart
 import com.mnnode.app.model.ModelChatRequest
@@ -75,6 +76,7 @@ class ApiServerController(
     }
 
     private val chatController = ChatController(chatCapability, sessionStore)
+    private val modelMarket = ModelMarket(context, modelManager)
     private val toolRegistry: ToolRegistry by lazy {
         ToolRegistry(
             listOf(
@@ -123,6 +125,10 @@ class ApiServerController(
                 "session.delete" -> deleteSession(payload.optString("sessionId", payload.optString("id")))
                 "session.details" -> return sessionDetails(payload.optString("sessionId", payload.optString("id")))
                 "status" -> loadSettings()
+                else -> return jsonErrorResponse(
+                    "unsupported_runtime_command",
+                    "Unsupported runtime command: $command",
+                )
             }
             return state()
         }
@@ -169,6 +175,13 @@ class ApiServerController(
                             chatController.recordRequestAsync(call.request.httpMethod.value, call.request.path(), 200, 0, modelId)
                             call.respondText(response.toString(), JsonContentType)
                         }
+                        get("/v1/models/full") { call.withCors(); handleModelsFull(call) }
+                        get("/v1/models/market") { call.withCors(); handleModelMarket(call) }
+                        get("/v1/models/market/{modelId}/progress") { call.withCors(); handleModelInstallProgress(call) }
+                        post("/v1/models/market/{modelId}/install") { call.withCors(); handleModelInstall(call) }
+                        post("/v1/models/{modelId}/delete") { call.withCors(); handleModelDelete(call) }
+                        get("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreGet(call) }
+                        post("/v1/store/{namespace}/{key}") { call.withCors(); handleStoreSet(call) }
                         get("/v1/sessions") { call.withCors(); handleSessionGet(call) }
                         post("/v1/runtime/{command}") { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleRuntimeCommand(call) }
                         get("/v1/tools") {
@@ -568,8 +581,87 @@ class ApiServerController(
         call.respondText(response.toString(), JsonContentType, status)
     }
 
+    private suspend fun handleModelsFull(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val refresh = call.request.queryParameters["refresh"]?.toBooleanStrictOrNull() ?: false
+        val response = withContext(Dispatchers.IO) { modelManager.listModelsJson(refresh) }
+        call.respondText(response, JsonContentType)
+    }
+
+    private suspend fun handleModelMarket(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val query = call.request.queryParameters["q"].orEmpty()
+        val refresh = call.request.queryParameters["refresh"]?.toBooleanStrictOrNull() ?: false
+        val response = runCatching {
+            withContext(Dispatchers.IO) { modelMarket.catalog(query, refresh) }
+        }.fold(
+            onSuccess = { JSONObject().put("ok", true).put("models", it) },
+            onFailure = { jsonErrorResponse("model_market_failed", it.message ?: "Model market request failed") },
+        )
+        val status = if (response.optBoolean("ok", false)) HttpStatusCode.OK else HttpStatusCode.BadGateway
+        call.respondText(response.toString(), JsonContentType, status)
+    }
+
+    private suspend fun handleModelInstall(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val modelId = call.parameters["modelId"].orEmpty()
+        val response = runCatching {
+            withContext(Dispatchers.IO) { modelMarket.installAsync(modelId) }
+        }.getOrElse { jsonErrorResponse("model_install_failed", it.message ?: "Model install failed") }
+        val status = if (response.optBoolean("ok", false)) HttpStatusCode.Accepted else HttpStatusCode.BadRequest
+        call.respondText(response.toString(), JsonContentType, status)
+    }
+
+    private suspend fun handleModelInstallProgress(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val modelId = call.parameters["modelId"].orEmpty()
+        val response = modelMarket.installProgress(modelId)
+            ?: jsonErrorResponse("install_not_found", "No model install task found for $modelId")
+        val status = if (response.optBoolean("ok", true)) HttpStatusCode.OK else HttpStatusCode.NotFound
+        call.respondText(response.toString(), JsonContentType, status)
+    }
+
+    private suspend fun handleModelDelete(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val response = withContext(Dispatchers.IO) {
+            modelManager.deleteModel(call.parameters["modelId"].orEmpty())
+        }
+        val status = if (response.optBoolean("ok", false)) HttpStatusCode.OK else HttpStatusCode.BadRequest
+        call.respondText(response.toString(), JsonContentType, status)
+    }
+
+    private suspend fun handleStoreGet(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        respondStore(call) {
+            localStore.get(call.parameters["namespace"].orEmpty(), call.parameters["key"].orEmpty())
+        }
+    }
+
+    private suspend fun handleStoreSet(call: ApplicationCall) {
+        if (!call.authorized()) return call.respondUnauthorized()
+        val request = requestJson(call)
+        respondStore(call) {
+            require(request.has("value")) { "Store request requires value" }
+            localStore.set(
+                call.parameters["namespace"].orEmpty(),
+                call.parameters["key"].orEmpty(),
+                request.opt("value") ?: JSONObject.NULL,
+            )
+        }
+    }
+
+    private suspend fun respondStore(call: ApplicationCall, operation: () -> JSONObject) {
+        val response = runCatching(operation).getOrElse {
+            jsonErrorResponse("invalid_store_request", it.message ?: "Invalid store request")
+        }
+        val status = if (response.optBoolean("ok", false)) HttpStatusCode.OK else HttpStatusCode.BadRequest
+        call.respondText(response.toString(), JsonContentType, status)
+    }
+
     private suspend fun handleRuntimeCommand(call: ApplicationCall) {
-        call.respondText(command(call.parameters["command"].orEmpty(), requestJson(call)).toString(), JsonContentType)
+        val response = command(call.parameters["command"].orEmpty(), requestJson(call))
+        val status = if (response.has("error")) HttpStatusCode.BadRequest else HttpStatusCode.OK
+        call.respondText(response.toString(), JsonContentType, status)
     }
 
 
@@ -682,6 +774,8 @@ class ApiServerController(
 
     private fun errorJson(code: String, message: String) = JSONObject()
         .put("error", JSONObject().put("message", message).put("type", "invalid_request_error").put("code", code))
+
+    private fun jsonErrorResponse(code: String, message: String) = errorJson(code, message).put("ok", false)
 
     private fun ApplicationCall.withCors() {
         response.header("Access-Control-Allow-Origin", "*")

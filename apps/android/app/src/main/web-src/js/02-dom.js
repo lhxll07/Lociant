@@ -5,13 +5,8 @@ const app = document.getElementById('app')
 const clock = document.getElementById('clock')
 const stateText = document.getElementById('stateText')
 const stateDot = document.getElementById('stateDot')
-const topNodeButton = document.getElementById('topNodeButton')
-const topNodeText = document.getElementById('topNodeText')
 const navItems = Array.from(document.querySelectorAll('.nav-item'))
 const panels = Array.from(document.querySelectorAll('.panel'))
-const sceneHost = document.getElementById('sceneHost')
-const sceneFrame = document.getElementById('sceneFrame')
-const sceneList = document.getElementById('sceneList')
 const modelHomeView = document.getElementById('modelHomeView')
 const modelLocalView = document.getElementById('modelLocalView')
 const modelLocalButton = document.getElementById('modelLocalButton')
@@ -29,25 +24,9 @@ const modelProgress = document.getElementById('modelProgress')
 const modelProgressText = document.getElementById('modelProgressText')
 const modelProgressPercent = document.getElementById('modelProgressPercent')
 const modelProgressFill = document.getElementById('modelProgressFill')
-const installButton = document.getElementById('installButton')
-const reloadButton = document.getElementById('reloadButton')
 const modelReloadButton = document.getElementById('modelReloadButton')
 const modelImportButton = document.getElementById('modelImportButton')
 const modelMarketButton = document.getElementById('modelMarketButton')
-const backButton = document.getElementById('backButton')
-const sceneSettingsButton = document.getElementById('sceneSettingsButton')
-const runtimeStrip = document.getElementById('runtimeStrip')
-const runtimeSceneName = document.getElementById('runtimeSceneName')
-const runtimeEventText = document.getElementById('runtimeEventText')
-const runtimeWindowText = document.getElementById('runtimeWindowText')
-const runtimeStateText = document.getElementById('runtimeStateText')
-const runtimeElapsedText = document.getElementById('runtimeElapsedText')
-const alertBanner = document.getElementById('alertBanner')
-const alertSceneName = document.getElementById('alertSceneName')
-const alertTitle = document.getElementById('alertTitle')
-const alertMessage = document.getElementById('alertMessage')
-const alertOpenButton = document.getElementById('alertOpenButton')
-const alertCloseButton = document.getElementById('alertCloseButton')
 const settingsList = document.getElementById('settingsList')
 const runtimeSettingsButton = document.getElementById('runtimeSettingsButton')
 const runtimeSettingsState = document.getElementById('runtimeSettingsState')
@@ -91,8 +70,6 @@ const runtimeCapabilitiesBack = document.getElementById('runtimeCapabilitiesBack
 const runtimeVisionText = document.getElementById('runtimeVisionText')
 const runtimeVisionButton = document.getElementById('runtimeVisionButton')
 const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
-const runtimeWearableText = document.getElementById('runtimeWearableText')
-const runtimeWearableFolderButton = document.getElementById('runtimeWearableFolderButton')
 const runtimeWindowAutoInput = document.getElementById('runtimeWindowAutoInput')
 const runtimeWindowButton = document.getElementById('runtimeWindowButton')
 const runtimeModelButton = document.getElementById('runtimeModelButton')
@@ -147,22 +124,8 @@ const homeImagePreview = document.getElementById('homeImagePreview')
 const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
 const homeImagePreviewName = document.getElementById('homeImagePreviewName')
 const homeImageRemoveButton = document.getElementById('homeImageRemoveButton')
-const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
-const nodeLocalButton = document.getElementById('nodeLocalButton')
-const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
-const nodeLocalState = document.getElementById('nodeLocalState')
-const nodeLocalSub = document.getElementById('nodeLocalSub')
-const nodeConnectionText = document.getElementById('nodeConnectionText')
-const nodeCodexState = document.getElementById('nodeCodexState')
-const nodeCodexUrlInput = document.getElementById('nodeCodexUrlInput')
-const nodeCodexCwdInput = document.getElementById('nodeCodexCwdInput')
-const nodePairQrButton = document.getElementById('nodePairQrButton')
-const nodeSaveCodexButton = document.getElementById('nodeSaveCodexButton')
-const nodeConnectCodexButton = document.getElementById('nodeConnectCodexButton')
-
 // ---- State variables ----
 let runtimeServiceState = null
-let runtimeSnapshot = null
 let runtimeModels = []
 let modelView = 'home'
 let marketModels = []
@@ -174,13 +137,8 @@ let modelProgressLastPercent = 0
 let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
 let currentLocale = 'en'
-let activeAlert = null
 const localeStorePath = '/v1/store/runtime-settings/locale'
-let scenes = []
-let activeScene = null
-let cameraPreviewRect = null
 let homeAttachedImage = null
-let homeBackendBusy = false
 let activePage = 'home'
 
 // ---- DOM helpers ----
@@ -205,8 +163,6 @@ function runtimeDetails() {
   ].filter(Boolean)
 }
 
-const reliableTimers = new Map()
-
 // ---- Surface switching ----
 function animateSurface(node) {
   if (!node) return
@@ -217,7 +173,6 @@ function animateSurface(node) {
 
 function showPanel(panel) {
   if (!panel) return
-  sceneHost.classList.remove('active', 'animate-in')
   panels.forEach(item => {
     const active = item === panel
     item.classList.toggle('active', active)
@@ -240,15 +195,4 @@ function showPagePanel(page) {
     settingsHomePage.classList.add('active')
     settingsHomePage.setAttribute('aria-hidden', 'false')
   }
-}
-
-function hidePanels() {
-  panels.forEach(panel => panel.classList.remove('active', 'animate-in'))
-}
-
-function showSceneHost() {
-  activePage = 'scene'
-  hidePanels()
-  sceneHost.classList.add('active')
-  animateSurface(sceneHost)
 }

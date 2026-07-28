@@ -59,19 +59,3 @@ data class EventEntity(
     val createdAt: Long,
 )
 
-@Entity(
-    tableName = "assets",
-    indices = [
-        Index("sessionId"),
-        Index("kind"),
-    ],
-)
-data class AssetEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sessionId: String,
-    val kind: String,
-    val path: String,
-    val mimeType: String,
-    val createdAt: Long,
-)
-

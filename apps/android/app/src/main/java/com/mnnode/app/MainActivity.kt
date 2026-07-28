@@ -259,10 +259,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
         super.onDestroy()
     }
 
-    override fun openScenePackPicker() {
-        notifySceneInstallResult(false, "Scene package install is no longer supported in this build.", null)
-    }
-
     override fun openModelPackagePicker() {
         runOnUiThread { installModelPackage.launch(PACKAGE_MIME_TYPES) }
     }
@@ -298,8 +294,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
             openAppSettingsScreen()
         }
     }
-
-    override fun chooseGadgetbridgeExportFolder() {}
 
     override fun openPermissionSettings(kind: String) {
         runOnUiThread {
@@ -582,13 +576,6 @@ class MainActivity : ComponentActivity(), MNNodeShellBridge.Host {
                 }
             }
         }
-    }
-
-    private fun notifySceneInstallResult(ok: Boolean, message: String, scene: JSONObject?) {
-        emitJs("onSceneInstallResult", JSONObject()
-            .put("ok", ok)
-            .put("message", message)
-            .put("scene", scene ?: JSONObject.NULL))
     }
 
     private fun notifyModelInstallResult(

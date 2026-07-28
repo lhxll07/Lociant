@@ -42,7 +42,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            jniLibs.srcDir("../../../tools/mnn_3.5.0_android_armv7_armv8_cpu_opencl_vulkan")
+            jniLibs.srcDir("../../../tools/mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan")
         }
     }
 

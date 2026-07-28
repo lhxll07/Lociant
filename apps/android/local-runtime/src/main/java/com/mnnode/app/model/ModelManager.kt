@@ -44,11 +44,14 @@ data class ModelStatus(
 
 class ModelManager(context: Context) {
     private val appContext = context.applicationContext
+    private val cacheLock = Any()
+    @Volatile private var cachedExternalModels: ExternalModelSnapshot? = null
 
     fun defaultVisionModel(): ModelSpec = knownSpecs.getValue(YOLO_ID)
 
     fun getSpec(id: String): ModelSpec? {
-        return knownSpecs[normalizeId(id)] ?: scanExternalSpecs().firstOrNull { it.id == normalizeId(id) }
+        val modelId = normalizeId(id)
+        return knownSpecs[modelId] ?: externalModelSnapshot().specsById[modelId]
     }
 
     fun resolve(id: String): ModelStatus {
@@ -76,9 +79,16 @@ class ModelManager(context: Context) {
         return status.path?.let(::File)
     }
 
-    fun listModelsJson(): String {
-        val ids = (knownSpecs.keys + scanExternalSpecs().map { it.id }).distinct()
+    fun listModelsJson(refresh: Boolean = false): String {
+        if (refresh) invalidateCache()
+        val ids = (knownSpecs.keys + externalModelSnapshot().specsById.keys).distinct()
         return JSONArray(ids.map { resolve(it).toJson() }).toString()
+    }
+
+    fun invalidateCache() {
+        synchronized(cacheLock) {
+            cachedExternalModels = null
+        }
     }
 
     fun deleteModel(id: String): JSONObject {
@@ -103,6 +113,7 @@ class ModelManager(context: Context) {
         }
 
         val failed = dirs.filterNot { it.deleteRecursively() }
+        invalidateCache()
         return JSONObject()
             .put("ok", failed.isEmpty())
             .put("message", if (failed.isEmpty()) "deleted" else "Delete failed")
@@ -169,11 +180,23 @@ class ModelManager(context: Context) {
         )
     }
 
-    private fun scanExternalSpecs(): List<ModelSpec> {
-        return modelRoots()
-            .flatMap { root -> findMnnModelDirs(root) }
-            .mapNotNull { inferMnnSpec(it) }
-            .distinctBy { it.id }
+    private fun externalModelSnapshot(): ExternalModelSnapshot {
+        cachedExternalModels?.let { return it }
+        return synchronized(cacheLock) {
+            cachedExternalModels ?: scanExternalModels().also { cachedExternalModels = it }
+        }
+    }
+
+    private fun scanExternalModels(): ExternalModelSnapshot {
+        val specsById = linkedMapOf<String, ModelSpec>()
+        val dirsById = linkedMapOf<String, File>()
+        modelRoots().flatMap(::findMnnModels).forEach { (dir, spec) ->
+            if (!specsById.containsKey(spec.id)) {
+                specsById[spec.id] = spec
+                dirsById[spec.id] = dir
+            }
+        }
+        return ExternalModelSnapshot(specsById.toMap(), dirsById.toMap())
     }
 
     private fun modelRoots(): List<File> {
@@ -296,12 +319,17 @@ class ModelManager(context: Context) {
     }
 
     fun findMnnModelDirs(root: File): List<File> {
+        return findMnnModels(root).map { it.first }
+    }
+
+    private fun findMnnModels(root: File): List<Pair<File, ModelSpec>> {
         if (!root.isDirectory) return emptyList()
-        val result = mutableListOf<File>()
+        val result = mutableListOf<Pair<File, ModelSpec>>()
         fun visit(dir: File, depth: Int) {
             if (depth > MAX_MODEL_SCAN_DEPTH) return
-            if (inferMnnSpec(dir) != null) {
-                result += dir
+            val spec = inferMnnSpec(dir)
+            if (spec != null) {
+                result += dir to spec
                 return
             }
             dir.listFiles()
@@ -313,10 +341,7 @@ class ModelManager(context: Context) {
     }
 
     private fun findExternalModelDirById(id: String): File? {
-        val modelId = normalizeId(id)
-        return modelRoots()
-            .flatMap { findMnnModelDirs(it) }
-            .firstOrNull { inferMnnSpec(it)?.id == modelId }
+        return externalModelSnapshot().dirsById[normalizeId(id)]
     }
 
     private fun modelDirName(spec: ModelSpec): String {
@@ -371,5 +396,9 @@ class ModelManager(context: Context) {
                 .trim('-', '.')
         }
     }
-}
 
+    private data class ExternalModelSnapshot(
+        val specsById: Map<String, ModelSpec>,
+        val dirsById: Map<String, File>,
+    )
+}

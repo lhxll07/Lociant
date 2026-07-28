@@ -32,88 +32,27 @@ function applyLocale() {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
   updateRuntimeServiceState(runtimeServiceState || {})
-  broadcastLocale()
-}
-
-function broadcastLocale() {
-  postToScene({
-    type: 'runtime.locale',
-    language: currentLocale,
-    mode: localeSetting.mode || 'system',
-    fallback: 'en'
-  })
 }
 
 // ---- Sessions ----
-function activeNodeId() {
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const node = network && network.activeNode
-  return (node && node.id) || (network && network.activeNodeId) || 'local'
-}
-
-function isAcpSession(session) {
-  return !!(session && (session.kind === 'agent-acp' || String(session.id || '').indexOf('agent/acp/') === 0))
-}
-
-function isAcpSessionId(sessionId) {
-  return String(sessionId || '').indexOf('agent/acp/') === 0
-}
-
-function sessionNodeId(session) {
-  if (!session) return 'local'
-  if (!isAcpSession(session)) return 'local'
-  const metadata = session.metadata || {}
-  return session.nodeId || metadata.nodeId || String(session.id || '').split('/')[2] || 'codex'
-}
-
-function sessionMatchesActiveNode(session) {
-  if (!session || !session.id) return false
-  if (activeNodeKind() === 'acp') {
-    return isAcpSession(session) && sessionNodeId(session) === activeNodeId()
-  }
-  return !isAcpSession(session)
-}
-
 function activeHomeSessions(state) {
-  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
-  return sessions.filter(sessionMatchesActiveNode)
-}
-
-function activeAgentSessionId(state) {
-  const current = state || runtimeServiceState || {}
-  const network = current.agentNetwork || {}
-  const agent = network.agent || {}
-  const explicit = current.agentCurrentSessionId
-  if (explicit === null || explicit === undefined) return agent.sessionId || ''
-  return explicit || agent.sessionId || ''
+  return Array.isArray(state && state.sessions) ? state.sessions : []
 }
 
 function homeSessionIdFromState(state) {
-  if (activeNodeKind() === 'acp') return activeAgentSessionId(state)
-  const id = state && state.currentSessionId
-  return isAcpSessionId(id) ? '' : (id || '')
+  return (state && state.currentSessionId) || ''
 }
 
 function markHomeSessionActive(state, sessionId) {
   const next = Object.assign({}, state || {})
-  if (isAcpSessionId(sessionId) || activeNodeKind() === 'acp') {
-    const network = Object.assign({}, (next.agentNetwork || (runtimeServiceState && runtimeServiceState.agentNetwork) || {}))
-    const agent = Object.assign({}, network.agent || {})
-    agent.sessionId = sessionId || ''
-    network.agent = agent
-    next.agentNetwork = network
-    next.agentCurrentSessionId = sessionId || ''
-    if (next.currentSessionId && isAcpSessionId(next.currentSessionId)) delete next.currentSessionId
-  } else if (sessionId) {
-    next.currentSessionId = sessionId
-  }
+  if (sessionId) next.currentSessionId = sessionId
   return next
 }
 
 function renderSessions(sessions) {
   if (!runtimeSessionList) return
   runtimeSessionList.innerHTML = ''
-  const items = Array.isArray(sessions) ? sessions.filter(session => !isAcpSession(session)) : []
+  const items = Array.isArray(sessions) ? sessions : []
   if (!items.length) {
     runtimeSessionList.appendChild(emptyCard(t('settings.noSessions')))
     return
@@ -170,8 +109,7 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
-      const command = session.kind === 'agent-acp' ? 'agent.session.select' : 'session.select'
-      Promise.resolve(runtimeApiCommand(command, { sessionId: session.id }))
+      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state, session.id))
           loadHomeConversation(session.id)
@@ -217,7 +155,6 @@ function sessionDateGroup(updatedAt) {
 
 function sessionDisplayMeta(session) {
   if (!session) return '--'
-  if (isAcpSession(session)) return session.nodeId || t('home.remoteChatMeta')
   return session.modelId || t('home.localChatMeta')
 }
 
@@ -229,16 +166,11 @@ function currentHomeSession() {
 
 function updateHomeChatContext() {
   const session = currentHomeSession()
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const node = network && network.activeNode
-  const agent = network && network.agent
-  const acp = activeNodeKind() === 'acp'
-  const nodeName = acp ? ((node && node.name) || t('nodes.codexNode')) : t('nodes.localNode')
-  const model = acp ? t('home.remoteChatMeta') : ((runtimeServiceState && runtimeServiceState.modelId) || t('home.localChatMeta'))
+  const model = (runtimeServiceState && runtimeServiceState.modelId) || t('home.localChatMeta')
   if (homeChatTitle) homeChatTitle.textContent = (session && session.title) || t('home.newChat')
-  if (homeChatMeta) homeChatMeta.textContent = nodeName + ' / ' + model
+  if (homeChatMeta) homeChatMeta.textContent = model
   if (homeChatState) {
-    const active = acp ? !!(agent && agent.connected) : !!(runtimeServiceState && runtimeServiceState.running)
+    const active = !!(runtimeServiceState && runtimeServiceState.running)
     homeChatState.textContent = active ? t('status.running') : t('status.stopped')
     homeChatState.classList.toggle('running', active)
   }
@@ -257,9 +189,8 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   const next = Object.assign({}, existing, {
     id: sessionId,
     title: existing.title || String(titleText || '').trim() || sessionId,
-    kind: existing.kind || (activeNodeKind() === 'acp' ? 'agent-acp' : 'model-chat'),
-    modelId: existing.modelId || (activeNodeKind() === 'acp' ? 'codex-acp' : ((runtimeServiceState && runtimeServiceState.modelId) || '--')),
-    nodeId: existing.nodeId || (activeNodeKind() === 'acp' ? activeNodeId() : 'local'),
+    kind: existing.kind || 'model-chat',
+    modelId: existing.modelId || ((runtimeServiceState && runtimeServiceState.modelId) || '--'),
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
@@ -273,14 +204,8 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
 }
 
 function homeCurrentSessionId() {
-  if (activeNodeKind() === 'acp') {
-    const current = activeAgentSessionId(runtimeServiceState)
-    if (current) return current
-    const latest = latestHomeSession(runtimeServiceState)
-    return latest ? latest.id : ''
-  }
   const current = runtimeServiceState && runtimeServiceState.currentSessionId
-  if (current && !isAcpSessionId(current)) return current
+  if (current) return current
   return (runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.defaultSessionId) || ''
 }
 
@@ -481,9 +406,7 @@ function restoreHomeConversation(options) {
     return null
   }
   if (target !== currentId) {
-    const selected = target.indexOf('agent/acp/') === 0
-      ? runtimeApiCommand('agent.session.select', { sessionId: target })
-      : runtimeApiCommand('session.select', { sessionId: target })
+    const selected = runtimeApiCommand('session.select', { sessionId: target })
     updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
@@ -560,7 +483,7 @@ function toolResultText(result, fallback) {
   return fallback
 }
 
-function runAgentDiagnostics() {
+function runRuntimeDiagnostics() {
   if (!runtimeDiagRunButton) return
   runtimeDiagRunButton.disabled = true
   runtimeDiagRunButton.textContent = t('diagnostics.running')

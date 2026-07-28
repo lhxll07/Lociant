@@ -44,10 +44,6 @@ function navigateTo(page) {
   app.classList.remove('mobile-nav-open')
   menuButton.classList.remove('is-active')
   setKeyboardOffset(0)
-  unloadSceneFrame()
-  backButton.classList.remove('active')
-  activeScene = null
-  setSceneSettingsVisible(false)
   showPagePanel(page)
   const activePanel = document.getElementById('page-' + page)
   if (activePanel) activePanel.scrollTop = 0
@@ -56,7 +52,6 @@ function navigateTo(page) {
     loadModels()
   }
   syncTopStatus()
-  updateRuntimeStrip()
 }
 
 function openRuntimeServerFromHome() {
@@ -99,15 +94,11 @@ function handleHomeAction(action) {
   if (action === 'diagnostics') {
     navigateTo('settings')
     openRuntimeAdvancedSettings()
-    runAgentDiagnostics()
+    runRuntimeDiagnostics()
     return
   }
   if (action === 'copy-config') {
     openRuntimeServerFromHome()
-    return
-  }
-  if (action === 'scenes') {
-    navigateTo('scenes')
     return
   }
 }
@@ -160,10 +151,6 @@ function submitHomeChat(text) {
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
   if (!prompt && !image) return
-  if (activeNodeKind() === 'acp') {
-    submitAcpHomeChat(prompt)
-    return
-  }
   appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
@@ -297,103 +284,6 @@ function collectToolCallsFromMessage(result) {
   return normalizeToolCalls(message && message.tool_calls)
 }
 
-function submitAcpHomeChat(prompt) {
-  if (!prompt || homeBackendBusy) return
-  appendChatBubble('user', prompt)
-  if (homeChatInput) homeChatInput.value = ''
-  clearHomeImageAttachment()
-  homeBackendBusy = true
-  if (homeChatSendButton) homeChatSendButton.disabled = true
-  const pending = appendAssistantRun()
-  const sessionId = homeCurrentSessionId()
-  const selected = sessionId ? runtimeApiCommand('agent.session.select', { sessionId }) : null
-  const activeSessionId = homeSessionIdFromState(selected) || sessionId
-  if (activeSessionId) upsertHomeSessionPreview(activeSessionId, prompt, 'user')
-  streamAcpHomeChat({ text: prompt }, pending)
-    .then(result => {
-      refreshRuntimeServiceState()
-      const toolCalls = Array.isArray(result && result.toolCalls) ? result.toolCalls : []
-      const reply = (result && result.reply) || ''
-      if (pending && !reply && !toolCalls.length) {
-        renderChatMarkdown(chatTextTarget(pending), t('home.emptyReply'))
-      }
-      const nextSessionId = (result && result.currentSessionId) ||
-        activeSessionId
-      if (nextSessionId) upsertHomeSessionPreview(nextSessionId, reply || prompt, 'assistant')
-    })
-    .catch(error => {
-      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
-      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
-    })
-    .finally(() => {
-      homeBackendBusy = false
-      if (homeChatSendButton) homeChatSendButton.disabled = false
-    })
-}
-
-async function streamAcpHomeChat(body, target) {
-  const headers = { 'Content-Type': 'application/json' }
-  if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
-  const response = await fetch(apiUrl('/v1/runtime/agent.prompt.stream'), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body || {})
-  })
-  if (!response.ok) {
-    const errorJson = await response.json().catch(() => ({}))
-    throw new Error((errorJson.error && errorJson.error.message) || errorJson.message || 'ACP request failed')
-  }
-  const reader = response.body && response.body.getReader ? response.body.getReader() : null
-  if (!reader) {
-    const json = await response.json()
-    return { text: json.reply || '', reply: json.reply || '', toolCalls: json.toolCalls || [], currentSessionId: json.currentSessionId || '' }
-  }
-  const decoder = new TextDecoder('utf-8')
-  const writer = target ? createChatTextStream(chatTextTarget(target)) : null
-  let buffer = ''
-  let text = ''
-  let currentSessionId = ''
-  const toolCalls = []
-  while (true) {
-    const read = await reader.read()
-    if (read.done) break
-    buffer += decoder.decode(read.value, { stream: true })
-    const events = buffer.split('\n\n')
-    buffer = events.pop() || ''
-    for (const event of events) {
-      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue
-        const data = line.slice(5).trim()
-        if (!data || data === '[DONE]') continue
-        const json = JSON.parse(data)
-        if (json.type === 'start') currentSessionId = json.sessionId || currentSessionId
-        if (json.type === 'chunk' && typeof json.text === 'string') {
-          text += json.text
-          if (writer) writer.push(json.text)
-        }
-        if (json.type === 'tool_call' && json.toolCall) {
-          toolCalls.push(json.toolCall)
-          appendToolBubble(json.toolCall, target)
-        }
-        if (json.type === 'done') {
-          currentSessionId = json.sessionId || currentSessionId
-          const finalText = json.reply || text
-          const finalCalls = Array.isArray(json.toolCalls) && json.toolCalls.length ? json.toolCalls : toolCalls
-          if (writer) writer.finish(finalText)
-          else if (!text && finalText && target) renderChatMarkdown(chatTextTarget(target), finalText)
-          return { text: finalText, reply: finalText, toolCalls: finalCalls, currentSessionId }
-        }
-        if (json.type === 'error') {
-          throw new Error(json.message || 'ACP request failed')
-        }
-      }
-    }
-  }
-  if (writer) writer.finish(text)
-  return { text, reply: text, toolCalls, currentSessionId }
-}
-
 function chatResponseText(result) {
   if (!result) return ''
   const choice = result.choices && result.choices[0]
@@ -412,9 +302,7 @@ function loadHomeConversation(sessionId, options) {
   const silent = !!(options && options.silent)
   if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
-    const state = target && target.indexOf('agent/acp/') === 0
-      ? runtimeApiCommand('agent.session.select', { sessionId: target })
-      : runtimeApiCommand('session.details', { sessionId: target })
+    const state = runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
     updateRuntimeServiceState(markHomeSessionActive(state || {}, target))
@@ -429,56 +317,59 @@ function loadHomeConversation(sessionId, options) {
 // ---- Clock tick ----
 function tick() {
   clock.textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  updateRuntimeStrip()
 }
 
-// ---- Runtime snapshot polling ----
+// ---- Runtime polling ----
 let runtimePollTimer = null
+let runtimePollSignature = ''
+
+function runtimeStateSignature(state) {
+  const current = state || {}
+  const vision = current.vision || {}
+  const detectionCount = Array.isArray(vision.lastDetection && vision.lastDetection.detections)
+    ? vision.lastDetection.detections.length
+    : 0
+  const device = current.device || {}
+  const sessions = Array.isArray(current.sessions) ? current.sessions : []
+  const requests = Array.isArray(current.recentRequests) ? current.recentRequests : []
+  const sessionSignature = sessions.map(item => [item.id, item.updatedAt, item.messageCount].join(':')).join(',')
+  const requestSignature = requests.map(item => [item.method, item.endpoint, item.status, item.elapsedMs].join(':')).join(',')
+  return [
+    current.running, current.starting, current.message, current.port, current.lanUrl, current.url,
+    current.modelId, current.modelLoaded, current.maxOutputTokens, current.cpuThreads,
+    current.contextProfile, current.historyLimit, current.toolExposure, current.authToken,
+    current.autoStart, current.currentSessionId, current.requestCount,
+    current.cameraPermissionGranted, current.notificationPermissionGranted,
+    current.windowAllowed, current.windowVisible, current.windowState, current.windowAutoShow,
+    current.batteryOptimizationIgnored, current.accessibilityPermissionGranted,
+    vision.state, vision.running, vision.message, vision.fps, detectionCount,
+    device.interactive, device.keyguardLocked, device.activityForeground,
+    sessionSignature, requestSignature,
+  ].join('\x1f')
+}
 
 function refreshRuntimeServiceState() {
   const state = shellCommand('status', {})
-  updateRuntimeServiceState(state)
-  runtimeSnapshot = state
+  const signature = runtimeStateSignature(state)
+  if (signature !== runtimePollSignature) {
+    runtimePollSignature = signature
+    updateRuntimeServiceState(state)
+  }
   if (!runtimePollTimer) {
     runtimePollTimer = window.setInterval(() => {
       const next = shellCommand('status', {})
-      const changed = JSON.stringify(next) !== JSON.stringify(runtimeSnapshot)
-      if (changed || activeScene) {
+      const nextSignature = runtimeStateSignature(next)
+      if (nextSignature !== runtimePollSignature) {
+        runtimePollSignature = nextSignature
         updateRuntimeServiceState(next)
-        runtimeSnapshot = next
       }
     }, 4000)
-  }
-}
-
-function syncRuntimeSnapshot(options) {
-  const notify = options && options.notifyScene !== false
-  const next = shellCommand('status', {})
-  const changed = JSON.stringify(next) !== JSON.stringify(runtimeSnapshot)
-  if (changed) {
-    updateRuntimeServiceState(next)
-    runtimeSnapshot = next
-  }
-  if (notify && activeScene) {
-    postToSceneReliable({ type: 'runtime.snapshot', snapshot: runtimeSnapshot }, 3, 'runtime-snapshot')
   }
 }
 
 // ---- Runtime message handler ----
 function handleRuntimeMessage(message) {
   if (!message) return
-  if (message.type === 'alert') {
-    showAlert(message)
-    return
-  }
-  if (message.type === 'runtime.snapshot' && message.snapshot) {
-    runtimeSnapshot = message.snapshot
-    updateRuntimeServiceState(runtimeSnapshot)
-    return
-  }
   updateRuntimeServiceState(message)
-}
-
-function sendRuntimeCommand(sceneId, command, payload) {
-  runtimeServiceCommand(command, Object.assign({}, payload, { sceneId: sceneId || undefined }))
+  runtimePollSignature = runtimeStateSignature(runtimeServiceState)
 }

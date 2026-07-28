@@ -40,6 +40,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 html,
 body {
   margin: 0;
@@ -328,75 +330,7 @@ select {
   box-shadow: 0 0 0 6px rgba(56, 106, 32, .12);
 }
 
-.node-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  color: var(--primary);
-  background: rgba(234, 221, 255, .72);
-  border: 1px solid rgba(103, 80, 164, .16);
-  font-size: 12px;
-  font-weight: 760;
-  white-space: nowrap;
-}
-
-.node-chip:hover {
-  background: var(--primary-container);
-  transform: translateY(-1px);
-}
-
-.node-chip.running {
-  color: var(--success);
-  background: rgba(185, 243, 154, .62);
-  border-color: rgba(56, 106, 32, .16);
-}
-
-.node-chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.node-chip-arrow {
-  font-size: 17px;
-  line-height: 1;
-  opacity: .72;
-  transition: transform 180ms var(--ease), opacity 180ms ease;
-}
-
-#topNodeText {
-  min-width: 0;
-}
-
-.node-chip:hover .node-chip-arrow {
-  opacity: 1;
-  transform: translateX(2px);
-}
-
-.back-button,
-.scene-settings-button {
-  display: none;
-}
-
-.back-button.active,
-.scene-settings-button.visible {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  padding: 0 16px;
-  border-radius: 999px;
-  color: var(--primary);
-  background: var(--secondary-container);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.panel,
-.scene-host {
+.panel {
   grid-row: 3;
   grid-column: 1;
   width: min(var(--content-max), 100%);
@@ -411,8 +345,7 @@ select {
   transition: opacity 200ms ease, transform 300ms var(--ease), visibility 0s linear 260ms;
 }
 
-.panel.active,
-.scene-host.active {
+.panel.active {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -420,8 +353,7 @@ select {
   transition-delay: 40ms, 40ms, 0s;
 }
 
-.panel.animate-in,
-.scene-host.animate-in {
+.panel.animate-in {
   animation: panelIn 320ms var(--ease);
 }
 
@@ -1259,7 +1191,6 @@ select {
 
 .settings-section,
 .settings-row,
-.scene-card,
 .model-row,
 .model-market-row,
 .model-choice-row,
@@ -1277,27 +1208,6 @@ select {
 .settings-section.wrap {
   align-items: flex-start;
   flex-wrap: wrap;
-}
-
-.node-editor {
-  align-items: flex-start;
-}
-
-.node-field-list {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  max-width: 520px;
-  margin-top: 10px;
-}
-
-.node-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
 }
 
 .model-experience-card {
@@ -1351,7 +1261,6 @@ select {
 
 .settings-section-main,
 .settings-row-main,
-.scene-body,
 .model-body,
 .model-market-body,
 .model-choice-body {
@@ -1361,7 +1270,6 @@ select {
 
 .settings-section-title,
 .settings-row-title,
-.scene-name,
 .model-title,
 .model-market-name,
 .model-choice-title {
@@ -1375,7 +1283,6 @@ select {
 
 .settings-section-sub,
 .settings-row-sub,
-.scene-source,
 .model-market-desc,
 .model-choice-sub {
   display: block;
@@ -1400,7 +1307,6 @@ select {
   -webkit-box-orient: vertical;
 }
 
-.scene-icon,
 .model-icon {
   display: grid;
   place-items: center;
@@ -1412,17 +1318,6 @@ select {
   background: var(--primary-container);
 }
 
-.scene-icon svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.scene-actions,
 .model-actions,
 .model-market-actions {
   display: flex;
@@ -1431,7 +1326,6 @@ select {
   flex-shrink: 0;
 }
 
-.scene-uninstall,
 .model-delete {
   display: inline-flex;
   align-items: center;
@@ -1485,7 +1379,6 @@ select {
 .settings-token-input,
 .settings-number-input,
 .settings-select-input,
-.node-field-list input,
 .market-search input[type=search] {
   min-height: 42px;
   padding: 0 14px;
@@ -1728,108 +1621,6 @@ select {
   transition: width 300ms var(--ease);
 }
 
-.runtime-strip {
-  position: absolute;
-  left: 28px;
-  right: 28px;
-  bottom: 28px;
-  z-index: 20;
-  display: none;
-  align-items: center;
-  gap: 10px;
-  min-height: 50px;
-  padding: 10px 16px;
-  border-radius: 24px;
-  background: var(--primary-container);
-  color: var(--primary-container-on);
-  box-shadow: var(--shadow);
-}
-
-.runtime-strip.visible {
-  display: flex;
-}
-
-.runtime-strip-dot {
-  width: 9px;
-  height: 9px;
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: var(--success);
-}
-
-.runtime-strip-body {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.runtime-strip-title {
-  font-size: 13px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.runtime-strip-text {
-  color: var(--muted);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#runtimeWindowText {
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.alert-banner {
-  grid-row: 2;
-  display: none;
-  align-items: center;
-  gap: 10px;
-  margin: 0 28px 10px;
-  padding: 12px 16px;
-  border-radius: 22px;
-  color: #410002;
-  background: var(--danger-container);
-}
-
-.alert-banner.visible {
-  display: flex;
-}
-
-.alert-scene-name {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.alert-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.alert-message {
-  display: none;
-}
-
-.alert-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.alert-action {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .42);
-  font-size: 12px;
-  font-weight: 780;
-}
-
 .toast {
   position: fixed;
   left: 50%;
@@ -1855,14 +1646,6 @@ select {
 .toast.active {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
-}
-
-.scene-frame {
-  width: 100%;
-  min-height: 100%;
-  border: 0;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
 }
 
 .diag-row {
@@ -2050,11 +1833,8 @@ select {
     overflow: visible;
   }
 
-  .back-button.active,
-  .scene-settings-button.visible,
   .home-rail-toggle,
-  .top-status,
-  .node-chip {
+  .top-status {
     min-height: 34px;
   }
 
@@ -2078,19 +1858,10 @@ select {
   }
 
   .status-text {
-    max-width: 46px;
+    max-width: 92px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .node-chip {
-    display: none;
-  }
-
-  #topNodeText {
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .clock {
@@ -2102,8 +1873,7 @@ select {
     font-size: 12px;
   }
 
-  .panel,
-  .scene-host {
+  .panel {
     width: 100%;
     max-width: 100vw;
     padding: 8px 14px 18px;
@@ -2297,7 +2067,6 @@ select {
 
   .settings-section,
   .settings-row,
-  .scene-card,
   .model-row,
   .model-market-row,
   .model-choice-row,
@@ -2306,16 +2075,6 @@ select {
     min-width: 0;
     padding: 13px 14px;
     gap: 12px;
-  }
-
-  .node-editor {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .node-actions {
-    width: 100%;
-    justify-content: flex-start;
   }
 
   .runtime-service-section {
@@ -2382,8 +2141,7 @@ select {
     flex: 1 1 100%;
   }
 
-  .model-progress,
-  .runtime-strip {
+  .model-progress {
     left: 18px;
     right: 18px;
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));

@@ -6,7 +6,7 @@
 
 ## English
 
-Lociant is an Android-native capability provider for AI agents. The stable boundary is the local HTTP API, not private WebView bridges, scene-specific native calls, or a desktop-agent loop embedded in the phone app.
+Lociant is an Android-native capability provider for AI agents. The stable boundary is the local HTTP API, not private WebView bridges or a desktop-agent loop embedded in the phone app.
 
 ## Principle
 
@@ -16,18 +16,19 @@ One capability should have one runtime entry point:
 |---|---|
  | Chat / VLM | `/v1/chat/completions`, `/api/chat` |
  | Models | `/v1/models` |
+ | Model management | `/v1/models/full`, `/v1/models/market`, `/v1/models/{id}/delete` |
  | Sessions | `/v1/sessions` |
  | Runtime state | `/health`, `/v1/runtime/{command}` |
  | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
  | Chat status | `/v1/chat/status/{requestId}`, `/v1/chat/queue` |
  | MCP | `/mcp` |
 
-Everything user-facing should become either a client of these APIs or a narrow Android UI action. Runtime services should not be hidden inside app-level scene code.
+Everything user-facing should become either a client of these APIs or a narrow Android UI action.
 
 ## Runtime Shape
 
 ```text
-Scene iframe / LAN client / agent client
+Web UI / LAN client / agent client
   -> Ktor HTTP API
     -> ApiServerController
       -> ChatController / ToolRegistry / LocalStore
@@ -145,7 +146,7 @@ The product name can be Lociant while old internal identifiers remain until ther
 
 ## 中文
 
-Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是本地 HTTP API，而不是私有 WebView bridge、场景专用 native 调用，或嵌在手机 App 里的桌面 agent loop。
+Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是本地 HTTP API，而不是私有 WebView bridge 或嵌在手机 App 里的桌面 agent loop。
 
 ## 原则
 
@@ -155,25 +156,26 @@ Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是�
  |---|---|
  | Chat / VLM | `/v1/chat/completions`, `/api/chat` |
  | Models | `/v1/models` |
+ | 模型管理 | `/v1/models/full`, `/v1/models/market`, `/v1/models/{id}/delete` |
  | Sessions | `/v1/sessions` |
  | Runtime state | `/health`, `/v1/runtime/{command}` |
  | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
  | Chat status | `/v1/chat/status/{requestId}`, `/v1/chat/queue` |
  | MCP | `/mcp` |
 
-所有面向用户的功能都应该成为这些 API 的客户端，或者是很窄的 Android UI 操作。Runtime 服务不应该藏在应用层场景代码里。
+所有面向用户的功能都应该成为这些 API 的客户端，或者是很窄的 Android UI 操作。
 
 ## Runtime 形态
 
 ```text
-Scene iframe / LAN client / agent client
+Web UI / LAN client / agent client
   -> Ktor HTTP API
     -> ApiServerController
       -> ChatController / ToolRegistry / LocalStore
         -> MnnRuntime / NcnnRuntime / VisionAnalysisController / Room / Android services
 ```
 
-`MainActivity` 负责 WebView、权限、摄像头预览 surface 和 Android UI 事务。
+`MainActivity` 负责 WebView、权限入口和 Android UI 事务。
 
 `MNNodeRuntime` 和 `MNNodeRuntimeService` 仍然是内部实现名。它们持有共享 runtime 单例、前台服务生命周期和 Runtime Window 悬浮窗，不定义公开产品名。
 

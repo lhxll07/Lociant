@@ -2,15 +2,11 @@
 
 function runtimeApiCommand(command, payload) {
   try {
-    const body = Object.assign({}, payload || {}, {
-      sceneId: (payload && payload.sceneId) || (activeScene && activeScene.id) || ''
-    })
+    const body = Object.assign({}, payload || {})
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details',
-      'agent.status', 'agent.saveNode', 'agent.selectNode', 'agent.disconnect',
-      'agent.session.select'
+      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
     ].includes(command)
     if (runShell) {
       const next = shellCommand(command, body)
@@ -48,10 +44,6 @@ function runtimeWindowCommand(command) {
 
 function updateRuntimeServiceState(state) {
   runtimeServiceState = Object.assign({}, runtimeServiceState || {}, state || {})
-  if (runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.agent) {
-    runtimeServiceState.agentCurrentSessionId = runtimeServiceState.agentNetwork.agent.sessionId || ''
-  }
-  publishSceneApiClient()
   const running = !!runtimeServiceState.running
   const starting = !!runtimeServiceState.starting
   const cameraGranted = runtimeServiceState.cameraPermissionGranted === true
@@ -102,12 +94,6 @@ function updateRuntimeServiceState(state) {
     }
   }
   if (runtimeServiceState.toolExposure) runtimeToolExposureInput.value = runtimeServiceState.toolExposure
-  if (runtimeWearableText) {
-    const wearable = runtimeServiceState.wearable || {}
-    runtimeWearableText.textContent = wearable.gadgetbridgeDirectoryGranted
-      ? t('settings.wearableReady')
-      : t('settings.wearableSub')
-  }
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }
@@ -142,21 +128,15 @@ function updateRuntimeServiceState(state) {
     updateDiagnostics(runtimeServiceState)
   }
   updateHomeState()
-  updateNodeState()
-  updateRuntimeStrip()
 }
 
 function syncTopStatus() {
   if (!stateText && !stateDot) return
   const running = !!(runtimeServiceState && runtimeServiceState.running)
   const starting = !!(runtimeServiceState && runtimeServiceState.starting)
-  const onHome = activePage === 'home'
-  const nodeLabel = activeNodeLabel()
-  const active = onHome ? nodeLabel.active : (running || starting)
+  const active = running || starting
   if (stateText) {
-    stateText.textContent = onHome
-      ? nodeLabel.text
-      : (starting ? t('status.starting') : (running ? t('state.background') : t('state.idle')))
+    stateText.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('state.idle'))
     stateText.classList.toggle('running', active)
   }
   if (stateDot) stateDot.classList.toggle('running', active)
@@ -255,68 +235,12 @@ function contextSubText(profile) {
 }
 
 function updateHomeState() {
-  const running = !!(runtimeServiceState && runtimeServiceState.running)
-  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
   const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
   const visibleSessions = typeof activeHomeSessions === 'function' ? activeHomeSessions(runtimeServiceState) : sessions
   syncTopStatus()
   if (homeSessionCount) homeSessionCount.textContent = String(visibleSessions.length)
   renderHomeSessions(sessions)
   if (typeof updateHomeChatContext === 'function') updateHomeChatContext()
-}
-
-function activeNodeLabel() {
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const node = network && network.activeNode
-  const agent = network && network.agent
-  if (node && node.kind === 'acp') {
-    return {
-      text: node.name || t('nodes.codexNode'),
-      active: !!(agent && agent.connected)
-    }
-  }
-  return { text: t('nodes.localNode'), active: true }
-}
-
-function updateNodeState() {
-  const running = !!(runtimeServiceState && runtimeServiceState.running)
-  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
-  const label = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const activeNode = (network && network.activeNode) || { id: 'local', kind: 'local', name: t('nodes.localNode') }
-  const agent = (network && network.agent) || {}
-  const agentConnected = !!agent.connected
-  const activeIsLocal = !activeNode || activeNode.kind === 'local'
-  if (topNodeText) topNodeText.textContent = activeIsLocal ? t('nodes.localNode') : (activeNode.name || t('nodes.codexNode'))
-  if (topNodeButton) topNodeButton.classList.toggle('running', activeIsLocal ? (running || starting) : agentConnected)
-  if (nodeLocalState) {
-    nodeLocalState.textContent = activeIsLocal ? t('nodes.localActive') : label
-    nodeLocalState.classList.toggle('running', activeIsLocal || running || starting)
-  }
-  if (nodeLocalSub) nodeLocalSub.textContent = running ? publicRuntimeUrl(runtimeServiceState) : t('nodes.localSub')
-  if (nodeConnectionText) nodeConnectionText.textContent = running ? mcpEndpointUrl() : t('nodes.connectionSub')
-  const codex = nodeProfileByKind('acp')
-  if (codex && nodeCodexUrlInput && document.activeElement !== nodeCodexUrlInput) nodeCodexUrlInput.value = codex.url || ''
-  if (codex && nodeCodexCwdInput && document.activeElement !== nodeCodexCwdInput) nodeCodexCwdInput.value = codex.cwd || ''
-  if (nodeCodexState) {
-    const text = activeNode && activeNode.kind === 'acp'
-      ? (agentConnected ? t('nodes.codexConnected') : (agent.lastError || t('nodes.codexActive')))
-      : (codex && codex.url ? codex.url : t('nodes.codexIdle'))
-    nodeCodexState.textContent = text
-  }
-  if (nodeConnectCodexButton) {
-    nodeConnectCodexButton.textContent = activeNode && activeNode.kind === 'acp' && agentConnected ? t('nodes.disconnect') : t('nodes.connect')
-  }
-}
-
-function nodeProfileByKind(kind) {
-  const nodes = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.nodes
-  return Array.isArray(nodes) ? nodes.find(node => node && node.kind === kind) : null
-}
-
-function activeNodeKind() {
-  const node = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNode
-  return node && node.kind ? node.kind : 'local'
 }
 
 function runtimeServiceStatusText(state, running, starting) {
@@ -357,48 +281,4 @@ function runtimeWindowLabel(state) {
     hidden: t('settings.windowStateHidden'),
     error: t('settings.windowStateError')
   })[value] || t('settings.windowStateWindow')
-}
-
-function runtimeStateLabel(state) {
-  if (state === 'away') return 'Away'
-  if (state === 'distracted' || state === 'phone') return 'Distracted'
-  if (state === 'focused') return 'Focused'
-  return state || t('state.idle')
-}
-
-function fmtDuration(ms) {
-  const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  if (h > 0) return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
-  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
-}
-
-function sceneById(sceneId) {
-  return scenes.find(scene => scene.id === sceneId) || null
-}
-
-function runtimeScene() {
-  if (!runtimeSnapshot || !runtimeSnapshot.sceneId) return null
-  return scenes.find(scene => scene.id === runtimeSnapshot.sceneId) || null
-}
-
-function updateRuntimeStrip() {
-  const scene = runtimeScene()
-  const visible = !!(runtimeSnapshot && runtimeSnapshot.active && scene && !activeScene)
-  runtimeStrip.classList.toggle('visible', visible)
-  runtimeStrip.setAttribute('aria-hidden', visible ? 'false' : 'true')
-  if (!visible) return
-
-  const events = Array.isArray(runtimeSnapshot.events) ? runtimeSnapshot.events : []
-  const latest = events[0]
-  runtimeSceneName.textContent = scene.name || scene.id
-  runtimeWindowText.textContent = runtimeWindowLabel()
-  runtimeWindowText.classList.toggle('active', !!(runtimeServiceState && runtimeServiceState.windowVisible))
-  runtimeStateText.textContent = runtimeStateLabel(runtimeSnapshot.state)
-  runtimeElapsedText.textContent = fmtDuration(runtimeSnapshot.elapsedMs)
-  runtimeEventText.textContent = latest
-    ? ((latest.name || latest.ruleId || 'event') + ' · ' + new Date(latest.timestamp || Date.now()).toLocaleTimeString('zh-CN', { hour12: false }))
-    : ((runtimeSnapshot.running || runtimeSnapshot.sessionState === 'running') ? t('state.background') : 'Paused')
 }

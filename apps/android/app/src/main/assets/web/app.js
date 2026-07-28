@@ -4,10 +4,8 @@
 const i18n = {
   en: {
     'nav.home': 'Home',
-    'nav.scenes': 'Scenes',
     'nav.settings': 'Settings',
     'nav.models': 'Models',
-    'nav.nodes': 'Nodes',
     'common.back': 'Back',
     'common.open': 'Open',
     'common.refresh': 'Refresh',
@@ -25,12 +23,10 @@ const i18n = {
 
     'home.quickDiagnostics': 'Run diagnostics',
     'home.quickConnection': 'Copy connection',
-    'home.quickScenes': 'Open scenes',
     'home.placeholder': 'Ask Lociant, or describe a tool task',
     'home.send': 'Send',
     'home.runtimeLabel': 'Runtime',
     'home.modelLabel': 'Model',
-    'home.nodeLabel': 'Node',
     'home.historyTitle': 'Recent chats',
     'home.newChat': 'New chat',
     'home.today': 'Today',
@@ -38,7 +34,6 @@ const i18n = {
     'home.earlier': 'Earlier',
     'home.activeSession': 'Current',
     'home.localChatMeta': 'Local model',
-    'home.remoteChatMeta': 'Remote agent',
     'home.readyModels': 'ready models',
     'home.emptyReply': 'No reply.',
     'home.thinking': 'Thinking...',
@@ -47,14 +42,10 @@ const i18n = {
     'home.removeImage': 'Remove photo',
     'home.imageAttached': 'Photo attached',
 
-    'page.scenesTitle': 'Scenes',
-    'page.scenesSub': 'Run phone-side workflows and capability packs.',
     'page.settingsTitle': 'Settings',
     'page.settingsSub': 'Keep runtime, permissions, and model behavior in one place.',
     'page.modelsTitle': 'Models',
     'page.modelsSub': 'Install, choose, and manage local inference.',
-    'page.nodesTitle': 'Nodes',
-    'page.nodesSub': 'Switch between the phone runtime and desktop Codex agents.',
 
     'settings.language': 'Language',
     'settings.languageSub': 'Display language',
@@ -71,7 +62,7 @@ const i18n = {
     'settings.serverIntro': 'OpenAI/Ollama compatible API.',
     'settings.capabilitiesTitle': 'Capabilities',
     'settings.capabilitiesSub': 'Vision and remote tools',
-    'settings.capabilitiesIntro': 'Phone capabilities for scenes and agents.',
+    'settings.capabilitiesIntro': 'Phone capabilities for local services and remote clients.',
     'settings.visionTitle': 'Vision',
     'settings.visionSub': 'Camera analysis',
     'settings.visionReady': 'Ready',
@@ -142,10 +133,6 @@ const i18n = {
     'settings.toolRead': 'Read',
     'settings.toolSensor': 'Sensor',
     'settings.toolAction': 'Action',
-    'settings.wearableTitle': 'Wearable',
-    'settings.wearableSub': 'Gadgetbridge export folder',
-    'settings.wearableReady': 'Folder access ready',
-    'settings.chooseFolder': 'Choose',
     'settings.defaultTokens': 'Default',
     'settings.modelTokens': 'Model',
     'settings.effectiveTokens': 'Effective',
@@ -179,9 +166,9 @@ const i18n = {
     'settings.request': 'Grant',
     'settings.currentSession': 'Current',
     'settings.newSession': 'New',
-    'diagnostics.title': 'Agent Diagnostics',
-    'diagnostics.agentTitle': 'Agent connection',
-    'diagnostics.agentSub': 'Check runtime, tools, model, and vision readiness',
+    'diagnostics.title': 'Runtime Diagnostics',
+    'diagnostics.summaryTitle': 'Runtime readiness',
+    'diagnostics.summarySub': 'Check runtime, tools, model, and vision readiness',
     'diagnostics.run': 'Run check',
     'diagnostics.running': 'Checking...',
     'diagnostics.ready': 'Ready',
@@ -220,48 +207,23 @@ const i18n = {
     'models.installing': 'Installing',
     'models.delete': 'Delete',
 
-    'nodes.localNode': 'Local node',
-    'nodes.localSub': 'This phone is the active capability node.',
-    'nodes.connectionTitle': 'Connection endpoint',
-    'nodes.connectionSub': 'Start the runtime to expose MCP and OpenAI endpoints.',
-    'nodes.codexNode': 'Desktop Codex',
-    'nodes.copyStarter': 'Copy starter',
-    'nodes.qrPair': 'Scan',
-    'nodes.connect': 'Connect',
-    'nodes.disconnect': 'Disconnect',
-    'nodes.cwdPlaceholder': 'Desktop working directory',
-    'nodes.codexIdle': 'Ready for ws:// host:3000',
-    'nodes.codexConnected': 'Connected',
-    'nodes.codexActive': 'Active',
-    'nodes.localActive': 'Active',
-    'nodes.starterCommand': 'npx -y @rebornix/stdio-to-ws --port 3000 --persist --grace-period -1 "npx -y @zed-industries/codex-acp@latest"',
-    'nodes.qrTodo': 'QR pairing is reserved. Paste the WebSocket URL for now.',
-    'empty.scenes': 'No scenes yet',
     'empty.models': 'No models yet',
     'toast.modelsReloaded': 'Models refreshed',
     'toast.modelMarketLoaded': 'Market loaded',
     'toast.modelMarketFailed': 'Market failed',
-    'toast.scenesReloaded': 'Scenes refreshed',
-    'toast.sceneInstalled': 'Scene installed',
-    'toast.installFailed': 'Install failed',
     'toast.modelImported': 'Model imported',
     'toast.modelImportFailed': 'Import failed',
     'toast.modelDeleted': 'Model deleted',
     'toast.modelReleased': 'Model released',
     'toast.modelDeleteFailed': 'Delete failed',
-    'toast.sceneUninstalled': 'Scene removed',
-    'toast.sceneUninstallFailed': 'Remove failed',
-    'toast.visionStarted': 'Vision started',
     'toast.copied': 'Copied',
     'toast.copyFailed': 'Copy failed',
   },
 
   zh: {
     'nav.home': '主页',
-    'nav.scenes': '场景',
     'nav.settings': '设置',
     'nav.models': '模型',
-    'nav.nodes': '节点',
     'common.back': '返回',
     'common.open': '打开',
     'common.refresh': '刷新',
@@ -279,12 +241,10 @@ const i18n = {
 
     'home.quickDiagnostics': '运行诊断',
     'home.quickConnection': '复制连接配置',
-    'home.quickScenes': '打开场景',
     'home.placeholder': '问问 Lociant，或输入一个工具调用任务',
     'home.send': '发送',
     'home.runtimeLabel': '运行时',
     'home.modelLabel': '模型',
-    'home.nodeLabel': '节点',
     'home.historyTitle': '最近对话',
     'home.newChat': '新对话',
     'home.today': '今天',
@@ -292,7 +252,6 @@ const i18n = {
     'home.earlier': '更早',
     'home.activeSession': '当前',
     'home.localChatMeta': '本地模型',
-    'home.remoteChatMeta': '远程 Agent',
     'home.readyModels': '个就绪模型',
     'home.emptyReply': '没有回复。',
     'home.thinking': '思考中...',
@@ -301,14 +260,10 @@ const i18n = {
     'home.removeImage': '移除照片',
     'home.imageAttached': '已添加照片',
 
-    'page.scenesTitle': '场景',
-    'page.scenesSub': '运行手机侧工作流与能力包',
     'page.settingsTitle': '设置',
     'page.settingsSub': '集中管理运行时、权限和模型行为',
     'page.modelsTitle': '模型',
     'page.modelsSub': '安装、选择和管理本地推理',
-    'page.nodesTitle': '节点',
-    'page.nodesSub': '在手机本机模型和桌面 Codex Agent 之间切换。',
 
     'settings.language': '语言',
     'settings.languageSub': '显示语言',
@@ -325,7 +280,7 @@ const i18n = {
     'settings.serverIntro': 'OpenAI/Ollama 兼容 API',
     'settings.capabilitiesTitle': '能力',
     'settings.capabilitiesSub': '视觉与远程工具',
-    'settings.capabilitiesIntro': '提供给场景和 Agent 的手机能力',
+    'settings.capabilitiesIntro': '提供给本地服务和远程客户端的手机能力',
     'settings.visionTitle': '视觉',
     'settings.visionSub': '摄像头分析',
     'settings.visionReady': '就绪',
@@ -396,10 +351,6 @@ const i18n = {
     'settings.toolRead': '只读',
     'settings.toolSensor': '感知',
     'settings.toolAction': '动作',
-    'settings.wearableTitle': '手环',
-    'settings.wearableSub': 'Gadgetbridge 导出目录',
-    'settings.wearableReady': '目录访问已就绪',
-    'settings.chooseFolder': '选择',
     'settings.defaultTokens': '默认',
     'settings.modelTokens': '模型',
     'settings.effectiveTokens': '生效',
@@ -433,9 +384,9 @@ const i18n = {
     'settings.request': '授权',
     'settings.currentSession': '当前',
     'settings.newSession': '新建',
-    'diagnostics.title': 'Agent 诊断',
-    'diagnostics.agentTitle': 'Agent 连接',
-    'diagnostics.agentSub': '检查运行时、工具、模型与视觉状态',
+    'diagnostics.title': '运行时诊断',
+    'diagnostics.summaryTitle': '运行时就绪状态',
+    'diagnostics.summarySub': '检查运行时、工具、模型与视觉状态',
     'diagnostics.run': '开始检查',
     'diagnostics.running': '检查中...',
     'diagnostics.ready': '就绪',
@@ -474,38 +425,15 @@ const i18n = {
     'models.installing': '安装中',
     'models.delete': '删除',
 
-    'nodes.localNode': '本机节点',
-    'nodes.localSub': '当前设备作为能力节点运行',
-    'nodes.connectionTitle': '连接入口',
-    'nodes.connectionSub': '启动运行时后暴露 MCP 和 OpenAI 入口',
-    'nodes.codexNode': '桌面 Codex',
-    'nodes.copyStarter': '复制启动命令',
-    'nodes.qrPair': '扫码',
-    'nodes.connect': '连接',
-    'nodes.disconnect': '断开',
-    'nodes.cwdPlaceholder': '电脑上的工作目录',
-    'nodes.codexIdle': '等待 ws:// 主机:3000',
-    'nodes.codexConnected': '已连接',
-    'nodes.codexActive': '当前节点',
-    'nodes.localActive': '当前节点',
-    'nodes.starterCommand': 'npx -y @rebornix/stdio-to-ws --port 3000 --persist --grace-period -1 "npx -y @zed-industries/codex-acp@latest"',
-    'nodes.qrTodo': '二维码配对入口已预留，当前先粘贴 WebSocket URL。',
-    'empty.scenes': '暂无场景',
     'empty.models': '暂无模型',
     'toast.modelsReloaded': '模型已刷新',
     'toast.modelMarketLoaded': '市场已加载',
     'toast.modelMarketFailed': '市场加载失败',
-    'toast.scenesReloaded': '场景已刷新',
-    'toast.sceneInstalled': '场景已安装',
-    'toast.installFailed': '安装失败',
     'toast.modelImported': '模型已导入',
     'toast.modelImportFailed': '导入失败',
     'toast.modelDeleted': '模型已删除',
     'toast.modelReleased': '模型已释放',
     'toast.modelDeleteFailed': '删除失败',
-    'toast.sceneUninstalled': '场景已移除',
-    'toast.sceneUninstallFailed': '移除失败',
-    'toast.visionStarted': '视觉已启动',
     'toast.copied': '已复制',
     'toast.copyFailed': '复制失败',
   }
@@ -532,13 +460,8 @@ const app = document.getElementById('app')
 const clock = document.getElementById('clock')
 const stateText = document.getElementById('stateText')
 const stateDot = document.getElementById('stateDot')
-const topNodeButton = document.getElementById('topNodeButton')
-const topNodeText = document.getElementById('topNodeText')
 const navItems = Array.from(document.querySelectorAll('.nav-item'))
 const panels = Array.from(document.querySelectorAll('.panel'))
-const sceneHost = document.getElementById('sceneHost')
-const sceneFrame = document.getElementById('sceneFrame')
-const sceneList = document.getElementById('sceneList')
 const modelHomeView = document.getElementById('modelHomeView')
 const modelLocalView = document.getElementById('modelLocalView')
 const modelLocalButton = document.getElementById('modelLocalButton')
@@ -556,25 +479,9 @@ const modelProgress = document.getElementById('modelProgress')
 const modelProgressText = document.getElementById('modelProgressText')
 const modelProgressPercent = document.getElementById('modelProgressPercent')
 const modelProgressFill = document.getElementById('modelProgressFill')
-const installButton = document.getElementById('installButton')
-const reloadButton = document.getElementById('reloadButton')
 const modelReloadButton = document.getElementById('modelReloadButton')
 const modelImportButton = document.getElementById('modelImportButton')
 const modelMarketButton = document.getElementById('modelMarketButton')
-const backButton = document.getElementById('backButton')
-const sceneSettingsButton = document.getElementById('sceneSettingsButton')
-const runtimeStrip = document.getElementById('runtimeStrip')
-const runtimeSceneName = document.getElementById('runtimeSceneName')
-const runtimeEventText = document.getElementById('runtimeEventText')
-const runtimeWindowText = document.getElementById('runtimeWindowText')
-const runtimeStateText = document.getElementById('runtimeStateText')
-const runtimeElapsedText = document.getElementById('runtimeElapsedText')
-const alertBanner = document.getElementById('alertBanner')
-const alertSceneName = document.getElementById('alertSceneName')
-const alertTitle = document.getElementById('alertTitle')
-const alertMessage = document.getElementById('alertMessage')
-const alertOpenButton = document.getElementById('alertOpenButton')
-const alertCloseButton = document.getElementById('alertCloseButton')
 const settingsList = document.getElementById('settingsList')
 const runtimeSettingsButton = document.getElementById('runtimeSettingsButton')
 const runtimeSettingsState = document.getElementById('runtimeSettingsState')
@@ -618,8 +525,6 @@ const runtimeCapabilitiesBack = document.getElementById('runtimeCapabilitiesBack
 const runtimeVisionText = document.getElementById('runtimeVisionText')
 const runtimeVisionButton = document.getElementById('runtimeVisionButton')
 const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
-const runtimeWearableText = document.getElementById('runtimeWearableText')
-const runtimeWearableFolderButton = document.getElementById('runtimeWearableFolderButton')
 const runtimeWindowAutoInput = document.getElementById('runtimeWindowAutoInput')
 const runtimeWindowButton = document.getElementById('runtimeWindowButton')
 const runtimeModelButton = document.getElementById('runtimeModelButton')
@@ -674,22 +579,8 @@ const homeImagePreview = document.getElementById('homeImagePreview')
 const homeImagePreviewImg = document.getElementById('homeImagePreviewImg')
 const homeImagePreviewName = document.getElementById('homeImagePreviewName')
 const homeImageRemoveButton = document.getElementById('homeImageRemoveButton')
-const nodeCopyMcpButton = document.getElementById('nodeCopyMcpButton')
-const nodeLocalButton = document.getElementById('nodeLocalButton')
-const nodeOpenServerButton = document.getElementById('nodeOpenServerButton')
-const nodeLocalState = document.getElementById('nodeLocalState')
-const nodeLocalSub = document.getElementById('nodeLocalSub')
-const nodeConnectionText = document.getElementById('nodeConnectionText')
-const nodeCodexState = document.getElementById('nodeCodexState')
-const nodeCodexUrlInput = document.getElementById('nodeCodexUrlInput')
-const nodeCodexCwdInput = document.getElementById('nodeCodexCwdInput')
-const nodePairQrButton = document.getElementById('nodePairQrButton')
-const nodeSaveCodexButton = document.getElementById('nodeSaveCodexButton')
-const nodeConnectCodexButton = document.getElementById('nodeConnectCodexButton')
-
 // ---- State variables ----
 let runtimeServiceState = null
-let runtimeSnapshot = null
 let runtimeModels = []
 let modelView = 'home'
 let marketModels = []
@@ -701,13 +592,8 @@ let modelProgressLastPercent = 0
 let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
 let currentLocale = 'en'
-let activeAlert = null
 const localeStorePath = '/v1/store/runtime-settings/locale'
-let scenes = []
-let activeScene = null
-let cameraPreviewRect = null
 let homeAttachedImage = null
-let homeBackendBusy = false
 let activePage = 'home'
 
 // ---- DOM helpers ----
@@ -732,8 +618,6 @@ function runtimeDetails() {
   ].filter(Boolean)
 }
 
-const reliableTimers = new Map()
-
 // ---- Surface switching ----
 function animateSurface(node) {
   if (!node) return
@@ -744,7 +628,6 @@ function animateSurface(node) {
 
 function showPanel(panel) {
   if (!panel) return
-  sceneHost.classList.remove('active', 'animate-in')
   panels.forEach(item => {
     const active = item === panel
     item.classList.toggle('active', active)
@@ -767,17 +650,6 @@ function showPagePanel(page) {
     settingsHomePage.classList.add('active')
     settingsHomePage.setAttribute('aria-hidden', 'false')
   }
-}
-
-function hidePanels() {
-  panels.forEach(panel => panel.classList.remove('active', 'animate-in'))
-}
-
-function showSceneHost() {
-  activePage = 'scene'
-  hidePanels()
-  sceneHost.classList.add('active')
-  animateSurface(sceneHost)
 }
 
 
@@ -922,83 +794,17 @@ function runtimeState() {
   }
 }
 
-async function runtimeFetchJson(path) {
-  const state = runtimeServiceState || runtimeState()
-  const base = (state && (state.lanUrl || state.url)) ? String(state.lanUrl || state.url).replace(/\/$/, '') : localApiBaseUrl()
-  const headers = {}
-  if (state && state.authToken) headers.Authorization = 'Bearer ' + state.authToken
-  const response = await fetch(base + path, { headers })
-  const json = await response.json()
-  if (!response.ok) throw new Error(path + ': ' + ((json.error && json.error.message) || json.message || 'API request failed'))
-  return json
-}
-
-function sceneApiClient() {
-  const baseUrl = localApiBaseUrl()
-  const headers = () => {
-    const output = { 'Content-Type': 'application/json' }
-    if (runtimeServiceState && runtimeServiceState.authToken) output.Authorization = 'Bearer ' + runtimeServiceState.authToken
-    return output
-  }
-  const request = (path, body) => fetch(baseUrl + path, {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify(body || {})
-  }).then(response => response.json().then(json => {
-    if (!response.ok || !json.ok) throw new Error((json.error && json.error.message) || json.message || 'API request failed')
-    return json.result || json
-  }))
-  return {
-    baseUrl,
-    get authToken() {
-      return (runtimeServiceState && runtimeServiceState.authToken) || ''
-    },
-    get(path) {
-      return fetch(baseUrl + path, { headers: headers() }).then(response => response.json())
-    },
-    post(path, body) {
-      return request(path, body)
-    },
-    tool(name, args) {
-      return request('/v1/tools/' + encodeURIComponent(name) + '/call', { arguments: args || {} })
-    },
-    chat(requestBody) {
-      return fetch(baseUrl + '/v1/chat/completions', {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify(requestBody || {})
-      }).then(response => response.json())
-    },
-    runtime(command, payload) {
-      return shellCommand(command, payload || {})
-    },
-    window(command) {
-      return runtimeWindowCommand(command || 'show')
-    }
-  }
-}
-
-function publishSceneApiClient() {
-  const api = sceneApiClient()
-  window.MNNodeAPI = api
-  return api
-}
-
 
 /* === 04-runtime.js === */
 /* ── Lociant WebUI — Runtime state management and commands ── */
 
 function runtimeApiCommand(command, payload) {
   try {
-    const body = Object.assign({}, payload || {}, {
-      sceneId: (payload && payload.sceneId) || (activeScene && activeScene.id) || ''
-    })
+    const body = Object.assign({}, payload || {})
     const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
       'window.show', 'window.hide', 'window.collapse', 'window.expand',
       'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details',
-      'agent.status', 'agent.saveNode', 'agent.selectNode', 'agent.disconnect',
-      'agent.session.select'
+      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
     ].includes(command)
     if (runShell) {
       const next = shellCommand(command, body)
@@ -1036,10 +842,6 @@ function runtimeWindowCommand(command) {
 
 function updateRuntimeServiceState(state) {
   runtimeServiceState = Object.assign({}, runtimeServiceState || {}, state || {})
-  if (runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.agent) {
-    runtimeServiceState.agentCurrentSessionId = runtimeServiceState.agentNetwork.agent.sessionId || ''
-  }
-  publishSceneApiClient()
   const running = !!runtimeServiceState.running
   const starting = !!runtimeServiceState.starting
   const cameraGranted = runtimeServiceState.cameraPermissionGranted === true
@@ -1090,12 +892,6 @@ function updateRuntimeServiceState(state) {
     }
   }
   if (runtimeServiceState.toolExposure) runtimeToolExposureInput.value = runtimeServiceState.toolExposure
-  if (runtimeWearableText) {
-    const wearable = runtimeServiceState.wearable || {}
-    runtimeWearableText.textContent = wearable.gadgetbridgeDirectoryGranted
-      ? t('settings.wearableReady')
-      : t('settings.wearableSub')
-  }
   if (runtimeServiceState.currentSessionId) {
     runtimeSessionCurrent.textContent = runtimeServiceState.currentSessionId
   }
@@ -1130,21 +926,15 @@ function updateRuntimeServiceState(state) {
     updateDiagnostics(runtimeServiceState)
   }
   updateHomeState()
-  updateNodeState()
-  updateRuntimeStrip()
 }
 
 function syncTopStatus() {
   if (!stateText && !stateDot) return
   const running = !!(runtimeServiceState && runtimeServiceState.running)
   const starting = !!(runtimeServiceState && runtimeServiceState.starting)
-  const onHome = activePage === 'home'
-  const nodeLabel = activeNodeLabel()
-  const active = onHome ? nodeLabel.active : (running || starting)
+  const active = running || starting
   if (stateText) {
-    stateText.textContent = onHome
-      ? nodeLabel.text
-      : (starting ? t('status.starting') : (running ? t('state.background') : t('state.idle')))
+    stateText.textContent = starting ? t('status.starting') : (running ? t('status.running') : t('state.idle'))
     stateText.classList.toggle('running', active)
   }
   if (stateDot) stateDot.classList.toggle('running', active)
@@ -1243,68 +1033,12 @@ function contextSubText(profile) {
 }
 
 function updateHomeState() {
-  const running = !!(runtimeServiceState && runtimeServiceState.running)
-  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
   const sessions = Array.isArray(runtimeServiceState && runtimeServiceState.sessions) ? runtimeServiceState.sessions : []
   const visibleSessions = typeof activeHomeSessions === 'function' ? activeHomeSessions(runtimeServiceState) : sessions
   syncTopStatus()
   if (homeSessionCount) homeSessionCount.textContent = String(visibleSessions.length)
   renderHomeSessions(sessions)
   if (typeof updateHomeChatContext === 'function') updateHomeChatContext()
-}
-
-function activeNodeLabel() {
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const node = network && network.activeNode
-  const agent = network && network.agent
-  if (node && node.kind === 'acp') {
-    return {
-      text: node.name || t('nodes.codexNode'),
-      active: !!(agent && agent.connected)
-    }
-  }
-  return { text: t('nodes.localNode'), active: true }
-}
-
-function updateNodeState() {
-  const running = !!(runtimeServiceState && runtimeServiceState.running)
-  const starting = !!(runtimeServiceState && runtimeServiceState.starting)
-  const label = starting ? t('status.starting') : (running ? t('status.running') : t('status.stopped'))
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const activeNode = (network && network.activeNode) || { id: 'local', kind: 'local', name: t('nodes.localNode') }
-  const agent = (network && network.agent) || {}
-  const agentConnected = !!agent.connected
-  const activeIsLocal = !activeNode || activeNode.kind === 'local'
-  if (topNodeText) topNodeText.textContent = activeIsLocal ? t('nodes.localNode') : (activeNode.name || t('nodes.codexNode'))
-  if (topNodeButton) topNodeButton.classList.toggle('running', activeIsLocal ? (running || starting) : agentConnected)
-  if (nodeLocalState) {
-    nodeLocalState.textContent = activeIsLocal ? t('nodes.localActive') : label
-    nodeLocalState.classList.toggle('running', activeIsLocal || running || starting)
-  }
-  if (nodeLocalSub) nodeLocalSub.textContent = running ? publicRuntimeUrl(runtimeServiceState) : t('nodes.localSub')
-  if (nodeConnectionText) nodeConnectionText.textContent = running ? mcpEndpointUrl() : t('nodes.connectionSub')
-  const codex = nodeProfileByKind('acp')
-  if (codex && nodeCodexUrlInput && document.activeElement !== nodeCodexUrlInput) nodeCodexUrlInput.value = codex.url || ''
-  if (codex && nodeCodexCwdInput && document.activeElement !== nodeCodexCwdInput) nodeCodexCwdInput.value = codex.cwd || ''
-  if (nodeCodexState) {
-    const text = activeNode && activeNode.kind === 'acp'
-      ? (agentConnected ? t('nodes.codexConnected') : (agent.lastError || t('nodes.codexActive')))
-      : (codex && codex.url ? codex.url : t('nodes.codexIdle'))
-    nodeCodexState.textContent = text
-  }
-  if (nodeConnectCodexButton) {
-    nodeConnectCodexButton.textContent = activeNode && activeNode.kind === 'acp' && agentConnected ? t('nodes.disconnect') : t('nodes.connect')
-  }
-}
-
-function nodeProfileByKind(kind) {
-  const nodes = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.nodes
-  return Array.isArray(nodes) ? nodes.find(node => node && node.kind === kind) : null
-}
-
-function activeNodeKind() {
-  const node = runtimeServiceState && runtimeServiceState.agentNetwork && runtimeServiceState.agentNetwork.activeNode
-  return node && node.kind ? node.kind : 'local'
 }
 
 function runtimeServiceStatusText(state, running, starting) {
@@ -1347,287 +1081,6 @@ function runtimeWindowLabel(state) {
   })[value] || t('settings.windowStateWindow')
 }
 
-function runtimeStateLabel(state) {
-  if (state === 'away') return 'Away'
-  if (state === 'distracted' || state === 'phone') return 'Distracted'
-  if (state === 'focused') return 'Focused'
-  return state || t('state.idle')
-}
-
-function fmtDuration(ms) {
-  const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  if (h > 0) return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
-  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')
-}
-
-function sceneById(sceneId) {
-  return scenes.find(scene => scene.id === sceneId) || null
-}
-
-function runtimeScene() {
-  if (!runtimeSnapshot || !runtimeSnapshot.sceneId) return null
-  return scenes.find(scene => scene.id === runtimeSnapshot.sceneId) || null
-}
-
-function updateRuntimeStrip() {
-  const scene = runtimeScene()
-  const visible = !!(runtimeSnapshot && runtimeSnapshot.active && scene && !activeScene)
-  runtimeStrip.classList.toggle('visible', visible)
-  runtimeStrip.setAttribute('aria-hidden', visible ? 'false' : 'true')
-  if (!visible) return
-
-  const events = Array.isArray(runtimeSnapshot.events) ? runtimeSnapshot.events : []
-  const latest = events[0]
-  runtimeSceneName.textContent = scene.name || scene.id
-  runtimeWindowText.textContent = runtimeWindowLabel()
-  runtimeWindowText.classList.toggle('active', !!(runtimeServiceState && runtimeServiceState.windowVisible))
-  runtimeStateText.textContent = runtimeStateLabel(runtimeSnapshot.state)
-  runtimeElapsedText.textContent = fmtDuration(runtimeSnapshot.elapsedMs)
-  runtimeEventText.textContent = latest
-    ? ((latest.name || latest.ruleId || 'event') + ' · ' + new Date(latest.timestamp || Date.now()).toLocaleTimeString('zh-CN', { hour12: false }))
-    : ((runtimeSnapshot.running || runtimeSnapshot.sessionState === 'running') ? t('state.background') : 'Paused')
-}
-
-
-/* === 05-scenes.js === */
-/* ── Lociant WebUI — Scene management ── */
-
-function loadScenes() {
-  retryApi(() => apiGet('/v1/scenes'), () => []).then(data => {
-    scenes = Array.isArray(data) ? data : (Array.isArray(data && data.scenes) ? data.scenes : [])
-    renderScenes(scenes)
-  })
-}
-
-function renderScenes(scenes) {
-  sceneList.innerHTML = ''
-  if (!scenes.length) {
-    sceneList.appendChild(emptyCard(t('empty.scenes')))
-    return
-  }
-  scenes.forEach(scene => {
-    const card = document.createElement('button')
-    card.type = 'button'
-    card.className = 'scene-card pressable'
-    card.addEventListener('click', () => openScene(scene))
-
-    const icon = el('div', 'scene-icon')
-    icon.innerHTML = sceneIconSvg()
-    const body = document.createElement('div')
-    body.className = 'scene-body'
-    const name = el('div', 'scene-name', scene.name || scene.id)
-    const source = el('div', 'scene-source', scene.source || '')
-
-    const actions = document.createElement('div')
-    actions.className = 'scene-actions'
-    if (scene.source === 'installed') {
-      const uninstall = el('button', 'scene-uninstall', '✕')
-      uninstall.type = 'button'
-      uninstall.title = t('toast.sceneUninstalled')
-      uninstall.addEventListener('click', event => {
-        event.stopPropagation()
-        uninstallScene(scene)
-      })
-      actions.appendChild(uninstall)
-    }
-
-    body.appendChild(name)
-    body.appendChild(source)
-    card.appendChild(icon)
-    card.appendChild(body)
-    card.appendChild(actions)
-    sceneList.appendChild(card)
-  })
-}
-
-function sceneIconSvg() {
-  return '<svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H20v17H7.5A3.5 3.5 0 0 0 4 22V5.5z"/><path d="M4 5.5A3.5 3.5 0 0 1 7.5 9H20"/></svg>'
-}
-
-function sceneEntryUrl(scene) {
-  return scene && scene.entryUrl
-}
-
-function sceneHasSettings(scene) {
-  const capabilities = Array.isArray(scene && scene.capabilities) ? scene.capabilities : []
-  return capabilities.includes('settings') || capabilities.includes('vision-settings')
-}
-
-function setSceneSettingsVisible(visible) {
-  sceneSettingsButton.classList.toggle('visible', !!visible)
-}
-
-function openScene(scene) {
-  if (!scene || !scene.entryUrl) return
-  updateRuntimeServiceState(shellCommand('status', {}))
-  backButton.classList.add('active')
-  activeScene = scene
-  setSceneSettingsVisible(sceneHasSettings(scene))
-  showSceneHost()
-  sceneHost.scrollTop = 0
-  cameraPreviewRect = null
-  sceneFrame.style.height = '100%'
-  sceneFrame.src = sceneEntryUrl(scene)
-  activateRuntime(scene)
-  syncTopStatus()
-  updateRuntimeStrip()
-}
-
-function goHome() {
-  unloadSceneFrame()
-  backButton.classList.remove('active')
-  activeScene = null
-  setSceneSettingsVisible(false)
-  showPagePanel('home')
-  const homePanel = document.getElementById('page-home')
-  if (homePanel) homePanel.scrollTop = 0
-  navItems.forEach(item => item.classList.toggle('active', item.dataset.page === 'home'))
-  syncTopStatus()
-  updateRuntimeStrip()
-}
-
-function activateRuntime(scene) {
-  const triggers = Array.isArray(scene && scene.triggers) ? scene.triggers : []
-  if (triggers.length) {
-    apiPost('/v1/scenes/' + encodeURIComponent(scene.id) + '/load', {}).catch(() => {})
-  }
-}
-
-function uninstallScene(scene) {
-  if (!scene || scene.source !== 'installed') return
-  try {
-    apiPost('/v1/scenes/' + encodeURIComponent(scene.id) + '/delete', {})
-      .then(result => {
-        if (result.ok) {
-          showToast(t('toast.sceneUninstalled'))
-          loadScenes()
-        } else {
-          showToast(result.message || t('toast.sceneUninstallFailed'))
-        }
-      })
-      .catch(() => showToast(t('toast.sceneUninstallFailed')))
-  } catch (error) {
-    showToast(t('toast.sceneUninstallFailed'))
-  }
-}
-
-function toggleSceneSettings() {
-  if (!activeScene || !sceneHasSettings(activeScene)) return
-  postToScene({ type: 'scene.settings.toggle', sceneId: activeScene.id })
-}
-
-// ---- Alert ----
-function showAlert(event) {
-  const alert = event && event.alert
-  if (!alert) return
-  const scene = sceneById(event.sceneId)
-  activeAlert = { event, alert }
-  alertSceneName.textContent = (scene ? scene.name : event.sceneId || 'Scene') + ' · ' + (alert.level || 'alert')
-  alertTitle.textContent = alert.title || event.name || 'Alert'
-  alertMessage.textContent = alert.message || 'A scene alert was triggered.'
-  alertBanner.classList.add('visible')
-  alertBanner.setAttribute('aria-hidden', 'false')
-}
-
-function clearAlert() {
-  activeAlert = null
-  alertBanner.classList.remove('visible')
-  alertBanner.setAttribute('aria-hidden', 'true')
-}
-
-function openAlertScene() {
-  const sceneId = activeAlert && activeAlert.event && activeAlert.event.sceneId
-  const scene = sceneById(sceneId)
-  if (scene) openScene(scene)
-  clearAlert()
-}
-
-// ---- Scene iframe communication ----
-function postToScene(message) {
-  try {
-    if (!sceneFrame.contentWindow) return false
-    sceneFrame.contentWindow.postMessage(message, '*')
-    return true
-  } catch (error) {
-    return false
-  }
-}
-
-function postToSceneReliable(message, attempts = 6, key = '') {
-  if (!activeScene) return
-  if (key && reliableTimers.has(key)) {
-    reliableTimers.get(key).forEach(timer => window.clearTimeout(timer))
-    reliableTimers.delete(key)
-  }
-  let count = 0
-  const timers = []
-  const send = () => {
-    count += 1
-    postToScene(message)
-    if (count < attempts) {
-      timers.push(window.setTimeout(send, count === 1 ? 80 : 220))
-    } else if (key) {
-      reliableTimers.delete(key)
-    }
-  }
-  if (key) reliableTimers.set(key, timers)
-  send()
-}
-
-function installSceneApiClient() {
-  const api = publishSceneApiClient()
-  try {
-    if (sceneFrame.contentWindow) {
-      sceneFrame.contentWindow.MNNodeAPI = api
-      postToScene({ type: 'api.ready', baseUrl: api.baseUrl, sameOrigin: true })
-    }
-  } catch (error) {
-    postToScene({ type: 'api.ready', baseUrl: api.baseUrl, sameOrigin: false })
-  }
-}
-
-function unloadSceneFrame() {
-  postToScene({ type: 'scene.dispose', keepVision: true })
-  sceneFrame.removeAttribute('src')
-  sceneFrame.style.height = '100%'
-}
-
-function resizeSceneFrame() {
-  try {
-    const doc = sceneFrame.contentDocument || sceneFrame.contentWindow.document
-    if (!doc) return
-    const height = Math.max(
-      sceneHost.clientHeight,
-      doc.documentElement.scrollHeight,
-      doc.body ? doc.body.scrollHeight : 0
-    )
-    sceneFrame.style.height = height + 'px'
-    syncCameraPreviewRect()
-  } catch (error) {
-    sceneFrame.style.height = '100%'
-  }
-}
-
-function syncCameraPreviewRect(rect) {
-  if (rect) cameraPreviewRect = rect
-  if (!cameraPreviewRect || !sceneHost.classList.contains('active')) return
-  const frameRect = sceneFrame.getBoundingClientRect()
-  const cssX = Math.max(0, frameRect.left + cameraPreviewRect.x)
-  const cssY = Math.max(0, frameRect.top + cameraPreviewRect.y - sceneHost.scrollTop)
-  const scale = nativeViewportScale()
-  void { x: Math.round(cssX * scale.x), y: Math.round(cssY * scale.y),
-         width: Math.max(1, Math.round(cameraPreviewRect.width * scale.x)),
-         height: Math.max(1, Math.round(cameraPreviewRect.height * scale.y)) }
-}
-
-function nativeViewportScale() {
-  const ratio = window.devicePixelRatio || 1
-  return { x: ratio, y: ratio }
-}
-
 
 /* === 06-models.js === */
 /* ── Lociant WebUI — Model management ── */
@@ -1649,8 +1102,9 @@ function setModelView(view) {
   }
 }
 
-function loadModels() {
-  retryApi(() => apiGet('/v1/models/full'), []).then(data => {
+function loadModels(refresh) {
+  const path = refresh ? '/v1/models/full?refresh=true' : '/v1/models/full'
+  retryApi(() => apiGet(path), () => []).then(data => {
     runtimeModels = Array.isArray(data) ? data : []
     renderModels(runtimeModels)
     updateModelHomeState()
@@ -2001,88 +1455,27 @@ function applyLocale() {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
   updateRuntimeServiceState(runtimeServiceState || {})
-  broadcastLocale()
-}
-
-function broadcastLocale() {
-  postToScene({
-    type: 'runtime.locale',
-    language: currentLocale,
-    mode: localeSetting.mode || 'system',
-    fallback: 'en'
-  })
 }
 
 // ---- Sessions ----
-function activeNodeId() {
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const node = network && network.activeNode
-  return (node && node.id) || (network && network.activeNodeId) || 'local'
-}
-
-function isAcpSession(session) {
-  return !!(session && (session.kind === 'agent-acp' || String(session.id || '').indexOf('agent/acp/') === 0))
-}
-
-function isAcpSessionId(sessionId) {
-  return String(sessionId || '').indexOf('agent/acp/') === 0
-}
-
-function sessionNodeId(session) {
-  if (!session) return 'local'
-  if (!isAcpSession(session)) return 'local'
-  const metadata = session.metadata || {}
-  return session.nodeId || metadata.nodeId || String(session.id || '').split('/')[2] || 'codex'
-}
-
-function sessionMatchesActiveNode(session) {
-  if (!session || !session.id) return false
-  if (activeNodeKind() === 'acp') {
-    return isAcpSession(session) && sessionNodeId(session) === activeNodeId()
-  }
-  return !isAcpSession(session)
-}
-
 function activeHomeSessions(state) {
-  const sessions = Array.isArray(state && state.sessions) ? state.sessions : []
-  return sessions.filter(sessionMatchesActiveNode)
-}
-
-function activeAgentSessionId(state) {
-  const current = state || runtimeServiceState || {}
-  const network = current.agentNetwork || {}
-  const agent = network.agent || {}
-  const explicit = current.agentCurrentSessionId
-  if (explicit === null || explicit === undefined) return agent.sessionId || ''
-  return explicit || agent.sessionId || ''
+  return Array.isArray(state && state.sessions) ? state.sessions : []
 }
 
 function homeSessionIdFromState(state) {
-  if (activeNodeKind() === 'acp') return activeAgentSessionId(state)
-  const id = state && state.currentSessionId
-  return isAcpSessionId(id) ? '' : (id || '')
+  return (state && state.currentSessionId) || ''
 }
 
 function markHomeSessionActive(state, sessionId) {
   const next = Object.assign({}, state || {})
-  if (isAcpSessionId(sessionId) || activeNodeKind() === 'acp') {
-    const network = Object.assign({}, (next.agentNetwork || (runtimeServiceState && runtimeServiceState.agentNetwork) || {}))
-    const agent = Object.assign({}, network.agent || {})
-    agent.sessionId = sessionId || ''
-    network.agent = agent
-    next.agentNetwork = network
-    next.agentCurrentSessionId = sessionId || ''
-    if (next.currentSessionId && isAcpSessionId(next.currentSessionId)) delete next.currentSessionId
-  } else if (sessionId) {
-    next.currentSessionId = sessionId
-  }
+  if (sessionId) next.currentSessionId = sessionId
   return next
 }
 
 function renderSessions(sessions) {
   if (!runtimeSessionList) return
   runtimeSessionList.innerHTML = ''
-  const items = Array.isArray(sessions) ? sessions.filter(session => !isAcpSession(session)) : []
+  const items = Array.isArray(sessions) ? sessions : []
   if (!items.length) {
     runtimeSessionList.appendChild(emptyCard(t('settings.noSessions')))
     return
@@ -2139,8 +1532,7 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
-      const command = session.kind === 'agent-acp' ? 'agent.session.select' : 'session.select'
-      Promise.resolve(runtimeApiCommand(command, { sessionId: session.id }))
+      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state, session.id))
           loadHomeConversation(session.id)
@@ -2186,7 +1578,6 @@ function sessionDateGroup(updatedAt) {
 
 function sessionDisplayMeta(session) {
   if (!session) return '--'
-  if (isAcpSession(session)) return session.nodeId || t('home.remoteChatMeta')
   return session.modelId || t('home.localChatMeta')
 }
 
@@ -2198,16 +1589,11 @@ function currentHomeSession() {
 
 function updateHomeChatContext() {
   const session = currentHomeSession()
-  const network = runtimeServiceState && runtimeServiceState.agentNetwork
-  const node = network && network.activeNode
-  const agent = network && network.agent
-  const acp = activeNodeKind() === 'acp'
-  const nodeName = acp ? ((node && node.name) || t('nodes.codexNode')) : t('nodes.localNode')
-  const model = acp ? t('home.remoteChatMeta') : ((runtimeServiceState && runtimeServiceState.modelId) || t('home.localChatMeta'))
+  const model = (runtimeServiceState && runtimeServiceState.modelId) || t('home.localChatMeta')
   if (homeChatTitle) homeChatTitle.textContent = (session && session.title) || t('home.newChat')
-  if (homeChatMeta) homeChatMeta.textContent = nodeName + ' / ' + model
+  if (homeChatMeta) homeChatMeta.textContent = model
   if (homeChatState) {
-    const active = acp ? !!(agent && agent.connected) : !!(runtimeServiceState && runtimeServiceState.running)
+    const active = !!(runtimeServiceState && runtimeServiceState.running)
     homeChatState.textContent = active ? t('status.running') : t('status.stopped')
     homeChatState.classList.toggle('running', active)
   }
@@ -2226,9 +1612,8 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
   const next = Object.assign({}, existing, {
     id: sessionId,
     title: existing.title || String(titleText || '').trim() || sessionId,
-    kind: existing.kind || (activeNodeKind() === 'acp' ? 'agent-acp' : 'model-chat'),
-    modelId: existing.modelId || (activeNodeKind() === 'acp' ? 'codex-acp' : ((runtimeServiceState && runtimeServiceState.modelId) || '--')),
-    nodeId: existing.nodeId || (activeNodeKind() === 'acp' ? activeNodeId() : 'local'),
+    kind: existing.kind || 'model-chat',
+    modelId: existing.modelId || ((runtimeServiceState && runtimeServiceState.modelId) || '--'),
     updatedAt: now,
     messageCount: Math.max(Number(existing.messageCount) || 0, 1) + (lastRole === 'assistant' ? 1 : 0),
     lastRole: lastRole || existing.lastRole || 'user',
@@ -2242,14 +1627,8 @@ function upsertHomeSessionPreview(sessionId, titleText, lastRole) {
 }
 
 function homeCurrentSessionId() {
-  if (activeNodeKind() === 'acp') {
-    const current = activeAgentSessionId(runtimeServiceState)
-    if (current) return current
-    const latest = latestHomeSession(runtimeServiceState)
-    return latest ? latest.id : ''
-  }
   const current = runtimeServiceState && runtimeServiceState.currentSessionId
-  if (current && !isAcpSessionId(current)) return current
+  if (current) return current
   return (runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.defaultSessionId) || ''
 }
 
@@ -2450,9 +1829,7 @@ function restoreHomeConversation(options) {
     return null
   }
   if (target !== currentId) {
-    const selected = target.indexOf('agent/acp/') === 0
-      ? runtimeApiCommand('agent.session.select', { sessionId: target })
-      : runtimeApiCommand('session.select', { sessionId: target })
+    const selected = runtimeApiCommand('session.select', { sessionId: target })
     updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
@@ -2529,7 +1906,7 @@ function toolResultText(result, fallback) {
   return fallback
 }
 
-function runAgentDiagnostics() {
+function runRuntimeDiagnostics() {
   if (!runtimeDiagRunButton) return
   runtimeDiagRunButton.disabled = true
   runtimeDiagRunButton.textContent = t('diagnostics.running')
@@ -2716,10 +2093,6 @@ function navigateTo(page) {
   app.classList.remove('mobile-nav-open')
   menuButton.classList.remove('is-active')
   setKeyboardOffset(0)
-  unloadSceneFrame()
-  backButton.classList.remove('active')
-  activeScene = null
-  setSceneSettingsVisible(false)
   showPagePanel(page)
   const activePanel = document.getElementById('page-' + page)
   if (activePanel) activePanel.scrollTop = 0
@@ -2728,7 +2101,6 @@ function navigateTo(page) {
     loadModels()
   }
   syncTopStatus()
-  updateRuntimeStrip()
 }
 
 function openRuntimeServerFromHome() {
@@ -2771,15 +2143,11 @@ function handleHomeAction(action) {
   if (action === 'diagnostics') {
     navigateTo('settings')
     openRuntimeAdvancedSettings()
-    runAgentDiagnostics()
+    runRuntimeDiagnostics()
     return
   }
   if (action === 'copy-config') {
     openRuntimeServerFromHome()
-    return
-  }
-  if (action === 'scenes') {
-    navigateTo('scenes')
     return
   }
 }
@@ -2832,10 +2200,6 @@ function submitHomeChat(text) {
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
   if (!prompt && !image) return
-  if (activeNodeKind() === 'acp') {
-    submitAcpHomeChat(prompt)
-    return
-  }
   appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
@@ -2969,103 +2333,6 @@ function collectToolCallsFromMessage(result) {
   return normalizeToolCalls(message && message.tool_calls)
 }
 
-function submitAcpHomeChat(prompt) {
-  if (!prompt || homeBackendBusy) return
-  appendChatBubble('user', prompt)
-  if (homeChatInput) homeChatInput.value = ''
-  clearHomeImageAttachment()
-  homeBackendBusy = true
-  if (homeChatSendButton) homeChatSendButton.disabled = true
-  const pending = appendAssistantRun()
-  const sessionId = homeCurrentSessionId()
-  const selected = sessionId ? runtimeApiCommand('agent.session.select', { sessionId }) : null
-  const activeSessionId = homeSessionIdFromState(selected) || sessionId
-  if (activeSessionId) upsertHomeSessionPreview(activeSessionId, prompt, 'user')
-  streamAcpHomeChat({ text: prompt }, pending)
-    .then(result => {
-      refreshRuntimeServiceState()
-      const toolCalls = Array.isArray(result && result.toolCalls) ? result.toolCalls : []
-      const reply = (result && result.reply) || ''
-      if (pending && !reply && !toolCalls.length) {
-        renderChatMarkdown(chatTextTarget(pending), t('home.emptyReply'))
-      }
-      const nextSessionId = (result && result.currentSessionId) ||
-        activeSessionId
-      if (nextSessionId) upsertHomeSessionPreview(nextSessionId, reply || prompt, 'assistant')
-    })
-    .catch(error => {
-      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
-      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
-    })
-    .finally(() => {
-      homeBackendBusy = false
-      if (homeChatSendButton) homeChatSendButton.disabled = false
-    })
-}
-
-async function streamAcpHomeChat(body, target) {
-  const headers = { 'Content-Type': 'application/json' }
-  if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
-  const response = await fetch(apiUrl('/v1/runtime/agent.prompt.stream'), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body || {})
-  })
-  if (!response.ok) {
-    const errorJson = await response.json().catch(() => ({}))
-    throw new Error((errorJson.error && errorJson.error.message) || errorJson.message || 'ACP request failed')
-  }
-  const reader = response.body && response.body.getReader ? response.body.getReader() : null
-  if (!reader) {
-    const json = await response.json()
-    return { text: json.reply || '', reply: json.reply || '', toolCalls: json.toolCalls || [], currentSessionId: json.currentSessionId || '' }
-  }
-  const decoder = new TextDecoder('utf-8')
-  const writer = target ? createChatTextStream(chatTextTarget(target)) : null
-  let buffer = ''
-  let text = ''
-  let currentSessionId = ''
-  const toolCalls = []
-  while (true) {
-    const read = await reader.read()
-    if (read.done) break
-    buffer += decoder.decode(read.value, { stream: true })
-    const events = buffer.split('\n\n')
-    buffer = events.pop() || ''
-    for (const event of events) {
-      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue
-        const data = line.slice(5).trim()
-        if (!data || data === '[DONE]') continue
-        const json = JSON.parse(data)
-        if (json.type === 'start') currentSessionId = json.sessionId || currentSessionId
-        if (json.type === 'chunk' && typeof json.text === 'string') {
-          text += json.text
-          if (writer) writer.push(json.text)
-        }
-        if (json.type === 'tool_call' && json.toolCall) {
-          toolCalls.push(json.toolCall)
-          appendToolBubble(json.toolCall, target)
-        }
-        if (json.type === 'done') {
-          currentSessionId = json.sessionId || currentSessionId
-          const finalText = json.reply || text
-          const finalCalls = Array.isArray(json.toolCalls) && json.toolCalls.length ? json.toolCalls : toolCalls
-          if (writer) writer.finish(finalText)
-          else if (!text && finalText && target) renderChatMarkdown(chatTextTarget(target), finalText)
-          return { text: finalText, reply: finalText, toolCalls: finalCalls, currentSessionId }
-        }
-        if (json.type === 'error') {
-          throw new Error(json.message || 'ACP request failed')
-        }
-      }
-    }
-  }
-  if (writer) writer.finish(text)
-  return { text, reply: text, toolCalls, currentSessionId }
-}
-
 function chatResponseText(result) {
   if (!result) return ''
   const choice = result.choices && result.choices[0]
@@ -3084,9 +2351,7 @@ function loadHomeConversation(sessionId, options) {
   const silent = !!(options && options.silent)
   if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
-    const state = target && target.indexOf('agent/acp/') === 0
-      ? runtimeApiCommand('agent.session.select', { sessionId: target })
-      : runtimeApiCommand('session.details', { sessionId: target })
+    const state = runtimeApiCommand('session.details', { sessionId: target })
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
     updateRuntimeServiceState(markHomeSessionActive(state || {}, target))
@@ -3101,82 +2366,72 @@ function loadHomeConversation(sessionId, options) {
 // ---- Clock tick ----
 function tick() {
   clock.textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  updateRuntimeStrip()
 }
 
-// ---- Runtime snapshot polling ----
+// ---- Runtime polling ----
 let runtimePollTimer = null
+let runtimePollSignature = ''
+
+function runtimeStateSignature(state) {
+  const current = state || {}
+  const vision = current.vision || {}
+  const detectionCount = Array.isArray(vision.lastDetection && vision.lastDetection.detections)
+    ? vision.lastDetection.detections.length
+    : 0
+  const device = current.device || {}
+  const sessions = Array.isArray(current.sessions) ? current.sessions : []
+  const requests = Array.isArray(current.recentRequests) ? current.recentRequests : []
+  const sessionSignature = sessions.map(item => [item.id, item.updatedAt, item.messageCount].join(':')).join(',')
+  const requestSignature = requests.map(item => [item.method, item.endpoint, item.status, item.elapsedMs].join(':')).join(',')
+  return [
+    current.running, current.starting, current.message, current.port, current.lanUrl, current.url,
+    current.modelId, current.modelLoaded, current.maxOutputTokens, current.cpuThreads,
+    current.contextProfile, current.historyLimit, current.toolExposure, current.authToken,
+    current.autoStart, current.currentSessionId, current.requestCount,
+    current.cameraPermissionGranted, current.notificationPermissionGranted,
+    current.windowAllowed, current.windowVisible, current.windowState, current.windowAutoShow,
+    current.batteryOptimizationIgnored, current.accessibilityPermissionGranted,
+    vision.state, vision.running, vision.message, vision.fps, detectionCount,
+    device.interactive, device.keyguardLocked, device.activityForeground,
+    sessionSignature, requestSignature,
+  ].join('\x1f')
+}
 
 function refreshRuntimeServiceState() {
   const state = shellCommand('status', {})
-  updateRuntimeServiceState(state)
-  runtimeSnapshot = state
+  const signature = runtimeStateSignature(state)
+  if (signature !== runtimePollSignature) {
+    runtimePollSignature = signature
+    updateRuntimeServiceState(state)
+  }
   if (!runtimePollTimer) {
     runtimePollTimer = window.setInterval(() => {
       const next = shellCommand('status', {})
-      const changed = JSON.stringify(next) !== JSON.stringify(runtimeSnapshot)
-      if (changed || activeScene) {
+      const nextSignature = runtimeStateSignature(next)
+      if (nextSignature !== runtimePollSignature) {
+        runtimePollSignature = nextSignature
         updateRuntimeServiceState(next)
-        runtimeSnapshot = next
       }
     }, 4000)
-  }
-}
-
-function syncRuntimeSnapshot(options) {
-  const notify = options && options.notifyScene !== false
-  const next = shellCommand('status', {})
-  const changed = JSON.stringify(next) !== JSON.stringify(runtimeSnapshot)
-  if (changed) {
-    updateRuntimeServiceState(next)
-    runtimeSnapshot = next
-  }
-  if (notify && activeScene) {
-    postToSceneReliable({ type: 'runtime.snapshot', snapshot: runtimeSnapshot }, 3, 'runtime-snapshot')
   }
 }
 
 // ---- Runtime message handler ----
 function handleRuntimeMessage(message) {
   if (!message) return
-  if (message.type === 'alert') {
-    showAlert(message)
-    return
-  }
-  if (message.type === 'runtime.snapshot' && message.snapshot) {
-    runtimeSnapshot = message.snapshot
-    updateRuntimeServiceState(runtimeSnapshot)
-    return
-  }
   updateRuntimeServiceState(message)
-}
-
-function sendRuntimeCommand(sceneId, command, payload) {
-  runtimeServiceCommand(command, Object.assign({}, payload, { sceneId: sceneId || undefined }))
+  runtimePollSignature = runtimeStateSignature(runtimeServiceState)
 }
 
 
 /* === 09-init.js === */
 /* ── Lociant WebUI — Event binding and initialization ── */
 
-// ---- Scene frame events ----
-sceneFrame.addEventListener('load', () => {
-  installSceneApiClient()
-  resizeSceneFrame()
-  window.setTimeout(resizeSceneFrame, 80)
-  window.setTimeout(resizeSceneFrame, 300)
-  window.setTimeout(syncRuntimeSnapshot, 120)
-})
-
-window.addEventListener('resize', resizeSceneFrame)
 window.addEventListener('resize', syncKeyboardOffset)
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', syncKeyboardOffset)
   window.visualViewport.addEventListener('scroll', syncKeyboardOffset)
 }
-sceneHost.addEventListener('scroll', () => syncCameraPreviewRect(), { passive: true })
-app.addEventListener('transitionend', () => syncCameraPreviewRect())
-
 // ---- Sidebar ----
 menuButton.addEventListener('pointerdown', event => {
   event.preventDefault()
@@ -3214,21 +2469,6 @@ navItems.forEach(item => {
 })
 
 // ---- Buttons ----
-backButton.addEventListener('click', goHome)
-sceneSettingsButton.addEventListener('click', toggleSceneSettings)
-alertOpenButton.addEventListener('click', openAlertScene)
-alertCloseButton.addEventListener('click', clearAlert)
-runtimeStrip.addEventListener('click', () => {
-  const scene = runtimeScene()
-  if (scene) openScene(scene)
-})
-runtimeWindowText.addEventListener('click', event => {
-  event.stopPropagation()
-  runtimeWindowCommand()
-})
-if (topNodeButton) {
-  topNodeButton.addEventListener('click', () => navigateTo('nodes'))
-}
 if (homeRailToggle && homeSidebar) {
   homeRailToggle.setAttribute('aria-expanded', 'false')
   homeRailToggle.addEventListener('click', () => {
@@ -3252,9 +2492,7 @@ if (homeRailToggle && homeSidebar) {
 }
 if (homeNewChatButton) {
   homeNewChatButton.addEventListener('click', () => {
-    const next = activeNodeKind() === 'acp'
-      ? apiPost('/v1/runtime/agent.session.create', {})
-      : runtimeApiCommand('session.create', {})
+    const next = runtimeApiCommand('session.create', {})
     Promise.resolve(next).then(state => {
       clearHomeMessages()
       const sessionId = homeSessionIdFromState(state) || homeCurrentSessionId()
@@ -3353,12 +2591,6 @@ if (accessibilityPermissionButton) {
     handlePermissionAction(accessibilityPermissionButton, 'requestAccessibilityPermission', 'accessibility')
   })
 }
-if (runtimeWearableFolderButton) {
-  runtimeWearableFolderButton.addEventListener('click', () => {
-    native('chooseGadgetbridgeExportFolder')
-  })
-}
-
 // ---- Server settings ----
 runtimePortInput.addEventListener('change', () => {
   const value = Math.max(1024, Math.min(65535, Math.round(Number(runtimePortInput.value) || 11434)))
@@ -3464,64 +2696,8 @@ runtimeSessionNewButton.addEventListener('click', () => {
   runtimeApiCommand('session.create', {})
 })
 if (runtimeDiagRunButton) {
-  runtimeDiagRunButton.addEventListener('click', runAgentDiagnostics)
+  runtimeDiagRunButton.addEventListener('click', runRuntimeDiagnostics)
 }
-if (nodeCopyMcpButton) {
-  nodeCopyMcpButton.addEventListener('click', () => copyConnectionText(() => t('nodes.starterCommand')))
-}
-if (nodeLocalButton) {
-  nodeLocalButton.addEventListener('click', () => {
-    updateRuntimeServiceState(runtimeApiCommand('agent.selectNode', { nodeId: 'local' }) || {})
-    restoreHomeConversation()
-    showToast(t('nodes.localActive'))
-  })
-}
-if (nodeOpenServerButton) {
-  nodeOpenServerButton.addEventListener('click', openRuntimeServerFromHome)
-}
-if (nodeSaveCodexButton) {
-  nodeSaveCodexButton.addEventListener('click', () => {
-    const node = {
-      id: 'desktop-codex',
-      kind: 'acp',
-      name: t('nodes.codexNode'),
-      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
-      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
-      token: ''
-    }
-    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
-    restoreHomeConversation()
-    showToast(t('common.save'))
-  })
-}
-if (nodeConnectCodexButton) {
-  nodeConnectCodexButton.addEventListener('click', () => {
-    const network = runtimeServiceState && runtimeServiceState.agentNetwork
-    const active = network && network.activeNode && network.activeNode.kind === 'acp'
-    const connected = network && network.agent && network.agent.connected
-    if (active && connected) {
-      updateRuntimeServiceState(runtimeApiCommand('agent.disconnect', {}) || {})
-      return
-    }
-    const node = {
-      id: 'desktop-codex',
-      kind: 'acp',
-      name: t('nodes.codexNode'),
-      url: nodeCodexUrlInput ? nodeCodexUrlInput.value.trim() : '',
-      cwd: nodeCodexCwdInput ? nodeCodexCwdInput.value.trim() : '',
-      token: ''
-    }
-    updateRuntimeServiceState(runtimeApiCommand('agent.saveNode', { node, active: true }) || {})
-    restoreHomeConversation()
-    Promise.resolve(apiPost('/v1/runtime/agent.connect', {}))
-      .then(state => updateRuntimeServiceState(state || {}))
-      .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
-  })
-}
-if (nodePairQrButton) {
-  nodePairQrButton.addEventListener('click', () => showToast(t('nodes.qrTodo')))
-}
-
 // ---- Language ----
 languageControl.addEventListener('click', event => {
   const button = event.target.closest('.segmented-option')
@@ -3530,7 +2706,7 @@ languageControl.addEventListener('click', event => {
 
 // ---- Model actions ----
 modelReloadButton.addEventListener('click', () => {
-  loadModels()
+  loadModels(true)
   showToast(t('toast.modelsReloaded'))
 })
 modelImportButton.addEventListener('click', () => {
@@ -3552,30 +2728,8 @@ modelMarketSearch.addEventListener('input', () => {
     loadModelMarket()
   }, 250)
 })
-reloadButton.addEventListener('click', () => {
-  loadScenes()
-  showToast(t('toast.scenesReloaded'))
-})
-
-// ---- Scene install ----
-installButton.addEventListener('click', () => {
-  native('installScenePack')
-})
-
-// ---- Expose helpers ----
-window.MNNodeShellUi = { goHome }
-
 // ---- PostMessage handlers ----
 window.MNNodeEvents = {
-  onSceneInstallResult(result) {
-    if (result && result.ok) {
-      loadScenes()
-      showToast(t('toast.sceneInstalled'))
-      syncTopStatus()
-    } else if (result) {
-      showToast(result.message || t('toast.installFailed'))
-    }
-  },
   onModelInstallResult(result) {
     if (result && result.state === 'installing') {
       setModelProgress(result)
@@ -3587,14 +2741,6 @@ window.MNNodeEvents = {
       setModelProgress(Object.assign({ state: 'error' }, result))
       showToast(result.message || t('toast.modelImportFailed'))
     }
-  },
-  onVisionState(result) {
-    postToScene(Object.assign({ type: 'vision.state' }, result || {}))
-    if (result && result.state === 'running') showToast(t('toast.visionStarted'))
-    if (result && result.state === 'error') showToast(result.message || 'Vision failed')
-  },
-  onVisionFrame(frame) {
-    postToScene(Object.assign({ type: 'vision.frame' }, frame || {}))
   },
   onRuntimeMessage(message) {
     handleRuntimeMessage(message)
@@ -3608,26 +2754,9 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
-const messageHandlers = {
-  'scene.ready': () => {
-    syncTopStatus()
-    broadcastLocale()
-    syncRuntimeSnapshot()
-  },
-  'runtime.subscribe': () => syncRuntimeSnapshot(),
-  'runtime.command': data => sendRuntimeCommand(data.sceneId || (activeScene && activeScene.id) || '', data.command || '', data.payload || {})
-}
-
-window.addEventListener('message', event => {
-  const data = event.data || {}
-  const handler = messageHandlers[data.type]
-  if (handler) handler(data)
-})
-
 // ---- Bootstrap ----
 refreshRuntimeServiceState()
 restoreHomeConversation()
-loadScenes()
 loadModels()
 loadLocaleSetting()
 tick()

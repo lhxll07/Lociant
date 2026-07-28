@@ -5,23 +5,15 @@ import org.json.JSONObject
 
 class MNNodeShellBridge(private val host: Host) {
     interface Host {
-        fun openScenePackPicker()
         fun openModelPackagePicker()
         fun requestCameraPermission()
         fun requestNotificationPermission()
         fun requestOverlayPermission()
         fun requestBatteryOptimizationExemption()
         fun requestAccessibilityPermission()
-        fun chooseGadgetbridgeExportFolder()
         fun openAppSettings()
         fun openPermissionSettings(kind: String)
         fun runtimeShellCommand(command: String, payloadJson: String?): String
-    }
-
-    @JavascriptInterface
-    fun installScenePack(): String {
-        host.openScenePackPicker()
-        return ok("picker_opened")
     }
 
     @JavascriptInterface
@@ -58,12 +50,6 @@ class MNNodeShellBridge(private val host: Host) {
     fun requestAccessibilityPermission(): String {
         host.requestAccessibilityPermission()
         return ok("permission_requested")
-    }
-
-    @JavascriptInterface
-    fun chooseGadgetbridgeExportFolder(): String {
-        host.chooseGadgetbridgeExportFolder()
-        return ok("picker_opened")
     }
 
     @JavascriptInterface
