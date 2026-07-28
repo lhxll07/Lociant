@@ -42,12 +42,12 @@
         </activity>
 
         <service
-            android:name=".runtime.MNNodeRuntimeService"
+            android:name=".runtime.LociantRuntimeService"
             android:exported="false"
             android:foregroundServiceType="dataSync|camera" />
 
         <service
-            android:name=".LociantAccessibilityService"
+            android:name="io.lociant.tools.LociantAccessibilityService"
             android:exported="false"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>

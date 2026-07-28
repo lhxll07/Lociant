@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mnnode.phonetools"
+    namespace = "io.lociant.tools"
     compileSdk = 36
 
     defaultConfig {
@@ -22,9 +22,8 @@ android {
 }
 
 dependencies {
-    api(project(":core"))
-    api(project(":data"))
-    api(project(":local-runtime"))
+    implementation(project(":core"))
+    implementation(project(":local-runtime"))
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.documentfile:documentfile:1.1.0")
 }

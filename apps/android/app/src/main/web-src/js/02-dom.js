@@ -137,7 +137,7 @@ let modelProgressLastPercent = 0
 let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
 let currentLocale = 'en'
-const localeStorePath = '/v1/store/runtime-settings/locale'
+const localeStorePath = '/api/v1/store/runtime-settings/locale'
 let homeAttachedImage = null
 let activePage = 'home'
 

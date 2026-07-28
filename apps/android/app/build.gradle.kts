@@ -15,15 +15,15 @@ val buildWebUi by tasks.registering(Exec::class) {
 }
 
 android {
-    namespace = "com.mnnode.app"
+    namespace = "io.lociant.android"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.mnnode.app"
+        applicationId = "io.lociant.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 10000
+        versionName = "1.0.0"
     }
 
     compileOptions {
@@ -75,4 +75,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.0")
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 }

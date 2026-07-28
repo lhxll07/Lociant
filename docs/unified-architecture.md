@@ -1,280 +1,139 @@
-# Unified Architecture
+# Lociant 1.0 Unified Architecture
 
- > Version: 0.5 | Updated: 2026-07-03
+## Goals
 
-[English](#english) | [中文](#中文)
+Lociant follows two related constraints:
 
-## English
+1. Each component has one visible owner and communicates through a narrow contract.
+2. A caller should be able to predict behavior from the method, HTTP verb, path and protocol it selected.
 
-Lociant is an Android-native capability provider for AI agents. The stable boundary is the local HTTP API, not private WebView bridges or a desktop-agent loop embedded in the phone app.
+Version 1.0 applies those constraints without a pre-1.0 compatibility layer.
 
-## Principle
-
-One capability should have one runtime entry point:
-
-| Capability | Entry point |
-|---|---|
- | Chat / VLM | `/v1/chat/completions`, `/api/chat` |
- | Models | `/v1/models` |
- | Model management | `/v1/models/full`, `/v1/models/market`, `/v1/models/{id}/delete` |
- | Sessions | `/v1/sessions` |
- | Runtime state | `/health`, `/v1/runtime/{command}` |
- | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
- | Chat status | `/v1/chat/status/{requestId}`, `/v1/chat/queue` |
- | MCP | `/mcp` |
-
-Everything user-facing should become either a client of these APIs or a narrow Android UI action.
-
-## Runtime Shape
+## Component Flow
 
 ```text
-Web UI / LAN client / agent client
-  -> Ktor HTTP API
-    -> ApiServerController
-      -> ChatController / ToolRegistry / LocalStore
-        -> MnnRuntime / NcnnRuntime / VisionAnalysisController / Room / Android services
+Android UI
+  |
+  | explicit LociantBridge methods
+  v
+LociantRuntimeService ---- RuntimeWindowController
+  |
+  | owns lifecycle
+  v
+LociantServer
+  |---- OpenAI adapter ---- ChatController ---- ChatRequestQueue
+  |                                  |              |
+  |                                  v              v
+  |                           SessionStore    ChatCapability
+  |                                                  |
+  |                                                  v
+  |                                             MnnRuntime
+  |
+  |---- MCP adapter ------ ToolRegistry ------ Tool providers
+  |
+  `---- Control API ------ stores/models/sessions/settings
 ```
 
-`MainActivity` owns WebView, permission entry points, and Android UI concerns. CameraX vision belongs to `:local-runtime` and is attached by the foreground runtime service when needed.
+`LociantRuntime` creates the process-scoped objects. Modules do not create alternate stores, model managers, tool registries or HTTP servers.
 
-The Android project is split by runtime capability rather than by UI page:
- `:core` keeps protocol-neutral contracts, `:data` owns persistence, `:local-runtime` owns MNN/NCNN and CameraX vision, `:phone-tools` owns Android device tools, `:mcp` is the MCP protocol adapter, and `:app` is the composition shell.
+## Protocol Separation
 
-`MNNodeRuntime` and `MNNodeRuntimeService` are still internal implementation names. They own shared runtime singletons, foreground service lifecycle, and the Runtime Window overlay. They do not define the public product name.
+### OpenAI data plane
 
-`MNNodeShellBridge` remains deliberately narrow. It is only for Android UI actions that do not map cleanly to HTTP, such as opening package pickers or permission screens.
-
-## Agent Boundary
-
-Lociant sits below agent systems:
+Only supported OpenAI resources use `/v1`:
 
 ```text
-Pi / OpenClaw / OpenCode / RikkaHub / custom agent
-  -> planning, workspace tools, shell, edit, read, grep, UI
-  -> OpenAI-compatible model and tool calls
-  -> Lociant
-      -> local LLM / VLM
-      -> camera and vision
-      -> Android screen context and runtime state
-      -> explicit Android UI actions
+GET  /v1/models
+POST /v1/chat/completions
 ```
 
-Keep these out of Lociant:
+Responses and errors use OpenAI shapes. Streaming uses `text/event-stream` and terminates with `data: [DONE]`.
 
-- PC workspace file access
-- shell execution for desktop projects
-- coding-agent memory and skill orchestration
-- multi-step task planning
-- vendor-specific agent compatibility hacks
+### MCP
 
-Lociant may receive client-owned OpenAI tool definitions and return standard `tool_calls`. The client should execute those tools unless the selected tool is a real Lociant local tool and the request explicitly asks Lociant to execute it.
-
-## Visible Runtime
-
-Lociant is a visible phone runtime, not an invisible daemon. Android background execution is vendor-sensitive, so stable local inference should be user-visible:
-
-- foreground service notification
-- Runtime Window overlay
-- in-app WebView UI (Settings page) for runtime, server, vision, and tool exposure settings
-- battery optimization guidance
-
-Locked-screen and fully headless behavior remain best-effort system behavior, not a core guarantee.
-
-The in-app WebView UI (`assets/web/index.html`) is the primary UX surface for configuring server port, API Token, tool exposure level, default model, vision, and runtime window behavior.
-
-The WebView UI source lives in `apps/android/app/src/main/web-src/` and compiles into the `assets/web/` directory. App icons live under the Android resource tree.
-
-## Tool System
-
-Tools are protocol-neutral phone capabilities. OpenAI tool calling, direct HTTP tool calls, and MCP all map to the same `ToolRegistry`.
-
-Current local tools:
-
- | Tool | Purpose |
- |---|---|
- | `runtime_status` | API/runtime status |
- | `model_list` | Installed and built-in models |
- | `llm_status` | Phone-local LLM readiness and available chat models |
- | `llm_chat` | Ask the phone-local LLM through MCP or direct tool calls |
- | `vision_status` | Camera/vision runtime status |
- | `vision_start` | Start continuous camera vision analysis |
- | `camera_capture` | Capture the latest camera frame as a JPEG data URL |
- | `vision_stop` | Stop continuous camera vision analysis |
- | `device_status` | Battery, network, screen, and permission state |
- | `clipboard_read` | Read Android clipboard text when Android allows it |
- | `clipboard_write` | Write Android clipboard text |
- | `app_open` | Open an installed app or safe deep link |
- | `ui_screen_state` | One-call screen context with device state, UI text, actionable `nodeId` values, and optional screenshot |
- | `ui_click_node` | Click a `nodeId` returned by `ui_screen_state` |
- | `ui_tap` | Tap at screen coordinates |
- | `ui_swipe` | Swipe between two screen coordinates |
- | `ui_back` | Press the Android Back button |
- | `ui_home` | Press the Android Home button |
- | `ui_recent_apps` | Open the Android recent apps overview |
- | `ui_notifications` | Open the Android notification shade |
- | `ui_quick_settings` | Open Android quick settings |
- | `ui_wait` | Wait for a fixed duration, UI idle, or visible text after an action |
-
- Tool definitions carry policy metadata so LAN visibility, auth, side effects, and Activity requirements can be enforced without inventing another capability system. Runtime settings expose a small remote visibility policy: `read`, `sensor`, or `action`.
-## Model Runtime
-
-MNN is the current LLM/VLM backend. NCNN is the current vision backend. Both are implementation details below the HTTP capability layer.
-
-Model packages should be inferred from `config.json` and known MNN files such as `llm.mnn`, `llm.mnn.weight`, `tokenizer.txt`, and `llm_config.json`. `visual.mnn` is optional because pure LLM models should import cleanly.
-
-## Compatibility
-
-Public compatibility surfaces should remain stable:
-
-- OpenAI-compatible request/response shape
-- Ollama-compatible `/api/chat`
-- local tool names
-- `/v1/models`
-- `X-MNNode-Session-Id` while existing clients use it
-- `mnnode` diagnostics field while existing clients and scripts consume it
-
-The product name can be Lociant while old internal identifiers remain until there is a strong reason to rename them.
-
-## Next Work
-
-1. Keep LAN auth and remote tool visibility rules simple enough for normal users to understand. (The in-app WebView UI already exposes API Token and tool exposure level settings.)
- 2. Keep model import and model-market metadata config-driven.
- 3. Improve Runtime Window diagnostics and recovery.
-4. Keep MCP policy as a thin projection of `ToolRegistry`, not a second tool system.
-
----
-
-## 中文
-
-Lociant 是面向 AI agent 的 Android 原生能力 provider。稳定边界是本地 HTTP API，而不是私有 WebView bridge 或嵌在手机 App 里的桌面 agent loop。
-
-## 原则
-
-一个能力只保留一个 runtime 入口：
-
- | 能力 | 入口 |
- |---|---|
- | Chat / VLM | `/v1/chat/completions`, `/api/chat` |
- | Models | `/v1/models` |
- | 模型管理 | `/v1/models/full`, `/v1/models/market`, `/v1/models/{id}/delete` |
- | Sessions | `/v1/sessions` |
- | Runtime state | `/health`, `/v1/runtime/{command}` |
- | Tools | `/v1/tools`, `/v1/tools/{name}/call` |
- | Chat status | `/v1/chat/status/{requestId}`, `/v1/chat/queue` |
- | MCP | `/mcp` |
-
-所有面向用户的功能都应该成为这些 API 的客户端，或者是很窄的 Android UI 操作。
-
-## Runtime 形态
+MCP uses one Streamable HTTP route:
 
 ```text
-Web UI / LAN client / agent client
-  -> Ktor HTTP API
-    -> ApiServerController
-      -> ChatController / ToolRegistry / LocalStore
-        -> MnnRuntime / NcnnRuntime / VisionAnalysisController / Room / Android services
+POST /mcp
 ```
 
-`MainActivity` 负责 WebView、权限入口和 Android UI 事务。
+The adapter translates MCP tool descriptors and calls to the shared `ToolRegistry`. It does not own a second capability catalog.
 
-`MNNodeRuntime` 和 `MNNodeRuntimeService` 仍然是内部实现名。它们持有共享 runtime 单例、前台服务生命周期和 Runtime Window 悬浮窗，不定义公开产品名。
+### Lociant control plane
 
-`MNNodeShellBridge` 必须保持很窄，只用于无法自然表示成 HTTP 调用的 Android UI 行为，例如打开包选择器或权限页面。
+Product-specific resources use `/api/v1`. They follow HTTP resource semantics and return Problem Details for request failures. Control routes never appear as undocumented OpenAI extensions.
 
-## Agent 边界
+## Lifecycle
 
-Lociant 位于 agent 系统下层：
+The foreground service is the only server lifecycle owner. This prevents Activity recreation, boot handling and notification actions from racing to start separate server instances.
 
-```text
-Pi / OpenClaw / OpenCode / RikkaHub / custom agent
-  -> planning, workspace tools, shell, edit, read, grep, UI
-  -> OpenAI-compatible model and tool calls
-  -> Lociant
-      -> local LLM / VLM
-      -> camera and vision
-      -> Android screen context and runtime state
-      -> explicit Android UI actions
-```
+The Activity can:
 
-这些职责不放进 Lociant：
+- request foreground-service start or stop;
+- open Android permission/settings screens;
+- control the floating window;
+- import a model through the Android document picker.
 
-- PC 工作区文件访问
-- 桌面项目的 shell 执行
-- coding-agent memory 和 skill orchestration
-- 多步任务规划
-- 针对某个 agent 客户端的特殊兼容 hack
+It cannot bind a server port directly. The HTTP API exposes runtime state but cannot start a server that is not running or bypass Android foreground-service rules.
 
-Lociant 可以接收客户端自有的 OpenAI tool definitions，并返回标准 `tool_calls`。除非选中的工具是真实的 Lociant 本地工具，并且请求显式要求 Lociant 执行，否则工具应该由客户端执行。
+## State Ownership
 
-## 可见 Runtime
+| Owner | State | Invariant |
+|---|---|---|
+| `SessionStore` / Room | sessions, messages, events | IDs are validated; reads never create rows |
+| `LocalStore` / `AtomicFile` | runtime and window settings | memory changes only after durable commit |
+| `ModelManager` | model filesystem index | readers use an immutable cached snapshot |
+| `ChatRequestQueue` | queued/running inference | one bounded queue owns cancellation and timeout |
+| Native prompt cache | active model session | selecting another session resets the cache |
+| `ToolRegistry` | executable capabilities | one policy check precedes every handler call |
 
-Lociant 是可见手机 runtime，不是隐藏 daemon。Android 后台执行高度依赖厂商策略，所以稳定的本地推理应该保持用户可见：
+The Room schema contains no Scene abstraction. API request telemetry is stored as events, not as a synthetic chat session.
 
-- 前台服务通知
-- Runtime Window 悬浮窗
-- App 内 WebView UI（设置页）用于 runtime、server、vision 和工具暴露策略配置
-- 电池优化引导
+## Tool Security
 
-锁屏和完全 headless 行为只能视为系统层面的 best-effort，不作为核心保证。
+`ToolPolicy` separates distinct questions:
 
-App 内 WebView UI（`assets/web/index.html`）是配置端口、API Token、工具暴露级别、默认模型、视觉和悬浮窗行为的主要 UX 界面。
+- `local`: can this process execute it?
+- `remoteAllowed`: may HTTP/MCP callers execute it?
+- `requiresActivity`: does it depend on interactive Android state?
+- `sideEffect`: can it change phone state?
+- `destructive`: can it irreversibly remove or overwrite meaningful state?
+- `openWorld`: does it interact with entities outside the server's closed data set?
 
-WebView UI 源码在 `apps/android/app/src/main/web-src/`，构建后输出到 `assets/web/`。App 图标保存在 Android resource tree 中。
+Exposure levels (`read`, `sensor`, `action`) filter the manifest and execution. `remoteAllowed` is enforced again at execution, so metadata cannot diverge from behavior.
 
-## 工具系统
+## Performance Rules
 
-Tools 是协议无关的手机能力。OpenAI tool calling、直接 HTTP tool call 和 MCP 都映射到同一个 `ToolRegistry`。
+- Ordinary model reads never scan the external model directory.
+- GET model/tool discovery does not insert telemetry events.
+- `LocalStore` does not reparse JSON from disk per read.
+- Server start uses a single daemon executor and fails explicitly on port conflict.
+- Chat uses one bounded inference queue rather than spawning a thread per request.
+- Large image payloads are stripped from MCP structured results after being emitted as MCP image content.
 
-当前本地工具：
+Performance changes must report a before/after measurement for cold start, idle memory, first-token latency, decode throughput, API P95 or APK size. Structural cleanup alone is not a performance result.
 
-| Tool | 用途 |
-|---|---|
-| `runtime_status` | API/runtime 状态 |
-| `model_list` | 已安装和内置模型 |
-| `llm_status` | 手机本地 LLM 就绪状态和可用的聊天模型 |
-| `llm_chat` | 通过 MCP 或直接工具调用询问手机本地 LLM |
-| `vision_status` | 摄像头/视觉 runtime 状态 |
-| `vision_start` | 启动连续摄像头视觉分析 |
-| `camera_capture` | 将最新摄像头画面捕获为 JPEG data URL |
-| `vision_stop` | 停止连续摄像头视觉分析 |
- | `device_status` | 电量、网络、屏幕和权限状态 |
- | `clipboard_read` | 在系统允许时读取 Android 剪贴板文本 |
- | `clipboard_write` | 写入 Android 剪贴板文本 |
- | `app_open` | 打开已安装应用或安全 deep link |
- | `ui_screen_state` | 一次性读取屏幕上下文、设备状态、可操作 `nodeId` 和可选截图 |
- | `ui_click_node` | 点击 `ui_screen_state` 返回的 `nodeId` |
- | `ui_tap` | 在屏幕坐标处点击 |
- | `ui_swipe` | 在两个屏幕坐标之间滑动 |
- | `ui_back` | 按 Android 返回键 |
- | `ui_home` | 按 Android Home 键 |
- | `ui_recent_apps` | 打开 Android 最近任务视图 |
- | `ui_notifications` | 打开 Android 通知栏 |
- | `ui_quick_settings` | 打开 Android 快捷设置 |
- | `ui_wait` | 动作后等待 UI 空闲或等待文字出现 |
+## Failure Semantics
 
-工具定义带策略元数据，用于执行 LAN 可见性、auth、副作用和 Activity 依赖规则，而不引入第二套能力系统。Runtime 设置提供一个很小的远程可见性策略：`read`、`sensor` 或 `action`。
-## 模型 Runtime
+- Invalid JSON: `400`, never `{}` fallback.
+- Invalid identifier: `400`, never normalized to another resource.
+- Missing resource: `404`, never an empty success object.
+- Accepted asynchronous work: `202`.
+- Occupied port: startup failure visible in runtime state; no random port substitution.
+- OpenAI failures: OpenAI error object.
+- MCP failures: JSON-RPC error when the message reached MCP processing.
+- Control failures: `application/problem+json`.
 
-MNN 是当前 LLM/VLM 后端。NCNN 是当前视觉后端。两者都是 HTTP capability layer 下面的实现细节。
+## Breaking Identity
 
-模型包应该从 `config.json` 和已知 MNN 文件自动推断，例如 `llm.mnn`、`llm.mnn.weight`、`tokenizer.txt` 和 `llm_config.json`。`visual.mnn` 是可选的，因为纯 LLM 模型也应该能正常导入。
+The Android identity is `io.lociant.android`. Source packages, Native targets, JNI exports, thread names, notification channel and database use Lociant names.
 
-## 兼容性
+There is no migration for earlier application IDs, databases, settings, model directories, headers, routes, JavaScript objects or client scripts. OpenAI and MCP remain because they are current product protocols, not compatibility aliases.
 
-公开兼容面应保持稳定：
+## Acceptance Gates
 
-- OpenAI-compatible request/response shape
-- Ollama-compatible `/api/chat`
-- 本地工具名
-- `/v1/models`
-- 现有客户端仍使用时保留 `X-MNNode-Session-Id`
-- 现有客户端和脚本仍使用时保留 `mnnode` diagnostics 字段
-
-公开产品名可以是 Lociant；旧内部标识符只有在有明确收益时才需要重命名。
-
-## 下一步
-
-1. 保持 LAN auth 和远程工具可见性规则足够简单，让普通用户能理解。（App 内 WebView UI 已提供 API Token 和工具暴露级别的设置入口。）
- 2. 保持模型导入和模型市场元数据由 config 驱动。
- 3. 改进 Runtime Window 诊断和恢复能力。
-4. 让 MCP policy 始终只是 `ToolRegistry` 的薄投影，不成为第二套工具系统。
+1. Source scan contains no retired identifiers or routes.
+2. JVM contract tests and Android Room test compilation pass.
+3. Debug APK assembly and lint pass.
+4. Native libraries load for every packaged ABI and the APK passes 16 KB alignment verification.
+5. On-device probes verify auth, models, tools, MCP, non-streaming Chat and SSE Chat.

@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(mnnode_native)
+project(lociant_native)
 
 if(ANDROID_ABI)
-    set(MNNODE_ABI "${ANDROID_ABI}")
+    set(LOCIANT_ABI "${ANDROID_ABI}")
 else()
-    set(MNNODE_ABI "${CMAKE_ANDROID_ARCH_ABI}")
+    set(LOCIANT_ABI "${CMAKE_ANDROID_ARCH_ABI}")
 endif()
 
 set(NCNN_PACKAGE_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/ncnn-20260113-android-vulkan/${MNNODE_ABI}/lib/cmake/ncnn")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/ncnn-20260113-android-vulkan/${LOCIANT_ABI}/lib/cmake/ncnn")
 get_filename_component(NCNN_PACKAGE_DIR "${NCNN_PACKAGE_DIR}" ABSOLUTE)
 set(ncnn_DIR "${NCNN_PACKAGE_DIR}")
 
@@ -17,7 +17,7 @@ message(STATUS "Using ncnn package: ${NCNN_PACKAGE_DIR}")
 find_package(ncnn REQUIRED CONFIG)
 
 set(MNN_PREBUILT_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan/${MNNODE_ABI}")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan/${LOCIANT_ABI}")
 get_filename_component(MNN_PREBUILT_DIR "${MNN_PREBUILT_DIR}" ABSOLUTE)
 set(MNN_SOURCE_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../tools/mnn_3.6.1_headers")
@@ -25,16 +25,16 @@ get_filename_component(MNN_SOURCE_DIR "${MNN_SOURCE_DIR}" ABSOLUTE)
 
 message(STATUS "Using MNN prebuilt: ${MNN_PREBUILT_DIR}")
 
-add_library(mnnode_ncnn SHARED
+add_library(lociant_ncnn SHARED
     ncnn_jni.cpp
     ncnn_runtime.cpp
 )
 
-target_include_directories(mnnode_ncnn PRIVATE
+target_include_directories(lociant_ncnn PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-target_link_libraries(mnnode_ncnn
+target_link_libraries(lociant_ncnn
     ncnn
     android
     log
@@ -55,18 +55,18 @@ set_target_properties(mnn_express PROPERTIES
     IMPORTED_LOCATION "${MNN_PREBUILT_DIR}/libMNN_Express.so"
 )
 
-add_library(mnnode_mnn SHARED
+add_library(lociant_mnn SHARED
     mnn_jni.cpp
     mnn_runtime.cpp
 )
 
-target_include_directories(mnnode_mnn PRIVATE
+target_include_directories(lociant_mnn PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${MNN_SOURCE_DIR}/include"
     "${MNN_SOURCE_DIR}/transformers/llm/engine/include"
 )
 
-target_link_libraries(mnnode_mnn
+target_link_libraries(lociant_mnn
     mnn_llm
     mnn_express
     mnn_core

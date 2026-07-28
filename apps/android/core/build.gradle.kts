@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mnnode.core"
+    namespace = "io.lociant.core"
     compileSdk = 36
 
     defaultConfig {
@@ -19,4 +19,9 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 }

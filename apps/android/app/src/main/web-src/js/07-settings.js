@@ -4,7 +4,7 @@
 function loadLocaleSetting() {
   apiGet(localeStorePath)
     .then(result => {
-      localeSetting = result && result.ok && result.value ? result.value : { mode: 'system' }
+      localeSetting = result && result.value ? result.value : { mode: 'system' }
       applyLocale()
     })
     .catch(() => applyLocale())
@@ -12,7 +12,7 @@ function loadLocaleSetting() {
 
 function saveLocaleSetting(mode) {
   localeSetting = { mode: mode || 'system' }
-  apiPost(localeStorePath, { value: localeSetting }).catch(() => {})
+  apiPut(localeStorePath, { value: localeSetting }).catch(() => {})
   applyLocale()
 }
 
@@ -72,7 +72,7 @@ function renderSessions(sessions) {
     row.appendChild(body)
     row.appendChild(check)
     row.addEventListener('click', () => {
-      runtimeApiCommand('session.select', { sessionId: session.id })
+      selectRuntimeSession(session.id)
     })
     runtimeSessionList.appendChild(row)
   })
@@ -109,7 +109,7 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
-      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
+      Promise.resolve(selectRuntimeSession(session.id))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state, session.id))
           loadHomeConversation(session.id)
@@ -124,7 +124,7 @@ function renderHomeSessions(sessions) {
       event.preventDefault()
       event.stopPropagation()
       const deletingCurrent = session.id === homeCurrentSessionId()
-      Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
+      Promise.resolve(deleteRuntimeSession(session.id))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state || {}, deletingCurrent ? '' : homeCurrentSessionId()))
           restoreHomeConversation({ forceLatest: deletingCurrent })
@@ -406,7 +406,7 @@ function restoreHomeConversation(options) {
     return null
   }
   if (target !== currentId) {
-    const selected = runtimeApiCommand('session.select', { sessionId: target })
+    const selected = selectRuntimeSession(target)
     updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
@@ -488,13 +488,13 @@ function runRuntimeDiagnostics() {
   runtimeDiagRunButton.disabled = true
   runtimeDiagRunButton.textContent = t('diagnostics.running')
   renderDiagnosticsSummary({ running: true })
-  const state = shellCommand('status', {})
+  const state = runtimeState()
   updateRuntimeServiceState(state)
   Promise.allSettled([
-    apiGet('/v1/tools'),
-    apiPost('/v1/tools/runtime_status/call', { arguments: {} }),
-    apiPost('/v1/tools/model_list/call', { arguments: {} }),
-    apiPost('/v1/tools/vision_status/call', { arguments: {} })
+    apiGet('/api/v1/tools'),
+    apiPost('/api/v1/tools/runtime_status/calls', { arguments: {} }),
+    apiPost('/api/v1/tools/model_list/calls', { arguments: {} }),
+    apiPost('/api/v1/tools/vision_status/calls', { arguments: {} })
   ]).then(results => {
     const toolsResponse = results[0].status === 'fulfilled' ? results[0].value : null
     const runtimeResponse = results[1].status === 'fulfilled' ? results[1].value : null

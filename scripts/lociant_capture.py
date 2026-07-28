@@ -23,16 +23,24 @@ def json_bytes(payload: dict[str, Any]) -> bytes:
 
 def api_url(base_url: str, path: str) -> str:
     base = base_url.rstrip("/")
-    if base.endswith("/v1") and path.startswith("/v1/"):
+    if base.endswith("/v1") and path.startswith(("/v1/", "/api/")):
         base = base[:-3]
     if base.endswith("/v1") and path == "/health":
         base = base[:-3]
     return f"{base}{path}"
 
 
-def request_json(method: str, url: str, payload: dict[str, Any] | None = None, timeout: int = 30) -> dict[str, Any]:
+def request_json(
+    method: str,
+    url: str,
+    payload: dict[str, Any] | None = None,
+    timeout: int = 30,
+    api_key: str = "",
+) -> dict[str, Any]:
     data = json_bytes(payload) if payload is not None else None
     headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     if payload is not None:
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -47,12 +55,13 @@ def request_json(method: str, url: str, payload: dict[str, Any] | None = None, t
         raise RuntimeError(f"invalid JSON response from {url}: {body[:300]!r}") from error
 
 
-def call_tool(base_url: str, name: str, args: dict[str, Any] | None, timeout: int) -> dict[str, Any]:
+def call_tool(base_url: str, name: str, args: dict[str, Any] | None, timeout: int, api_key: str) -> dict[str, Any]:
     return request_json(
         "POST",
-        api_url(base_url, f"/v1/tools/{name}/call"),
+        api_url(base_url, f"/api/v1/tools/{name}/calls"),
         {"arguments": args or {}},
         timeout,
+        api_key,
     )
 
 
@@ -78,12 +87,12 @@ def decode_data_url(value: str) -> tuple[str, bytes]:
 def run(args: argparse.Namespace) -> int:
     base_url = args.base_url.rstrip("/")
     if args.start:
-        start = extract_result(call_tool(base_url, "vision_start", {}, args.timeout), "vision_start")
+        start = extract_result(call_tool(base_url, "vision_start", {}, args.timeout, args.api_key), "vision_start")
         print(f"[OK] vision_start state={start.get('state')} frameCount={start.get('frameCount')}")
         if args.wait_ms > 0:
             time.sleep(args.wait_ms / 1000.0)
 
-    capture = extract_result(call_tool(base_url, "camera_capture", {}, args.timeout), "camera_capture")
+    capture = extract_result(call_tool(base_url, "camera_capture", {}, args.timeout, args.api_key), "camera_capture")
     mime, image = decode_data_url(str(capture.get("image", "")))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -104,6 +113,7 @@ def main() -> int:
     parser.add_argument("--start", action="store_true", help="start vision runtime before capturing")
     parser.add_argument("--wait-ms", type=int, default=700, help="wait after --start before capture")
     parser.add_argument("--timeout", type=int, default=30, help="HTTP timeout in seconds")
+    parser.add_argument("--api-key", default="", help="Lociant API token")
     args = parser.parse_args()
     try:
         return run(args)

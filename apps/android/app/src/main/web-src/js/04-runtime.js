@@ -1,44 +1,32 @@
 /* ── Lociant WebUI — Runtime state management and commands ── */
 
-function runtimeApiCommand(command, payload) {
+function invokeRuntimeBridge(method, ...args) {
   try {
-    const body = Object.assign({}, payload || {})
-    const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
-      'window.show', 'window.hide', 'window.collapse', 'window.expand',
-      'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
-    ].includes(command)
-    if (runShell) {
-      const next = shellCommand(command, body)
-      updateRuntimeServiceState(next)
-      return next
-    }
-    const promise = apiPost('/v1/runtime/' + encodeURIComponent(command), body)
-    promise.then(state => {
-      updateRuntimeServiceState(state)
-    }).catch(() => updateRuntimeServiceState({ running: false, message: 'API server command failed' }))
-    return promise
+    const raw = native(method, ...args)
+    const next = raw ? JSON.parse(raw) : { running: false, message: 'Runtime bridge unavailable' }
+    updateRuntimeServiceState(next)
+    return next
   } catch (error) {
-    updateRuntimeServiceState({ running: false, message: 'API server command failed' })
+    updateRuntimeServiceState({ running: false, message: 'Runtime bridge call failed' })
     return Promise.reject(error)
   }
 }
 
-function runtimeServiceCommand(command, payload) {
-  try {
-    const next = shellCommand(command, payload)
-    updateRuntimeServiceState(next)
-    return next
-  } catch (error) {
-    updateRuntimeServiceState({ running: false, message: 'Runtime service command failed' })
-    return null
-  }
-}
+function startRuntime(payload) { return invokeRuntimeBridge('startRuntime', JSON.stringify(payload || {})) }
+function stopRuntime() { return invokeRuntimeBridge('stopRuntime') }
+function updateRuntimeSettings(payload) { return invokeRuntimeBridge('updateRuntimeSettings', JSON.stringify(payload || {})) }
+function releaseRuntimeModel() { return invokeRuntimeBridge('releaseRuntimeModel') }
+function createRuntimeSession() { return invokeRuntimeBridge('createSession') }
+function selectRuntimeSession(sessionId) { return invokeRuntimeBridge('selectSession', String(sessionId || '')) }
+function deleteRuntimeSession(sessionId) { return invokeRuntimeBridge('deleteSession', String(sessionId || '')) }
+function loadRuntimeSession(sessionId) { return invokeRuntimeBridge('sessionDetails', String(sessionId || '')) }
+function startRuntimeVision(payload) { return invokeRuntimeBridge('startVision', JSON.stringify(payload || {})) }
+function stopRuntimeVision() { return invokeRuntimeBridge('stopVision') }
+function updateRuntimeWindow(payload) { return invokeRuntimeBridge('updateRuntimeWindow', JSON.stringify(payload || {})) }
 
 function runtimeWindowCommand(command) {
   const next = command || ((runtimeServiceState && runtimeServiceState.windowVisible) ? 'hide' : 'show')
-  const state = shellCommand('window.' + next, {})
-  updateRuntimeServiceState(state)
+  const state = invokeRuntimeBridge(next === 'hide' ? 'hideRuntimeWindow' : 'showRuntimeWindow')
   return state.window || state
 }
 

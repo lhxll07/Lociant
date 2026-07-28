@@ -147,11 +147,11 @@ def list_models(base_url: str, headers: dict[str, str], timeout: int) -> list[st
 
 
 def list_tools(base_url: str, headers: dict[str, str], timeout: int) -> tuple[list[dict[str, Any]], list[str]]:
-    result = request("GET", api_url(base_url, "/v1/tools"), headers=headers, timeout=timeout)
+    result = request("GET", api_url(base_url, "/api/v1/tools"), headers=headers, timeout=timeout)
     data = expect_json("tools", result)
     items = data.get("data")
     if not isinstance(items, list):
-        fail(f"/v1/tools missing data list: {data}")
+        fail(f"/api/v1/tools missing data list: {data}")
     tools = [item for item in items if isinstance(item, dict)]
     names = [tool_name(item) for item in tools if tool_name(item)]
     levels = sorted({str(item.get("x_lociant_level", "")) for item in tools if item.get("x_lociant_level")})
@@ -160,7 +160,7 @@ def list_tools(base_url: str, headers: dict[str, str], timeout: int) -> tuple[li
 
 
 def call_tool(base_url: str, headers: dict[str, str], timeout: int, tool: str) -> dict[str, Any]:
-    result = request("POST", api_url(base_url, f"/v1/tools/{tool}/call"), payload={"arguments": {}}, headers=headers, timeout=timeout)
+    result = request("POST", api_url(base_url, f"/api/v1/tools/{tool}/calls"), payload={"arguments": {}}, headers=headers, timeout=timeout)
     data = expect_json(f"tool {tool}", result)
     if not data.get("ok"):
         fail(f"tool {tool} returned not ok: {data}")
@@ -277,10 +277,10 @@ def run_quick_checks(args: argparse.Namespace, *, print_done: bool) -> tuple[lis
         fail("/health leaked authToken")
 
     if args.expect_auth:
-        unauth = request("GET", api_url(base_url, "/v1/tools"), timeout=args.timeout)
+        unauth = request("GET", api_url(base_url, "/api/v1/tools"), timeout=args.timeout)
         if unauth.status != 401:
-            fail(f"expected unauthenticated /v1/tools to return 401, got {unauth.status}")
-        ok("auth", "unauthenticated /v1/tools returned 401")
+            fail(f"expected unauthenticated /api/v1/tools to return 401, got {unauth.status}")
+        ok("auth", "unauthenticated /api/v1/tools returned 401")
 
     models = list_models(base_url, headers, args.timeout)
     tools, names = list_tools(base_url, headers, args.timeout)
@@ -310,7 +310,7 @@ def run_quick_checks(args: argparse.Namespace, *, print_done: bool) -> tuple[lis
 
     if args.mcp_llm:
         if "llm_status" not in names or "llm_chat" not in names:
-            fail(f"MCP LLM tools not listed in /v1/tools: {names}")
+            fail(f"MCP LLM tools not listed in /api/v1/tools: {names}")
         mcp_llm_once(base_url, headers, args.chat_timeout, args.prompt, args.max_tokens, args.mcp_llm_image)
 
     if print_done:
@@ -349,19 +349,6 @@ def run_full(args: argparse.Namespace) -> int:
     if forced_choice.get("finish_reason") != "tool_calls":
         fail(f"forced tool_choice did not finish with tool_calls: {forced_json}")
     ok("forced tool_choice", f"{forced.elapsed_ms}ms tool={tool}")
-
-    ollama = request(
-        "POST",
-        api_url(base_url, "/api/chat"),
-        payload={"model": model, "messages": [{"role": "user", "content": args.prompt}], "stream": False, "options": {"num_predict": args.max_tokens}},
-        headers=headers,
-        timeout=args.chat_timeout,
-    )
-    ollama_json = expect_json("ollama chat", ollama)
-    text = ((ollama_json.get("message") or {}).get("content") if isinstance(ollama_json.get("message"), dict) else "") or ""
-    if not text:
-        fail(f"Ollama response has empty content: {ollama_json}")
-    ok("ollama chat", f"{ollama.elapsed_ms}ms text={str(text)[:80]!r}")
 
     if not args.skip_stream:
         status, stream_headers, events, elapsed = request_stream(
@@ -516,7 +503,7 @@ def main() -> int:
 
     quick = sub.add_parser("quick", help="test health, models, tools, MCP, and optional chat")
     add_common(quick)
-    quick.add_argument("--expect-auth", action="store_true", help="verify unauthenticated /v1/tools returns 401")
+    quick.add_argument("--expect-auth", action="store_true", help="verify unauthenticated /api/v1/tools returns 401")
     quick.add_argument("--tool", default=DEFAULT_TOOL, help=f"default: {DEFAULT_TOOL}")
     quick.add_argument("--chat", action="store_true", help="also test /v1/chat/completions")
     quick.add_argument("--mcp-llm", action="store_true", help="also call llm_status and llm_chat through MCP")
@@ -527,7 +514,7 @@ def main() -> int:
     quick.add_argument("--chat-timeout", type=int, default=120)
     quick.set_defaults(func=run_quick)
 
-    full = sub.add_parser("full", help="quick plus OpenAI tools, Ollama, and streaming")
+    full = sub.add_parser("full", help="quick plus OpenAI tools and streaming")
     add_common(full)
     full.add_argument("--expect-auth", action="store_true")
     full.add_argument("--tool", default=DEFAULT_TOOL)

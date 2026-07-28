@@ -302,7 +302,7 @@ function loadHomeConversation(sessionId, options) {
   const silent = !!(options && options.silent)
   if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
-    const state = runtimeApiCommand('session.details', { sessionId: target })
+    const state = loadRuntimeSession(target)
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
     updateRuntimeServiceState(markHomeSessionActive(state || {}, target))
@@ -349,7 +349,7 @@ function runtimeStateSignature(state) {
 }
 
 function refreshRuntimeServiceState() {
-  const state = shellCommand('status', {})
+  const state = runtimeState()
   const signature = runtimeStateSignature(state)
   if (signature !== runtimePollSignature) {
     runtimePollSignature = signature
@@ -357,7 +357,7 @@ function refreshRuntimeServiceState() {
   }
   if (!runtimePollTimer) {
     runtimePollTimer = window.setInterval(() => {
-      const next = shellCommand('status', {})
+      const next = runtimeState()
       const nextSignature = runtimeStateSignature(next)
       if (nextSignature !== runtimePollSignature) {
         runtimePollSignature = nextSignature

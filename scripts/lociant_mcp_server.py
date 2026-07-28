@@ -2,7 +2,7 @@
 """MCP stdio adapter for Lociant's phone-side HTTP tools.
 
 The Android app remains the source of truth. This process only translates MCP
-JSON-RPC over stdio into Lociant's existing /v1/tools HTTP API.
+JSON-RPC over stdio into Lociant's control-plane tools API.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def json_bytes(payload: dict[str, Any]) -> bytes:
 
 def api_url(base_url: str, path: str) -> str:
     base = base_url.rstrip("/")
-    if base.endswith("/v1") and (path == "/health" or path.startswith("/v1/")):
+    if base.endswith("/v1") and (path == "/health" or path.startswith(("/v1/", "/api/", "/mcp"))):
         base = base[:-3]
     return f"{base}{path}"
 
@@ -102,10 +102,10 @@ def allowed_tool(name: str, config: Config) -> bool:
 
 
 def list_lociant_tools(config: Config) -> list[dict[str, Any]]:
-    manifest = request_json("GET", api_url(config.base_url, "/v1/tools"), None, config)
+    manifest = request_json("GET", api_url(config.base_url, "/api/v1/tools"), None, config)
     items = manifest.get("data") or manifest.get("tools") or []
     if not isinstance(items, list):
-        raise McpError(-32000, "Lociant /v1/tools returned no tool list", manifest)
+        raise McpError(-32000, "Lociant /api/v1/tools returned no tool list", manifest)
     tools: list[dict[str, Any]] = []
     for item in items:
         if not isinstance(item, dict):
@@ -201,7 +201,7 @@ def call_lociant_tool(config: Config, name: str, arguments: dict[str, Any]) -> d
         raise McpError(-32602, f"Tool is not exposed by this Lociant MCP adapter: {name}")
     response = request_json(
         "POST",
-        api_url(config.base_url, f"/v1/tools/{name}/call"),
+        api_url(config.base_url, f"/api/v1/tools/{name}/calls"),
         {"arguments": arguments},
         config,
     )
@@ -227,7 +227,7 @@ def handle_request(message: dict[str, Any], config: Config) -> dict[str, Any] | 
             return result(message_id, {
                 "protocolVersion": client_version or DEFAULT_PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "lociant", "version": "0.1.0"},
+                "serverInfo": {"name": "lociant", "version": "1.0.0"},
                 "instructions": "Use Lociant tools for Android-native sensing, screen context, local phone models, camera frames, and explicit phone UI actions.",
             })
         if method == "ping":

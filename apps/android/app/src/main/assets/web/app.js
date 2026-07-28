@@ -59,7 +59,7 @@ const i18n = {
     'settings.autoStartSub': 'Restore runtime after restart',
     'settings.serverTitle': 'Server',
     'settings.serverSub': 'Port, token, endpoint',
-    'settings.serverIntro': 'OpenAI/Ollama compatible API.',
+    'settings.serverIntro': 'OpenAI and MCP APIs.',
     'settings.capabilitiesTitle': 'Capabilities',
     'settings.capabilitiesSub': 'Vision and remote tools',
     'settings.capabilitiesIntro': 'Phone capabilities for local services and remote clients.',
@@ -277,7 +277,7 @@ const i18n = {
     'settings.autoStartSub': '重启后恢复运行时',
     'settings.serverTitle': '服务',
     'settings.serverSub': '端口、令牌、地址',
-    'settings.serverIntro': 'OpenAI/Ollama 兼容 API',
+    'settings.serverIntro': 'OpenAI 与 MCP API',
     'settings.capabilitiesTitle': '能力',
     'settings.capabilitiesSub': '视觉与远程工具',
     'settings.capabilitiesIntro': '提供给本地服务和远程客户端的手机能力',
@@ -592,7 +592,7 @@ let modelProgressLastPercent = 0
 let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
 let currentLocale = 'en'
-const localeStorePath = '/v1/store/runtime-settings/locale'
+const localeStorePath = '/api/v1/store/runtime-settings/locale'
 let homeAttachedImage = null
 let activePage = 'home'
 
@@ -658,7 +658,7 @@ function showPagePanel(page) {
 
 function native(method, ...args) {
   try {
-    const bridge = window.MNNodeShell
+    const bridge = window.LociantBridge
     if (bridge && typeof bridge[method] === 'function') return bridge[method](...args)
   } catch (error) {}
   return null
@@ -758,16 +758,30 @@ async function apiPost(path, body) {
   return apiRequest('POST', path, body)
 }
 
+async function apiPut(path, body) {
+  return apiRequest('PUT', path, body)
+}
+
+async function apiDelete(path) {
+  return apiRequest('DELETE', path)
+}
+
 async function apiRequest(method, path, body) {
-  const headers = { 'Content-Type': 'application/json' }
+  const headers = {}
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
   const response = await fetch(apiUrl(path), {
     method,
     headers,
-    body: method === 'GET' ? undefined : JSON.stringify(body || {})
+    body: body === undefined ? undefined : JSON.stringify(body)
   })
-  const json = await response.json()
-  if (!response.ok) throw new Error(path + ': ' + ((json.error && json.error.message) || json.message || 'API request failed'))
+  // Control resources may return an empty 204, while errors use Problem Details.
+  const text = await response.text()
+  const json = text ? JSON.parse(text) : null
+  if (!response.ok) {
+    const message = (json && (json.detail || (json.error && json.error.message) || json.message)) || 'API request failed'
+    throw new Error(path + ': ' + message)
+  }
   return json
 }
 
@@ -781,62 +795,41 @@ function retryApi(task, fallback, attempts = 8) {
   return run()
 }
 
-function shellCommand(command, payload) {
-  const raw = native('runtimeShellCommand', command, JSON.stringify(payload || {}))
-  return raw ? JSON.parse(raw) : { running: false, message: 'Runtime shell unavailable' }
-}
-
 function runtimeState() {
-  try {
-    return shellCommand('status', {})
-  } catch (error) {
-    return runtimeServiceState || { running: false }
-  }
+  return nativeJson('runtimeState', runtimeServiceState || { running: false })
 }
 
 
 /* === 04-runtime.js === */
 /* ── Lociant WebUI — Runtime state management and commands ── */
 
-function runtimeApiCommand(command, payload) {
+function invokeRuntimeBridge(method, ...args) {
   try {
-    const body = Object.assign({}, payload || {})
-    const runShell = ['start', 'stop', 'status', 'settings', 'battery.requestExemption',
-      'window.show', 'window.hide', 'window.collapse', 'window.expand',
-      'window.settings', 'window.permission', 'vision.start', 'vision.stop', 'vision.status',
-      'model.release', 'session.create', 'session.select', 'session.delete', 'session.details'
-    ].includes(command)
-    if (runShell) {
-      const next = shellCommand(command, body)
-      updateRuntimeServiceState(next)
-      return next
-    }
-    const promise = apiPost('/v1/runtime/' + encodeURIComponent(command), body)
-    promise.then(state => {
-      updateRuntimeServiceState(state)
-    }).catch(() => updateRuntimeServiceState({ running: false, message: 'API server command failed' }))
-    return promise
+    const raw = native(method, ...args)
+    const next = raw ? JSON.parse(raw) : { running: false, message: 'Runtime bridge unavailable' }
+    updateRuntimeServiceState(next)
+    return next
   } catch (error) {
-    updateRuntimeServiceState({ running: false, message: 'API server command failed' })
+    updateRuntimeServiceState({ running: false, message: 'Runtime bridge call failed' })
     return Promise.reject(error)
   }
 }
 
-function runtimeServiceCommand(command, payload) {
-  try {
-    const next = shellCommand(command, payload)
-    updateRuntimeServiceState(next)
-    return next
-  } catch (error) {
-    updateRuntimeServiceState({ running: false, message: 'Runtime service command failed' })
-    return null
-  }
-}
+function startRuntime(payload) { return invokeRuntimeBridge('startRuntime', JSON.stringify(payload || {})) }
+function stopRuntime() { return invokeRuntimeBridge('stopRuntime') }
+function updateRuntimeSettings(payload) { return invokeRuntimeBridge('updateRuntimeSettings', JSON.stringify(payload || {})) }
+function releaseRuntimeModel() { return invokeRuntimeBridge('releaseRuntimeModel') }
+function createRuntimeSession() { return invokeRuntimeBridge('createSession') }
+function selectRuntimeSession(sessionId) { return invokeRuntimeBridge('selectSession', String(sessionId || '')) }
+function deleteRuntimeSession(sessionId) { return invokeRuntimeBridge('deleteSession', String(sessionId || '')) }
+function loadRuntimeSession(sessionId) { return invokeRuntimeBridge('sessionDetails', String(sessionId || '')) }
+function startRuntimeVision(payload) { return invokeRuntimeBridge('startVision', JSON.stringify(payload || {})) }
+function stopRuntimeVision() { return invokeRuntimeBridge('stopVision') }
+function updateRuntimeWindow(payload) { return invokeRuntimeBridge('updateRuntimeWindow', JSON.stringify(payload || {})) }
 
 function runtimeWindowCommand(command) {
   const next = command || ((runtimeServiceState && runtimeServiceState.windowVisible) ? 'hide' : 'show')
-  const state = shellCommand('window.' + next, {})
-  updateRuntimeServiceState(state)
+  const state = invokeRuntimeBridge(next === 'hide' ? 'hideRuntimeWindow' : 'showRuntimeWindow')
   return state.window || state
 }
 
@@ -1103,9 +1096,9 @@ function setModelView(view) {
 }
 
 function loadModels(refresh) {
-  const path = refresh ? '/v1/models/full?refresh=true' : '/v1/models/full'
-  retryApi(() => apiGet(path), () => []).then(data => {
-    runtimeModels = Array.isArray(data) ? data : []
+  const path = refresh ? '/api/v1/models?refresh=true' : '/api/v1/models'
+  retryApi(() => apiGet(path), () => ({ models: [] })).then(data => {
+    runtimeModels = data && Array.isArray(data.models) ? data.models : []
     renderModels(runtimeModels)
     updateModelHomeState()
   })
@@ -1182,14 +1175,10 @@ function updateModelHomeState() {
 
 function deleteModel(modelId) {
   if (!modelId) return
-  apiPost('/v1/models/' + encodeURIComponent(modelId) + '/delete', {})
-    .then(result => {
-      if (result.ok) {
-        loadModels()
-        showToast(t('toast.modelDeleted'))
-      } else {
-        showToast(result.message || t('toast.modelDeleteFailed'))
-      }
+  apiDelete('/api/v1/models/' + encodeURIComponent(modelId))
+    .then(() => {
+      loadModels()
+      showToast(t('toast.modelDeleted'))
     })
     .catch(() => showToast(t('toast.modelDeleteFailed')))
 }
@@ -1197,7 +1186,7 @@ function deleteModel(modelId) {
 // ---- Model Market ----
 function loadModelMarket(forceRefresh) {
   const query = marketQuery
-  const url = '/v1/models/market' + (query ? '?q=' + encodeURIComponent(query) : '') + (forceRefresh ? (query ? '&refresh=true' : '?refresh=true') : '')
+  const url = '/api/v1/catalog/models' + (query ? '?q=' + encodeURIComponent(query) : '') + (forceRefresh ? (query ? '&refresh=true' : '?refresh=true') : '')
   apiGet(url)
     .then(data => {
       marketModels = (data && Array.isArray(data.models)) ? data.models : []
@@ -1248,16 +1237,10 @@ function installMarketModel(model) {
   marketInstallingModelId = model.id
   modelProgressLastPercent = 0
   setModelProgress({ state: 'installing', message: t('models.installing') + ': ' + (model.name || model.id) })
-  apiPost('/v1/models/market/' + encodeURIComponent(model.id) + '/install', {})
+  apiPost('/api/v1/model-installations', { modelId: model.id })
     .then(result => {
-      if (result && result.ok) {
-        pollMarketInstall(model.id)
-        loadModels()
-      } else {
-        marketInstallingModelId = ''
-        setModelProgress(Object.assign({ state: 'error' }, result || {}))
-        showToast((result && result.message) || t('toast.modelImportFailed'))
-      }
+      pollMarketInstall(result.jobId, model.id)
+      loadModels()
     })
     .catch(() => {
       marketInstallingModelId = ''
@@ -1266,11 +1249,11 @@ function installMarketModel(model) {
     })
 }
 
-function pollMarketInstall(modelId) {
+function pollMarketInstall(jobId, modelId) {
   if (marketInstallTimer) window.clearInterval(marketInstallTimer)
   let retries = 0
   marketInstallTimer = window.setInterval(() => {
-    apiGet('/v1/models/market/' + encodeURIComponent(modelId) + '/progress')
+    apiGet('/api/v1/model-installations/' + encodeURIComponent(jobId))
       .then(data => {
         const next = normalizeMarketProgress(data, modelId)
         if (next.state === 'done') {
@@ -1349,7 +1332,6 @@ function normalizeMarketProgress(data, fallbackModelId) {
   const payload = data || {}
   const rawState = String(payload.state || '').toLowerCase()
   const active = payload.active !== undefined ? !!payload.active : null
-  const ok = !!payload.ok
   const modelId = payload.modelId || fallbackModelId || marketInstallingModelId || ''
   const rawPercent = Number(payload.percent ?? payload.progress)
   const hasPercent = Number.isFinite(rawPercent)
@@ -1357,13 +1339,12 @@ function normalizeMarketProgress(data, fallbackModelId) {
 
   let state = rawState
   if (!state) {
-    if (ok && !active) state = 'done'
-    else if (active === false && hasPercent && percent >= 100) state = 'done'
+    if (active === false && hasPercent && percent >= 100) state = 'done'
     else if (active === false && !hasPercent) state = 'installing'
     else state = 'installing'
   }
 
-  if (state === 'done' || (ok && percent !== null && percent >= 100)) {
+  if (state === 'done' || (active === false && percent !== null && percent >= 100)) {
     state = 'done'
   } else if (!['error', 'done', 'downloading', 'installing'].includes(state)) {
     state = 'installing'
@@ -1375,7 +1356,6 @@ function normalizeMarketProgress(data, fallbackModelId) {
     modelId,
     message: payload.message || (state === 'done' ? t('toast.modelImported') : t('models.installing') + ': ' + (modelId || marketInstallingModelId || '')),
     percent: percent,
-    ok,
   }
 }
 
@@ -1407,7 +1387,7 @@ function renderRuntimeModelChoices(models) {
     row.appendChild(body)
     row.appendChild(check)
     row.addEventListener('click', () => {
-      runtimeApiCommand('settings', { modelId: model.id })
+      updateRuntimeSettings({ modelId: model.id })
     })
     runtimeModelList.appendChild(row)
   })
@@ -1427,7 +1407,7 @@ function isRuntimeModel(model) {
 function loadLocaleSetting() {
   apiGet(localeStorePath)
     .then(result => {
-      localeSetting = result && result.ok && result.value ? result.value : { mode: 'system' }
+      localeSetting = result && result.value ? result.value : { mode: 'system' }
       applyLocale()
     })
     .catch(() => applyLocale())
@@ -1435,7 +1415,7 @@ function loadLocaleSetting() {
 
 function saveLocaleSetting(mode) {
   localeSetting = { mode: mode || 'system' }
-  apiPost(localeStorePath, { value: localeSetting }).catch(() => {})
+  apiPut(localeStorePath, { value: localeSetting }).catch(() => {})
   applyLocale()
 }
 
@@ -1495,7 +1475,7 @@ function renderSessions(sessions) {
     row.appendChild(body)
     row.appendChild(check)
     row.addEventListener('click', () => {
-      runtimeApiCommand('session.select', { sessionId: session.id })
+      selectRuntimeSession(session.id)
     })
     runtimeSessionList.appendChild(row)
   })
@@ -1532,7 +1512,7 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
-      Promise.resolve(runtimeApiCommand('session.select', { sessionId: session.id }))
+      Promise.resolve(selectRuntimeSession(session.id))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state, session.id))
           loadHomeConversation(session.id)
@@ -1547,7 +1527,7 @@ function renderHomeSessions(sessions) {
       event.preventDefault()
       event.stopPropagation()
       const deletingCurrent = session.id === homeCurrentSessionId()
-      Promise.resolve(runtimeApiCommand('session.delete', { sessionId: session.id }))
+      Promise.resolve(deleteRuntimeSession(session.id))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state || {}, deletingCurrent ? '' : homeCurrentSessionId()))
           restoreHomeConversation({ forceLatest: deletingCurrent })
@@ -1829,7 +1809,7 @@ function restoreHomeConversation(options) {
     return null
   }
   if (target !== currentId) {
-    const selected = runtimeApiCommand('session.select', { sessionId: target })
+    const selected = selectRuntimeSession(target)
     updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
@@ -1911,13 +1891,13 @@ function runRuntimeDiagnostics() {
   runtimeDiagRunButton.disabled = true
   runtimeDiagRunButton.textContent = t('diagnostics.running')
   renderDiagnosticsSummary({ running: true })
-  const state = shellCommand('status', {})
+  const state = runtimeState()
   updateRuntimeServiceState(state)
   Promise.allSettled([
-    apiGet('/v1/tools'),
-    apiPost('/v1/tools/runtime_status/call', { arguments: {} }),
-    apiPost('/v1/tools/model_list/call', { arguments: {} }),
-    apiPost('/v1/tools/vision_status/call', { arguments: {} })
+    apiGet('/api/v1/tools'),
+    apiPost('/api/v1/tools/runtime_status/calls', { arguments: {} }),
+    apiPost('/api/v1/tools/model_list/calls', { arguments: {} }),
+    apiPost('/api/v1/tools/vision_status/calls', { arguments: {} })
   ]).then(results => {
     const toolsResponse = results[0].status === 'fulfilled' ? results[0].value : null
     const runtimeResponse = results[1].status === 'fulfilled' ? results[1].value : null
@@ -2351,7 +2331,7 @@ function loadHomeConversation(sessionId, options) {
   const silent = !!(options && options.silent)
   if (!silent) showHomeConversationLoading(t('home.thinking'))
   try {
-    const state = runtimeApiCommand('session.details', { sessionId: target })
+    const state = loadRuntimeSession(target)
     const payload = state && state.session ? state.session : state
     const messages = payload && Array.isArray(payload.messages) ? payload.messages : []
     updateRuntimeServiceState(markHomeSessionActive(state || {}, target))
@@ -2398,7 +2378,7 @@ function runtimeStateSignature(state) {
 }
 
 function refreshRuntimeServiceState() {
-  const state = shellCommand('status', {})
+  const state = runtimeState()
   const signature = runtimeStateSignature(state)
   if (signature !== runtimePollSignature) {
     runtimePollSignature = signature
@@ -2406,7 +2386,7 @@ function refreshRuntimeServiceState() {
   }
   if (!runtimePollTimer) {
     runtimePollTimer = window.setInterval(() => {
-      const next = shellCommand('status', {})
+      const next = runtimeState()
       const nextSignature = runtimeStateSignature(next)
       if (nextSignature !== runtimePollSignature) {
         runtimePollSignature = nextSignature
@@ -2492,7 +2472,7 @@ if (homeRailToggle && homeSidebar) {
 }
 if (homeNewChatButton) {
   homeNewChatButton.addEventListener('click', () => {
-    const next = runtimeApiCommand('session.create', {})
+    const next = createRuntimeSession()
     Promise.resolve(next).then(state => {
       clearHomeMessages()
       const sessionId = homeSessionIdFromState(state) || homeCurrentSessionId()
@@ -2559,17 +2539,19 @@ function handlePermissionAction(button, requestMethod, settingsKind) {
 
 runtimeServiceToggle.addEventListener('click', () => {
   const running = runtimeServiceState && (runtimeServiceState.running || runtimeServiceState.starting)
-  runtimeApiCommand(running ? 'stop' : 'start', {})
+  if (running) stopRuntime()
+  else startRuntime({})
 })
 runtimeAutoStartInput.addEventListener('change', () => {
-  runtimeApiCommand('settings', { autoStart: !!runtimeAutoStartInput.checked })
+  updateRuntimeSettings({ autoStart: !!runtimeAutoStartInput.checked })
 })
 runtimeVisionButton.addEventListener('click', () => {
   const vision = visionState()
-  runtimeServiceCommand(vision && vision.running ? 'vision.stop' : 'vision.start', {})
+  if (vision && vision.running) stopRuntimeVision()
+  else startRuntimeVision({})
 })
 runtimeWindowAutoInput.addEventListener('change', () => {
-  runtimeServiceCommand('window.settings', { autoShow: !!runtimeWindowAutoInput.checked })
+  updateRuntimeWindow({ autoShow: !!runtimeWindowAutoInput.checked })
 })
 runtimeWindowButton.addEventListener('click', () => {
   runtimeWindowCommand()
@@ -2595,23 +2577,23 @@ if (accessibilityPermissionButton) {
 runtimePortInput.addEventListener('change', () => {
   const value = Math.max(1024, Math.min(65535, Math.round(Number(runtimePortInput.value) || 11434)))
   runtimePortInput.value = String(value)
-  runtimeApiCommand('settings', { port: value })
+  updateRuntimeSettings({ port: value })
 })
 runtimeMaxTokensInput.addEventListener('change', () => {
   const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
   const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeMaxTokensInput.value) || 512)))
   runtimeMaxTokensInput.value = String(value)
-  runtimeApiCommand('settings', { maxOutputTokens: value })
+  updateRuntimeSettings({ maxOutputTokens: value })
 })
 runtimeAuthTokenInput.addEventListener('change', () => {
-  runtimeApiCommand('settings', { authToken: runtimeAuthTokenInput.value.trim() })
+  updateRuntimeSettings({ authToken: runtimeAuthTokenInput.value.trim() })
 })
 runtimeAuthGenerateButton.addEventListener('click', () => {
-  runtimeApiCommand('settings', { generateAuthToken: true })
+  updateRuntimeSettings({ generateAuthToken: true })
 })
 runtimeAuthClearButton.addEventListener('click', () => {
   runtimeAuthTokenInput.value = ''
-  runtimeApiCommand('settings', { authToken: '' })
+  updateRuntimeSettings({ authToken: '' })
 })
 if (copyOpenAiUrlButton) {
   copyOpenAiUrlButton.addEventListener('click', () => copyConnectionText(openAiBaseUrl))
@@ -2631,11 +2613,11 @@ if (copyTestPromptButton) {
 
 // ---- Capabilities settings ----
 runtimeToolExposureInput.addEventListener('change', () => {
-  runtimeApiCommand('settings', { toolExposure: runtimeToolExposureInput.value || 'action' })
+  updateRuntimeSettings({ toolExposure: runtimeToolExposureInput.value || 'action' })
 })
 if (runtimePerformanceModeInput) {
   runtimePerformanceModeInput.addEventListener('change', () => {
-    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
+    updateRuntimeSettings({ cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
   })
 }
 if (runtimeResponseLengthInput) {
@@ -2649,7 +2631,7 @@ if (runtimeResponseLengthInput) {
     }
     const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
     const value = Math.max(1, Math.min(hardMax, Number(runtimeResponseLengthInput.value) || 512))
-    runtimeApiCommand('settings', { maxOutputTokens: value })
+    updateRuntimeSettings({ maxOutputTokens: value })
   })
 }
 if (runtimeResponseTokensInput) {
@@ -2657,7 +2639,7 @@ if (runtimeResponseTokensInput) {
     const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
     const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeResponseTokensInput.value) || 512)))
     runtimeResponseTokensInput.value = String(value)
-    runtimeApiCommand('settings', { maxOutputTokens: value })
+    updateRuntimeSettings({ maxOutputTokens: value })
   })
 }
 if (runtimeContextMemoryInput) {
@@ -2670,7 +2652,7 @@ if (runtimeContextMemoryInput) {
       return
     }
     const profile = runtimeContextMemoryInput.value || 'balanced'
-    runtimeApiCommand('settings', { contextProfile: profile, historyLimit: historyLimitForContextProfile(profile) })
+    updateRuntimeSettings({ contextProfile: profile, historyLimit: historyLimitForContextProfile(profile) })
   })
 }
 if (runtimeHistoryLimitInput) {
@@ -2678,12 +2660,12 @@ if (runtimeHistoryLimitInput) {
     const maxHistory = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.maxHistoryLimit) || 256
     const value = Math.max(1, Math.min(maxHistory, Math.round(Number(runtimeHistoryLimitInput.value) || 64)))
     runtimeHistoryLimitInput.value = String(value)
-    runtimeApiCommand('settings', { contextProfile: contextPresetForHistoryLimit(value), historyLimit: value })
+    updateRuntimeSettings({ contextProfile: contextPresetForHistoryLimit(value), historyLimit: value })
   })
 }
 if (runtimeReleaseModelButton) {
   runtimeReleaseModelButton.addEventListener('click', () => {
-    runtimeApiCommand('model.release', {})
+    releaseRuntimeModel()
     showToast(t('toast.modelReleased'))
   })
 }
@@ -2693,7 +2675,7 @@ if (runtimePerModelButton) {
 
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {
-  runtimeApiCommand('session.create', {})
+  createRuntimeSession()
 })
 if (runtimeDiagRunButton) {
   runtimeDiagRunButton.addEventListener('click', runRuntimeDiagnostics)
@@ -2729,7 +2711,7 @@ modelMarketSearch.addEventListener('input', () => {
   }, 250)
 })
 // ---- PostMessage handlers ----
-window.MNNodeEvents = {
+window.LociantEvents = {
   onModelInstallResult(result) {
     if (result && result.state === 'installing') {
       setModelProgress(result)

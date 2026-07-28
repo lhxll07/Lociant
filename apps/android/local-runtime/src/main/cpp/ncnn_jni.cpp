@@ -25,29 +25,29 @@ std::string to_string(JNIEnv* env, jstring value) {
 } // namespace
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeInit(JNIEnv*, jclass) {
+Java_io_lociant_runtime_model_NcnnRuntime_nativeInit(JNIEnv*, jclass) {
     ncnn::create_gpu_instance();
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeGpuCount(JNIEnv*, jclass) {
+Java_io_lociant_runtime_model_NcnnRuntime_nativeGpuCount(JNIEnv*, jclass) {
     return ncnn::get_gpu_count();
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeCreate(JNIEnv* env, jclass, jobject asset_manager) {
+Java_io_lociant_runtime_model_NcnnRuntime_nativeCreate(JNIEnv* env, jclass, jobject asset_manager) {
     AAssetManager* manager = AAssetManager_fromJava(env, asset_manager);
     if (!manager) return 0;
     return reinterpret_cast<jlong>(new NcnnRuntimeNative(manager));
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeRelease(JNIEnv*, jclass, jlong handle) {
+Java_io_lociant_runtime_model_NcnnRuntime_nativeRelease(JNIEnv*, jclass, jlong handle) {
     delete from_handle(handle);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeLoadModel(
+Java_io_lociant_runtime_model_NcnnRuntime_nativeLoadModel(
     JNIEnv* env,
     jclass,
     jlong handle,
@@ -72,7 +72,7 @@ Java_com_mnnode_app_model_NcnnRuntime_nativeLoadModel(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeState(JNIEnv* env, jclass, jlong handle) {
+Java_io_lociant_runtime_model_NcnnRuntime_nativeState(JNIEnv* env, jclass, jlong handle) {
     auto* runtime = from_handle(handle);
     if (!runtime) {
         return to_jstring(env, "{\"loaded\":false,\"state\":\"closed\"}");
@@ -81,7 +81,7 @@ Java_com_mnnode_app_model_NcnnRuntime_nativeState(JNIEnv* env, jclass, jlong han
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_NcnnRuntime_nativeDetectYuv420(
+Java_io_lociant_runtime_model_NcnnRuntime_nativeDetectYuv420(
     JNIEnv* env,
     jclass,
     jlong handle,

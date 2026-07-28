@@ -18,12 +18,12 @@
 
 namespace {
 
-constexpr const char* LOG_TAG = "MNNodeMnnNative";
+constexpr const char* LOG_TAG = "LociantMnnNative";
 constexpr int FALLBACK_MIN_OUTPUT_TOKENS = 8;
 constexpr int FALLBACK_MAX_OUTPUT_TOKENS = 32768;
 
-#define MNNODE_LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define MNNODE_LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+#define LOCIANT_LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOCIANT_LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
 std::string escape_json(const std::string& value) {
     std::string out;
@@ -139,7 +139,7 @@ void reset_text_session_cache(
 
 void boost_current_thread_for_inference() {
     // Best-effort only. Some Android builds reject this for app UIDs.
-    pthread_setname_np(pthread_self(), "mnnode-mnn-infer");
+    pthread_setname_np(pthread_self(), "lociant-mnn-infer");
     sched_param param{};
     param.sched_priority = 0;
     pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
@@ -398,7 +398,7 @@ std::string run_text_generation(
         current_size++;
         const double elapsed = now_ms() - token_start;
         if (elapsed > 5000.0) {
-            MNNODE_LOGW("generate step slow token=%d elapsed=%.2f", current_size, elapsed);
+            LOCIANT_LOGW("generate step slow token=%d elapsed=%.2f", current_size, elapsed);
         }
         stream_state.resolve(llm, current_size, max_tokens);
     }
@@ -445,7 +445,7 @@ std::string run_image_generation(
         current_size++;
         const double elapsed = now_ms() - token_start;
         if (elapsed > 5000.0) {
-            MNNODE_LOGW("generate image step slow token=%d elapsed=%.2f", current_size, elapsed);
+            LOCIANT_LOGW("generate image step slow token=%d elapsed=%.2f", current_size, elapsed);
         }
         stream_state.resolve(llm, current_size, max_tokens);
     }
@@ -500,11 +500,11 @@ std::string MnnRuntimeNative::load(
         return "{\"ok\":false,\"message\":\"empty config path\"}";
     }
 
-    MNNODE_LOGI("load start config=%s", config_path.c_str());
+    LOCIANT_LOGI("load start config=%s", config_path.c_str());
     llm_ = MNN::Transformer::Llm::createLLM(config_path);
     if (!llm_) {
         last_error_ = "createLLM failed";
-        MNNODE_LOGW("load createLLM failed");
+        LOCIANT_LOGW("load createLLM failed");
         return "{\"ok\":false,\"message\":\"createLLM failed\"}";
     }
 
@@ -516,17 +516,17 @@ std::string MnnRuntimeNative::load(
         llm_->set_config(config_json);
     }
 
-    MNNODE_LOGI("llm load enter");
+    LOCIANT_LOGI("llm load enter");
     if (!llm_->load()) {
         last_error_ = "load failed";
-        MNNODE_LOGW("llm load failed elapsed=%.2f", now_ms() - start);
+        LOCIANT_LOGW("llm load failed elapsed=%.2f", now_ms() - start);
         MNN::Transformer::Llm::destroy(llm_);
         llm_ = nullptr;
         return "{\"ok\":false,\"message\":\"load failed\",\"elapsedMs\":" + std::to_string(now_ms() - start) + "}";
     }
 
     loaded_ = true;
-    MNNODE_LOGI("load ok elapsed=%.2f", now_ms() - start);
+    LOCIANT_LOGI("load ok elapsed=%.2f", now_ms() - start);
     return "{\"ok\":true,\"message\":\"loaded\",\"elapsedMs\":" + std::to_string(now_ms() - start) + "}";
 }
 
@@ -567,7 +567,7 @@ std::string MnnRuntimeNative::chat_text(
     active_runtime_config_ = runtime_config;
     active_cache_session_id_ = cache_capable ? session_id : "";
 
-    MNNODE_LOGI(
+    LOCIANT_LOGI(
         "chat_text stepped enter messages=%zu maxTokens=%d session=%s cacheCapable=%d configChanged=%d sessionChanged=%d",
         chat_messages.size(),
         tokens,
@@ -580,7 +580,7 @@ std::string MnnRuntimeNative::chat_text(
     }
     double first_token_ms = -1.0;
     const auto text = run_text_generation(llm_, chat_messages, tokens, cancel_requested_, nullptr, &first_token_ms);
-    MNNODE_LOGI("chat_text stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
+    LOCIANT_LOGI("chat_text stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
     const auto* context = llm_->getContext();
 
     std::ostringstream os;
@@ -651,7 +651,7 @@ std::string MnnRuntimeNative::chat_text_stream(
     active_runtime_config_ = runtime_config;
     active_cache_session_id_ = cache_capable ? session_id : "";
 
-    MNNODE_LOGI(
+    LOCIANT_LOGI(
         "chat_text_stream stepped enter messages=%zu maxTokens=%d session=%s cacheCapable=%d configChanged=%d sessionChanged=%d",
         chat_messages.size(),
         tokens,
@@ -664,7 +664,7 @@ std::string MnnRuntimeNative::chat_text_stream(
     }
     double first_token_ms = -1.0;
     const auto text = run_text_generation(llm_, chat_messages, tokens, cancel_requested_, on_chunk, &first_token_ms);
-    MNNODE_LOGI("chat_text_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
+    LOCIANT_LOGI("chat_text_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
 
     const auto* context = llm_->getContext();
     std::ostringstream os;
@@ -727,13 +727,13 @@ std::string MnnRuntimeNative::chat_image(JNIEnv* env, jobject bitmap, const std:
     input.images["image_0"] = part;
 
     reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
-    MNNODE_LOGI("chat_image stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
+    LOCIANT_LOGI("chat_image stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
     if (!runtime_config.empty()) {
         llm_->set_config(runtime_config);
     }
     double first_token_ms = -1.0;
     const auto text = run_image_generation(llm_, input, tokens, cancel_requested_, nullptr, &first_token_ms);
-    MNNODE_LOGI("chat_image stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
+    LOCIANT_LOGI("chat_image stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
     const auto* context = llm_->getContext();
 
     std::ostringstream os;
@@ -794,13 +794,13 @@ std::string MnnRuntimeNative::chat_image_stream(
     input.images["image_0"] = part;
 
     reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
-    MNNODE_LOGI("chat_image_stream stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
+    LOCIANT_LOGI("chat_image_stream stepped enter image=%dx%d promptLen=%zu maxTokens=%d", width, height, prompt.size(), tokens);
     if (!runtime_config.empty()) {
         llm_->set_config(runtime_config);
     }
     double first_token_ms = -1.0;
     const auto text = run_image_generation(llm_, input, tokens, cancel_requested_, on_chunk, &first_token_ms);
-    MNNODE_LOGI("chat_image_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
+    LOCIANT_LOGI("chat_image_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
 
     const auto* context = llm_->getContext();
     std::ostringstream os;
@@ -829,7 +829,7 @@ void MnnRuntimeNative::cancel() {
 void MnnRuntimeNative::reset_session_cache() {
     std::lock_guard<std::mutex> lock(mutex_);
     reset_text_session_cache(llm_, active_runtime_config_, active_cache_session_id_);
-    MNNODE_LOGI("session cache reset");
+    LOCIANT_LOGI("session cache reset");
 }
 
 std::string MnnRuntimeNative::state_json() const {

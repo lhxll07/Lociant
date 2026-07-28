@@ -65,7 +65,7 @@ if (homeRailToggle && homeSidebar) {
 }
 if (homeNewChatButton) {
   homeNewChatButton.addEventListener('click', () => {
-    const next = runtimeApiCommand('session.create', {})
+    const next = createRuntimeSession()
     Promise.resolve(next).then(state => {
       clearHomeMessages()
       const sessionId = homeSessionIdFromState(state) || homeCurrentSessionId()
@@ -132,17 +132,19 @@ function handlePermissionAction(button, requestMethod, settingsKind) {
 
 runtimeServiceToggle.addEventListener('click', () => {
   const running = runtimeServiceState && (runtimeServiceState.running || runtimeServiceState.starting)
-  runtimeApiCommand(running ? 'stop' : 'start', {})
+  if (running) stopRuntime()
+  else startRuntime({})
 })
 runtimeAutoStartInput.addEventListener('change', () => {
-  runtimeApiCommand('settings', { autoStart: !!runtimeAutoStartInput.checked })
+  updateRuntimeSettings({ autoStart: !!runtimeAutoStartInput.checked })
 })
 runtimeVisionButton.addEventListener('click', () => {
   const vision = visionState()
-  runtimeServiceCommand(vision && vision.running ? 'vision.stop' : 'vision.start', {})
+  if (vision && vision.running) stopRuntimeVision()
+  else startRuntimeVision({})
 })
 runtimeWindowAutoInput.addEventListener('change', () => {
-  runtimeServiceCommand('window.settings', { autoShow: !!runtimeWindowAutoInput.checked })
+  updateRuntimeWindow({ autoShow: !!runtimeWindowAutoInput.checked })
 })
 runtimeWindowButton.addEventListener('click', () => {
   runtimeWindowCommand()
@@ -168,23 +170,23 @@ if (accessibilityPermissionButton) {
 runtimePortInput.addEventListener('change', () => {
   const value = Math.max(1024, Math.min(65535, Math.round(Number(runtimePortInput.value) || 11434)))
   runtimePortInput.value = String(value)
-  runtimeApiCommand('settings', { port: value })
+  updateRuntimeSettings({ port: value })
 })
 runtimeMaxTokensInput.addEventListener('change', () => {
   const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
   const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeMaxTokensInput.value) || 512)))
   runtimeMaxTokensInput.value = String(value)
-  runtimeApiCommand('settings', { maxOutputTokens: value })
+  updateRuntimeSettings({ maxOutputTokens: value })
 })
 runtimeAuthTokenInput.addEventListener('change', () => {
-  runtimeApiCommand('settings', { authToken: runtimeAuthTokenInput.value.trim() })
+  updateRuntimeSettings({ authToken: runtimeAuthTokenInput.value.trim() })
 })
 runtimeAuthGenerateButton.addEventListener('click', () => {
-  runtimeApiCommand('settings', { generateAuthToken: true })
+  updateRuntimeSettings({ generateAuthToken: true })
 })
 runtimeAuthClearButton.addEventListener('click', () => {
   runtimeAuthTokenInput.value = ''
-  runtimeApiCommand('settings', { authToken: '' })
+  updateRuntimeSettings({ authToken: '' })
 })
 if (copyOpenAiUrlButton) {
   copyOpenAiUrlButton.addEventListener('click', () => copyConnectionText(openAiBaseUrl))
@@ -204,11 +206,11 @@ if (copyTestPromptButton) {
 
 // ---- Capabilities settings ----
 runtimeToolExposureInput.addEventListener('change', () => {
-  runtimeApiCommand('settings', { toolExposure: runtimeToolExposureInput.value || 'action' })
+  updateRuntimeSettings({ toolExposure: runtimeToolExposureInput.value || 'action' })
 })
 if (runtimePerformanceModeInput) {
   runtimePerformanceModeInput.addEventListener('change', () => {
-    runtimeApiCommand('settings', { cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
+    updateRuntimeSettings({ cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
   })
 }
 if (runtimeResponseLengthInput) {
@@ -222,7 +224,7 @@ if (runtimeResponseLengthInput) {
     }
     const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
     const value = Math.max(1, Math.min(hardMax, Number(runtimeResponseLengthInput.value) || 512))
-    runtimeApiCommand('settings', { maxOutputTokens: value })
+    updateRuntimeSettings({ maxOutputTokens: value })
   })
 }
 if (runtimeResponseTokensInput) {
@@ -230,7 +232,7 @@ if (runtimeResponseTokensInput) {
     const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
     const value = Math.max(1, Math.min(hardMax, Math.round(Number(runtimeResponseTokensInput.value) || 512)))
     runtimeResponseTokensInput.value = String(value)
-    runtimeApiCommand('settings', { maxOutputTokens: value })
+    updateRuntimeSettings({ maxOutputTokens: value })
   })
 }
 if (runtimeContextMemoryInput) {
@@ -243,7 +245,7 @@ if (runtimeContextMemoryInput) {
       return
     }
     const profile = runtimeContextMemoryInput.value || 'balanced'
-    runtimeApiCommand('settings', { contextProfile: profile, historyLimit: historyLimitForContextProfile(profile) })
+    updateRuntimeSettings({ contextProfile: profile, historyLimit: historyLimitForContextProfile(profile) })
   })
 }
 if (runtimeHistoryLimitInput) {
@@ -251,12 +253,12 @@ if (runtimeHistoryLimitInput) {
     const maxHistory = Number(runtimeServiceState && runtimeServiceState.sessionPolicy && runtimeServiceState.sessionPolicy.maxHistoryLimit) || 256
     const value = Math.max(1, Math.min(maxHistory, Math.round(Number(runtimeHistoryLimitInput.value) || 64)))
     runtimeHistoryLimitInput.value = String(value)
-    runtimeApiCommand('settings', { contextProfile: contextPresetForHistoryLimit(value), historyLimit: value })
+    updateRuntimeSettings({ contextProfile: contextPresetForHistoryLimit(value), historyLimit: value })
   })
 }
 if (runtimeReleaseModelButton) {
   runtimeReleaseModelButton.addEventListener('click', () => {
-    runtimeApiCommand('model.release', {})
+    releaseRuntimeModel()
     showToast(t('toast.modelReleased'))
   })
 }
@@ -266,7 +268,7 @@ if (runtimePerModelButton) {
 
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {
-  runtimeApiCommand('session.create', {})
+  createRuntimeSession()
 })
 if (runtimeDiagRunButton) {
   runtimeDiagRunButton.addEventListener('click', runRuntimeDiagnostics)
@@ -302,7 +304,7 @@ modelMarketSearch.addEventListener('input', () => {
   }, 250)
 })
 // ---- PostMessage handlers ----
-window.MNNodeEvents = {
+window.LociantEvents = {
   onModelInstallResult(result) {
     if (result && result.state === 'installing') {
       setModelProgress(result)

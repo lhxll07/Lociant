@@ -24,17 +24,17 @@ std::string to_string(JNIEnv* env, jstring value) {
 } // namespace
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeCreate(JNIEnv*, jclass) {
+Java_io_lociant_runtime_model_MnnRuntime_nativeCreate(JNIEnv*, jclass) {
     return reinterpret_cast<jlong>(new MnnRuntimeNative());
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeRelease(JNIEnv*, jclass, jlong handle) {
+Java_io_lociant_runtime_model_MnnRuntime_nativeRelease(JNIEnv*, jclass, jlong handle) {
     delete from_handle(handle);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeLoad(
+Java_io_lociant_runtime_model_MnnRuntime_nativeLoad(
     JNIEnv* env,
     jclass,
     jlong handle,
@@ -53,7 +53,7 @@ Java_com_mnnode_app_model_MnnRuntime_nativeLoad(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeChatText(
+Java_io_lociant_runtime_model_MnnRuntime_nativeChatText(
     JNIEnv* env,
     jclass,
     jlong handle,
@@ -89,7 +89,7 @@ Java_com_mnnode_app_model_MnnRuntime_nativeChatText(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeChatTextStream(
+Java_io_lociant_runtime_model_MnnRuntime_nativeChatTextStream(
     JNIEnv* env,
     jclass,
     jlong handle,
@@ -144,7 +144,7 @@ Java_com_mnnode_app_model_MnnRuntime_nativeChatTextStream(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeChatImage(
+Java_io_lociant_runtime_model_MnnRuntime_nativeChatImage(
     JNIEnv* env,
     jclass,
     jlong handle,
@@ -161,7 +161,7 @@ Java_com_mnnode_app_model_MnnRuntime_nativeChatImage(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeChatImageStream(
+Java_io_lociant_runtime_model_MnnRuntime_nativeChatImageStream(
     JNIEnv* env,
     jclass,
     jlong handle,
@@ -197,7 +197,7 @@ Java_com_mnnode_app_model_MnnRuntime_nativeChatImageStream(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeState(JNIEnv* env, jclass, jlong handle) {
+Java_io_lociant_runtime_model_MnnRuntime_nativeState(JNIEnv* env, jclass, jlong handle) {
     auto* runtime = from_handle(handle);
     if (!runtime) {
         return to_jstring(env, "{\"loaded\":false,\"message\":\"runtime closed\"}");
@@ -206,13 +206,13 @@ Java_com_mnnode_app_model_MnnRuntime_nativeState(JNIEnv* env, jclass, jlong hand
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeCancel(JNIEnv*, jclass, jlong handle) {
+Java_io_lociant_runtime_model_MnnRuntime_nativeCancel(JNIEnv*, jclass, jlong handle) {
     auto* runtime = from_handle(handle);
     if (runtime) runtime->cancel();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_mnnode_app_model_MnnRuntime_nativeResetSessionCache(JNIEnv*, jclass, jlong handle) {
+Java_io_lociant_runtime_model_MnnRuntime_nativeResetSessionCache(JNIEnv*, jclass, jlong handle) {
     auto* runtime = from_handle(handle);
     if (runtime) runtime->reset_session_cache();
 }

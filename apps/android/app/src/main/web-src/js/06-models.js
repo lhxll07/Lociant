@@ -18,9 +18,9 @@ function setModelView(view) {
 }
 
 function loadModels(refresh) {
-  const path = refresh ? '/v1/models/full?refresh=true' : '/v1/models/full'
-  retryApi(() => apiGet(path), () => []).then(data => {
-    runtimeModels = Array.isArray(data) ? data : []
+  const path = refresh ? '/api/v1/models?refresh=true' : '/api/v1/models'
+  retryApi(() => apiGet(path), () => ({ models: [] })).then(data => {
+    runtimeModels = data && Array.isArray(data.models) ? data.models : []
     renderModels(runtimeModels)
     updateModelHomeState()
   })
@@ -97,14 +97,10 @@ function updateModelHomeState() {
 
 function deleteModel(modelId) {
   if (!modelId) return
-  apiPost('/v1/models/' + encodeURIComponent(modelId) + '/delete', {})
-    .then(result => {
-      if (result.ok) {
-        loadModels()
-        showToast(t('toast.modelDeleted'))
-      } else {
-        showToast(result.message || t('toast.modelDeleteFailed'))
-      }
+  apiDelete('/api/v1/models/' + encodeURIComponent(modelId))
+    .then(() => {
+      loadModels()
+      showToast(t('toast.modelDeleted'))
     })
     .catch(() => showToast(t('toast.modelDeleteFailed')))
 }
@@ -112,7 +108,7 @@ function deleteModel(modelId) {
 // ---- Model Market ----
 function loadModelMarket(forceRefresh) {
   const query = marketQuery
-  const url = '/v1/models/market' + (query ? '?q=' + encodeURIComponent(query) : '') + (forceRefresh ? (query ? '&refresh=true' : '?refresh=true') : '')
+  const url = '/api/v1/catalog/models' + (query ? '?q=' + encodeURIComponent(query) : '') + (forceRefresh ? (query ? '&refresh=true' : '?refresh=true') : '')
   apiGet(url)
     .then(data => {
       marketModels = (data && Array.isArray(data.models)) ? data.models : []
@@ -163,16 +159,10 @@ function installMarketModel(model) {
   marketInstallingModelId = model.id
   modelProgressLastPercent = 0
   setModelProgress({ state: 'installing', message: t('models.installing') + ': ' + (model.name || model.id) })
-  apiPost('/v1/models/market/' + encodeURIComponent(model.id) + '/install', {})
+  apiPost('/api/v1/model-installations', { modelId: model.id })
     .then(result => {
-      if (result && result.ok) {
-        pollMarketInstall(model.id)
-        loadModels()
-      } else {
-        marketInstallingModelId = ''
-        setModelProgress(Object.assign({ state: 'error' }, result || {}))
-        showToast((result && result.message) || t('toast.modelImportFailed'))
-      }
+      pollMarketInstall(result.jobId, model.id)
+      loadModels()
     })
     .catch(() => {
       marketInstallingModelId = ''
@@ -181,11 +171,11 @@ function installMarketModel(model) {
     })
 }
 
-function pollMarketInstall(modelId) {
+function pollMarketInstall(jobId, modelId) {
   if (marketInstallTimer) window.clearInterval(marketInstallTimer)
   let retries = 0
   marketInstallTimer = window.setInterval(() => {
-    apiGet('/v1/models/market/' + encodeURIComponent(modelId) + '/progress')
+    apiGet('/api/v1/model-installations/' + encodeURIComponent(jobId))
       .then(data => {
         const next = normalizeMarketProgress(data, modelId)
         if (next.state === 'done') {
@@ -264,7 +254,6 @@ function normalizeMarketProgress(data, fallbackModelId) {
   const payload = data || {}
   const rawState = String(payload.state || '').toLowerCase()
   const active = payload.active !== undefined ? !!payload.active : null
-  const ok = !!payload.ok
   const modelId = payload.modelId || fallbackModelId || marketInstallingModelId || ''
   const rawPercent = Number(payload.percent ?? payload.progress)
   const hasPercent = Number.isFinite(rawPercent)
@@ -272,13 +261,12 @@ function normalizeMarketProgress(data, fallbackModelId) {
 
   let state = rawState
   if (!state) {
-    if (ok && !active) state = 'done'
-    else if (active === false && hasPercent && percent >= 100) state = 'done'
+    if (active === false && hasPercent && percent >= 100) state = 'done'
     else if (active === false && !hasPercent) state = 'installing'
     else state = 'installing'
   }
 
-  if (state === 'done' || (ok && percent !== null && percent >= 100)) {
+  if (state === 'done' || (active === false && percent !== null && percent >= 100)) {
     state = 'done'
   } else if (!['error', 'done', 'downloading', 'installing'].includes(state)) {
     state = 'installing'
@@ -290,7 +278,6 @@ function normalizeMarketProgress(data, fallbackModelId) {
     modelId,
     message: payload.message || (state === 'done' ? t('toast.modelImported') : t('models.installing') + ': ' + (modelId || marketInstallingModelId || '')),
     percent: percent,
-    ok,
   }
 }
 
@@ -322,7 +309,7 @@ function renderRuntimeModelChoices(models) {
     row.appendChild(body)
     row.appendChild(check)
     row.addEventListener('click', () => {
-      runtimeApiCommand('settings', { modelId: model.id })
+      updateRuntimeSettings({ modelId: model.id })
     })
     runtimeModelList.appendChild(row)
   })

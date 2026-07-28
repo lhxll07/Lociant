@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mnnode.mcp"
+    namespace = "io.lociant.mcp"
     compileSdk = 36
 
     defaultConfig {

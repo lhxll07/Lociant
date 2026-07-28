@@ -25,7 +25,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MNNodeAndroid"
+rootProject.name = "LociantAndroid"
 include(":app")
 include(":core")
 include(":data")

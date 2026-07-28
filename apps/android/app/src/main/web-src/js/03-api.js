@@ -2,7 +2,7 @@
 
 function native(method, ...args) {
   try {
-    const bridge = window.MNNodeShell
+    const bridge = window.LociantBridge
     if (bridge && typeof bridge[method] === 'function') return bridge[method](...args)
   } catch (error) {}
   return null
@@ -102,16 +102,30 @@ async function apiPost(path, body) {
   return apiRequest('POST', path, body)
 }
 
+async function apiPut(path, body) {
+  return apiRequest('PUT', path, body)
+}
+
+async function apiDelete(path) {
+  return apiRequest('DELETE', path)
+}
+
 async function apiRequest(method, path, body) {
-  const headers = { 'Content-Type': 'application/json' }
+  const headers = {}
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (runtimeServiceState && runtimeServiceState.authToken) headers.Authorization = 'Bearer ' + runtimeServiceState.authToken
   const response = await fetch(apiUrl(path), {
     method,
     headers,
-    body: method === 'GET' ? undefined : JSON.stringify(body || {})
+    body: body === undefined ? undefined : JSON.stringify(body)
   })
-  const json = await response.json()
-  if (!response.ok) throw new Error(path + ': ' + ((json.error && json.error.message) || json.message || 'API request failed'))
+  // Control resources may return an empty 204, while errors use Problem Details.
+  const text = await response.text()
+  const json = text ? JSON.parse(text) : null
+  if (!response.ok) {
+    const message = (json && (json.detail || (json.error && json.error.message) || json.message)) || 'API request failed'
+    throw new Error(path + ': ' + message)
+  }
   return json
 }
 
@@ -125,15 +139,6 @@ function retryApi(task, fallback, attempts = 8) {
   return run()
 }
 
-function shellCommand(command, payload) {
-  const raw = native('runtimeShellCommand', command, JSON.stringify(payload || {}))
-  return raw ? JSON.parse(raw) : { running: false, message: 'Runtime shell unavailable' }
-}
-
 function runtimeState() {
-  try {
-    return shellCommand('status', {})
-  } catch (error) {
-    return runtimeServiceState || { running: false }
-  }
+  return nativeJson('runtimeState', runtimeServiceState || { running: false })
 }
