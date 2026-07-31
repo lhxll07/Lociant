@@ -28,7 +28,13 @@ abstract class SessionDatabase : RoomDatabase() {
                     context.applicationContext,
                     SessionDatabase::class.java,
                     RuntimeDefaults.Sessions.DATABASE_NAME,
-                ).build().also { instance = it }
+                )
+                    // The session database is a tiny local store touched once at process
+                    // startup (LociantServer eager session init). All request-path access
+                    // already runs on background threads; this only unlocks that single
+                    // startup read/write from the main thread.
+                    .allowMainThreadQueries()
+                    .build().also { instance = it }
             }
         }
     }
