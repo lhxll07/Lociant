@@ -12,6 +12,7 @@ class LociantBridge(private val host: Host) {
         fun requestBatteryOptimizationExemption()
         fun requestAccessibilityPermission()
         fun openAppSettings()
+        fun openExternalUrl(url: String)
         fun openPermissionSettings(kind: String)
         fun runtimeState(): String
         fun startRuntime(payloadJson: String?): String
@@ -69,6 +70,12 @@ class LociantBridge(private val host: Host) {
     fun openAppSettings(): String {
         host.openAppSettings()
         return ok("settings_opened")
+    }
+
+    @JavascriptInterface
+    fun openExternalUrl(url: String): String {
+        host.openExternalUrl(url)
+        return ok("external_url_opened")
     }
 
     @JavascriptInterface

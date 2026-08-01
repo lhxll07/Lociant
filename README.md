@@ -146,4 +146,4 @@ Detailed documents:
 
 ## License
 
-[Apache License 2.0](LICENSE)
+[MIT License](LICENSE)

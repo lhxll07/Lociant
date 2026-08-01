@@ -119,6 +119,15 @@ runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
 runtimeModelBack.addEventListener('click', backToRuntimeSettings)
 runtimeAdvancedButton.addEventListener('click', openRuntimeAdvancedSettings)
 runtimeAdvancedBack.addEventListener('click', backToRuntimeSettings)
+aboutButton.addEventListener('click', openAboutSettings)
+aboutBack.addEventListener('click', closeAboutSettings)
+
+document.querySelectorAll('[data-about-link]').forEach(link => {
+  link.addEventListener('click', event => {
+    event.preventDefault()
+    native('openExternalUrl', link.href)
+  })
+})
 
 // ---- Runtime controls ----
 function isPermissionGranted(button) {

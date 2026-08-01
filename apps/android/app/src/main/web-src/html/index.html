@@ -19,17 +19,17 @@
           <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H9l-5 5v-5.5z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg></span>
           <span class="nav-label" data-i18n="nav.home">主页</span>
         </button>
-        <button class="nav-item pressable" data-page="settings">
-          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></span>
-          <span class="nav-label" data-i18n="nav.settings">设置</span>
-        </button>
         <button class="nav-item pressable" data-page="models">
           <span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/><path d="M9 9h6v6H9z"/></svg></span>
           <span class="nav-label" data-i18n="nav.models">模型</span>
         </button>
+        <button class="nav-item pressable" data-page="settings">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></span>
+          <span class="nav-label" data-i18n="nav.settings">设置</span>
+        </button>
       </nav>
 
-      <div class="version">v0.4</div>
+      <div class="version">v1.0.1</div>
     </aside>
 
     <main class="main">
@@ -135,6 +135,11 @@
               <span class="settings-tile-title" data-i18n="settings.advancedTitle">高级</span>
               <span class="settings-tile-sub" data-i18n="settings.advancedSub">会话与诊断</span>
               <span class="settings-tile-state status-pill" id="runtimeAdvancedState">--</span>
+            </button>
+            <button class="settings-tile pressable" id="aboutButton" type="button">
+              <span class="settings-tile-title" data-i18n="about.title">关于 Lociant</span>
+              <span class="settings-tile-sub" data-i18n="about.subtitle">版本、源码与致谢</span>
+              <span class="settings-tile-state status-pill" data-i18n="about.version">1.0.1</span>
             </button>
           </div>
         </section>
@@ -455,6 +460,70 @@
           </div>
           <h3 class="group-title" data-i18n="diagnostics.history">Recent API</h3>
           <div class="surface-list" id="runtimeDiagLog"></div>
+        </section>
+
+        <section class="settings-page" id="aboutPanel" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="aboutBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="about.title">关于 Lociant</h2>
+              <p data-i18n="about.subtitle">版本、源码与致谢</p>
+            </div>
+          </div>
+          <div class="surface-list about-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="about.versionLabel">软件版本</span>
+                <span class="settings-section-sub" data-i18n="about.versionSub">应用与 API 契约版本</span>
+              </span>
+              <span class="status-pill" id="aboutVersion">1.0.1</span>
+            </div>
+            <a class="settings-section about-link" href="https://github.com/lhxll07/Lociant" target="_blank" rel="noopener noreferrer" data-about-link>
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="about.repository">项目仓库</span>
+                <span class="settings-section-sub">github.com/lhxll07/Lociant</span>
+              </span>
+              <span class="status-pill" data-i18n="about.open">打开</span>
+            </a>
+            <a class="settings-section about-link" href="https://github.com/lhxll07/Lociant/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" data-about-link>
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="about.license">许可证</span>
+                <span class="settings-section-sub" data-i18n="about.licenseSub">MIT License</span>
+              </span>
+              <span class="status-pill" data-i18n="about.open">打开</span>
+            </a>
+          </div>
+          <h3 class="group-title" data-i18n="about.creditsTitle">感谢开源项目</h3>
+          <div class="surface-list about-list">
+            <a class="settings-section about-link" href="https://github.com/alibaba/MNN" target="_blank" rel="noopener noreferrer" data-about-link>
+              <span class="settings-section-main">
+                <span class="settings-section-title">MNN</span>
+                <span class="settings-section-sub" data-i18n="about.mnnSub">端侧神经网络推理</span>
+              </span>
+              <span class="status-pill" data-i18n="about.open">打开</span>
+            </a>
+            <a class="settings-section about-link" href="https://github.com/Tencent/ncnn" target="_blank" rel="noopener noreferrer" data-about-link>
+              <span class="settings-section-main">
+                <span class="settings-section-title">ncnn</span>
+                <span class="settings-section-sub" data-i18n="about.ncnnSub">移动端视觉推理</span>
+              </span>
+              <span class="status-pill" data-i18n="about.open">打开</span>
+            </a>
+            <a class="settings-section about-link" href="https://github.com/ktorio/ktor" target="_blank" rel="noopener noreferrer" data-about-link>
+              <span class="settings-section-main">
+                <span class="settings-section-title">Ktor</span>
+                <span class="settings-section-sub" data-i18n="about.ktorSub">Kotlin 服务端框架</span>
+              </span>
+              <span class="status-pill" data-i18n="about.open">打开</span>
+            </a>
+            <a class="settings-section about-link" href="https://github.com/cure53/DOMPurify" target="_blank" rel="noopener noreferrer" data-about-link>
+              <span class="settings-section-main">
+                <span class="settings-section-title">DOMPurify</span>
+                <span class="settings-section-sub" data-i18n="about.dompurifySub">HTML 安全清理</span>
+              </span>
+              <span class="status-pill" data-i18n="about.open">打开</span>
+            </a>
+          </div>
         </section>
       </section>
 

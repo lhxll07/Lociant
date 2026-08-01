@@ -96,6 +96,10 @@ const runtimeAdvancedButton = document.getElementById('runtimeAdvancedButton')
 const runtimeAdvancedState = document.getElementById('runtimeAdvancedState')
 const runtimeAdvancedPanel = document.getElementById('runtimeAdvancedPanel')
 const runtimeAdvancedBack = document.getElementById('runtimeAdvancedBack')
+const aboutButton = document.getElementById('aboutButton')
+const aboutPanel = document.getElementById('aboutPanel')
+const aboutBack = document.getElementById('aboutBack')
+const aboutVersion = document.getElementById('aboutVersion')
 const runtimeSessionCurrent = document.getElementById('runtimeSessionCurrent')
 const runtimeSessionList = document.getElementById('runtimeSessionList')
 const runtimeSessionNewButton = document.getElementById('runtimeSessionNewButton')
@@ -162,6 +166,7 @@ function runtimeDetails() {
     runtimeCapabilitiesPanel,
     runtimeModelPanel,
     runtimeAdvancedPanel,
+    aboutPanel,
   ].filter(Boolean)
 }
 

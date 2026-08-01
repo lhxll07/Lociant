@@ -28,6 +28,7 @@ function applyLocale() {
   document.querySelectorAll('[data-i18n-aria-label]').forEach(node => {
     node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel))
   })
+  if (aboutVersion) aboutVersion.textContent = t('about.version')
   Array.from(languageControl.querySelectorAll('.segmented-option')).forEach(button => {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
@@ -621,4 +622,12 @@ function openRuntimeModelSettings() {
 
 function openRuntimeAdvancedSettings() {
   showSettingsDetail(runtimeAdvancedPanel)
+}
+
+function openAboutSettings() {
+  showSettingsDetail(aboutPanel)
+}
+
+function closeAboutSettings() {
+  showSettingsHome()
 }

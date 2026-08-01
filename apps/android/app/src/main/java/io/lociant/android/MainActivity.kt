@@ -295,6 +295,14 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
         }
     }
 
+    override fun openExternalUrl(url: String) {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return
+        if (!uri.scheme.equals("https", ignoreCase = true)) return
+        runOnUiThread {
+            runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+        }
+    }
+
     override fun openPermissionSettings(kind: String) {
         runOnUiThread {
             when (kind) {

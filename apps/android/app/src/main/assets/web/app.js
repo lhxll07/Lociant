@@ -139,6 +139,20 @@ const i18n = {
     'settings.advancedTitle': 'Advanced',
     'settings.advancedSub': 'Sessions and diagnostics',
     'settings.advancedIntro': 'Runtime records and API history.',
+    'about.title': 'About Lociant',
+    'about.subtitle': 'Version, source, and acknowledgements',
+    'about.version': '1.0.1',
+    'about.versionLabel': 'App version',
+    'about.versionSub': 'Application and API contract version',
+    'about.repository': 'Source repository',
+    'about.license': 'License',
+    'about.licenseSub': 'MIT License',
+    'about.open': 'Open',
+    'about.creditsTitle': 'With thanks to open source',
+    'about.mnnSub': 'On-device neural network inference',
+    'about.ncnnSub': 'Mobile vision inference',
+    'about.ktorSub': 'Kotlin server framework',
+    'about.dompurifySub': 'HTML sanitization',
     'settings.permissionsTitle': 'Permissions',
     'settings.cameraPermission': 'Camera',
     'settings.notificationPermission': 'Notifications',
@@ -359,6 +373,20 @@ const i18n = {
     'settings.advancedTitle': '高级',
     'settings.advancedSub': '会话与诊断',
     'settings.advancedIntro': '运行记录与 API 历史',
+    'about.title': '关于 Lociant',
+    'about.subtitle': '版本、源码与致谢',
+    'about.version': '1.0.1',
+    'about.versionLabel': '软件版本',
+    'about.versionSub': '应用与 API 契约版本',
+    'about.repository': '项目仓库',
+    'about.license': '许可证',
+    'about.licenseSub': 'MIT License',
+    'about.open': '打开',
+    'about.creditsTitle': '感谢开源项目',
+    'about.mnnSub': '端侧神经网络推理',
+    'about.ncnnSub': '移动端视觉推理',
+    'about.ktorSub': 'Kotlin 服务端框架',
+    'about.dompurifySub': 'HTML 安全清理',
     'settings.permissionsTitle': '权限',
     'settings.cameraPermission': '摄像头',
     'settings.notificationPermission': '通知',
@@ -555,6 +583,10 @@ const runtimeAdvancedButton = document.getElementById('runtimeAdvancedButton')
 const runtimeAdvancedState = document.getElementById('runtimeAdvancedState')
 const runtimeAdvancedPanel = document.getElementById('runtimeAdvancedPanel')
 const runtimeAdvancedBack = document.getElementById('runtimeAdvancedBack')
+const aboutButton = document.getElementById('aboutButton')
+const aboutPanel = document.getElementById('aboutPanel')
+const aboutBack = document.getElementById('aboutBack')
+const aboutVersion = document.getElementById('aboutVersion')
 const runtimeSessionCurrent = document.getElementById('runtimeSessionCurrent')
 const runtimeSessionList = document.getElementById('runtimeSessionList')
 const runtimeSessionNewButton = document.getElementById('runtimeSessionNewButton')
@@ -621,6 +653,7 @@ function runtimeDetails() {
     runtimeCapabilitiesPanel,
     runtimeModelPanel,
     runtimeAdvancedPanel,
+    aboutPanel,
   ].filter(Boolean)
 }
 
@@ -1471,6 +1504,7 @@ function applyLocale() {
   document.querySelectorAll('[data-i18n-aria-label]').forEach(node => {
     node.setAttribute('aria-label', t(node.dataset.i18nAriaLabel))
   })
+  if (aboutVersion) aboutVersion.textContent = t('about.version')
   Array.from(languageControl.querySelectorAll('.segmented-option')).forEach(button => {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
@@ -2066,6 +2100,14 @@ function openRuntimeAdvancedSettings() {
   showSettingsDetail(runtimeAdvancedPanel)
 }
 
+function openAboutSettings() {
+  showSettingsDetail(aboutPanel)
+}
+
+function closeAboutSettings() {
+  showSettingsHome()
+}
+
 
 /* === 08-ui.js === */
 /* ── Lociant WebUI — UI components ── */
@@ -2567,6 +2609,15 @@ runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
 runtimeModelBack.addEventListener('click', backToRuntimeSettings)
 runtimeAdvancedButton.addEventListener('click', openRuntimeAdvancedSettings)
 runtimeAdvancedBack.addEventListener('click', backToRuntimeSettings)
+aboutButton.addEventListener('click', openAboutSettings)
+aboutBack.addEventListener('click', closeAboutSettings)
+
+document.querySelectorAll('[data-about-link]').forEach(link => {
+  link.addEventListener('click', event => {
+    event.preventDefault()
+    native('openExternalUrl', link.href)
+  })
+})
 
 // ---- Runtime controls ----
 function isPermissionGranted(button) {
