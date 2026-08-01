@@ -1,149 +1,91 @@
 # Lociant
 
-Lociant turns an Android phone into a visible, local-first AI runtime. It serves local MNN language or vision-language models, exposes Android capabilities as policy-controlled tools, and supports OpenAI HTTP and MCP clients over the local network.
+让安卓手机成为一个真正能干活的本地 Agent：它可以在手机上运行模型，读取屏幕、打开 App、查看信息、操作界面，也可以通过 MCP 或 OpenAI 兼容接口被电脑上的 Agent 调用。
 
-Lociant 1.0 is a clean break from every pre-1.0 build. The Android application ID is `io.lociant.android`; old packages, databases, settings, routes, headers, JavaScript bridges, JNI symbols, and Ollama compatibility are not migrated or accepted.
+它适合把旧手机重新利用起来：手机负责模型和实际操作，电脑只负责对话、规划和编排。数据默认留在本地，能力由你在手机里逐项授权。
 
-## What It Provides
+## 能做什么
 
-- OpenAI-compatible model discovery and Chat Completions, including SSE streaming and tool calls.
-- MCP Streamable HTTP at a single `POST /mcp` endpoint.
-- A versioned Lociant control API under `/api/v1`.
-- MNN-backed LLM/VLM inference and NCNN-backed continuous vision.
-- Android status, clipboard, app launch, camera, screen context, and explicit UI-action tools.
-- A foreground service and optional floating window for Android-compliant long-running work.
-- A WebView application for runtime configuration, models, sessions, diagnostics, and permissions.
+- 在手机本地运行 LLM / VLM 模型，进行对话和图片理解。
+- 查看屏幕、读取界面、点击、滑动、返回和打开 App。
+- 读取设备状态和剪贴板，调用摄像头进行拍摄或视觉分析。
+- 通过 MCP 给 Claude、Codex 或其他 Agent 使用，也支持 OpenAI 兼容 API。
 
-## Protocol Boundaries
+例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息，或者帮你测试刚装好的新应用。
 
-The server has three deliberately separate surfaces:
+## 一步一步开始
 
-| Surface | Paths | Contract |
-|---|---|---|
-| OpenAI data plane | `GET /v1/models`, `POST /v1/chat/completions` | OpenAI request, response, error, and SSE shapes |
-| MCP | `POST /mcp` | JSON-RPC 2.0 and MCP Streamable HTTP |
-| Lociant control plane | `/api/v1/*` | Resource-oriented JSON and Problem Details errors |
+### 1. 安装
 
-`GET /health` is the only unauthenticated endpoint. When an API token is configured, every OpenAI, MCP, and control endpoint requires `Authorization: Bearer <token>` or `X-Lociant-Token: <token>`.
+当前发布包适用于 Android 8.0 及以上、`arm64-v8a` 设备：
 
-The old `/api/chat`, `/v1/runtime/{command}`, `/v1/tools`, `/v1/models/full`, and similar mixed-purpose routes do not exist.
+[下载 Lociant v1.0.1 APK](https://github.com/lhxll07/Lociant/releases/download/v1.0.1/lociant-1.0.1-arm64-v8a-release.apk)
 
-## Control API
+安装时如果系统提示允许安装未知来源应用，请按系统提示允许即可。
 
-Common operations:
+### 2. 打开权限
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/api/v1/runtime` | Read runtime and inference state |
-| `GET`, `PUT` | `/api/v1/settings` | Read settings or merge supplied updates |
-| `GET` | `/api/v1/models` | List complete installed/built-in model state |
-| `DELETE` | `/api/v1/models/{modelId}` | Delete an imported model |
-| `GET` | `/api/v1/catalog/models` | Search the model catalog |
-| `POST` | `/api/v1/model-installations` | Start installation with `{ "modelId": "..." }` |
-| `GET` | `/api/v1/model-installations/{jobId}` | Read installation progress |
-| `GET`, `POST` | `/api/v1/sessions` | List or create sessions |
-| `GET`, `DELETE` | `/api/v1/sessions/{sessionId}` | Read or delete one session |
-| `GET` | `/api/v1/store/{namespace}` | List a namespace |
-| `GET`, `PUT`, `DELETE` | `/api/v1/store/{namespace}/{key}` | Read, set, or delete one JSON value |
-| `GET` | `/api/v1/tools` | List tools allowed by current exposure policy |
-| `POST` | `/api/v1/tools/{name}/calls` | Invoke a tool |
-| `GET` | `/api/v1/chat-requests` | Inspect the inference queue |
-| `GET` | `/api/v1/chat-requests/{requestId}` | Inspect one asynchronous request |
+第一次打开 Lociant，进入“设置”，按需要开启权限：
 
-See [docs/control-api.md](docs/control-api.md) for exact behavior.
+1. 开启“无障碍”：让 Lociant 读取屏幕并执行点击、滑动等操作。
+2. 允许通知：保持后台运行时显示服务状态。
+3. 允许相机：需要拍照或视觉分析时再开启。
+4. 允许悬浮窗：需要在其他 App 上方显示运行状态时开启。
+5. 将电池策略设为“不限制”：避免手机锁屏后暂停服务。
 
-## Quick Probe
+只聊天和调用普通接口时不需要全部权限；涉及屏幕和 UI 操作时，无障碍权限是关键。
 
-Start Runtime from the Android app, then run:
+### 3. 安装模型
 
-```bash
-python scripts/lociant_test.py quick \
-  --base-url http://PHONE_IP:11434 \
-  --api-key YOUR_TOKEN \
-  --expect-auth
-```
+进入“模型”页，选择一个模型并点击“安装”，等待下载和初始化完成。安装完成后选择它作为默认模型。
 
-OpenAI example:
+模型会占用手机存储和内存。旧设备建议先选小模型，第一次运行时保持手机亮屏并接入电源。
 
-```bash
-curl http://PHONE_IP:11434/v1/chat/completions \
-  -H 'Authorization: Bearer YOUR_TOKEN' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "qwen3.5-2b-mnn",
-    "messages": [{"role": "user", "content": "Hello"}],
-    "stream": false
-  }'
-```
+### 4. 启动运行时
 
-MCP clients should connect directly to `http://PHONE_IP:11434/mcp`. `scripts/lociant_mcp_server.py` remains available only for clients that require a stdio MCP process.
+回到首页，点击启动运行时。看到状态变为“运行中”后，先在 Lociant 内发一条简单消息确认模型正常，再开始调用手机能力。
 
-## Android Build
-
-Requirements:
-
-- JDK 17
-- Android SDK 36
-- Android NDK `28.2.13676358`
-- CMake 3.22.1
-
-Build and verify:
-
-```bash
-cd apps/android
-bash gradlew testDebugUnitTest :data:compileDebugAndroidTestKotlin :app:assembleDebug :app:lintDebug
-```
-
-The APK is written to `apps/android/app/build/outputs/apk/debug/app-debug.apk`.
-
-## Source Layout
+默认服务地址是：
 
 ```text
-apps/android/app/            Android UI, foreground service, HTTP server
-apps/android/core/           API contract, model types, tool policy
-apps/android/data/           Room sessions/events and AtomicFile store
-apps/android/local-runtime/  MNN/NCNN model and vision implementations
-apps/android/phone-tools/    Android capabilities and tool providers
-apps/android/mcp/            MCP protocol adapter
-docs/                        Protocol and architecture documentation
-scripts/                     Probes, capture utility, stdio MCP adapter
-tools/                       Native headers and prebuilt dependencies
+http://手机IP:11434
 ```
 
-Kotlin packages reflect those owners: `io.lociant.android`, `io.lociant.core`, `io.lociant.data`, `io.lociant.runtime`, `io.lociant.tools`, and `io.lociant.mcp`.
+手机 IP 可以在手机的 Wi-Fi 详情里查看。电脑和手机需要连接同一个局域网。
 
-## Data And Upgrade Policy
+### 5. 连接 MCP Agent
 
-Lociant 1.0 uses a new `lociant.db` Room database and new application-specific storage:
+在“设置”中生成 API 令牌，然后把下面的配置加入支持 MCP 的客户端：
 
-```text
-Android/data/io.lociant.android/files/models/<model-id>/
+```json
+{
+  "mcpServers": {
+    "lociant": {
+      "type": "streamable-http",
+      "url": "http://手机IP:11434/mcp",
+      "headers": {
+        "Authorization": "Bearer 你的API令牌"
+      }
+    }
+  }
+}
 ```
 
-There is intentionally no migration from old application IDs or databases. Upgrading requires a fresh installation, re-granting Android permissions, configuring a new API token, and importing models again.
+连接后，Agent 就可以发现 Lociant 暴露的手机工具。想让它执行打开 App、点击和滑动等操作，请在“设置 → 远程工具”中选择“操作”；只查看状态时选择“读取”即可。
 
-Session IDs must contain 1-96 ASCII letters, digits, dots, underscores, or hyphens. Invalid or unknown IDs are rejected; they are never silently repaired or generated during reads.
+## 安全提醒
 
-## Design Rules
+Lociant 面向局域网使用，当前接口使用 HTTP。请设置 API 令牌，不要把 `11434` 端口直接暴露到公网，也不要把令牌发给不信任的客户端。
 
-- The foreground service exclusively owns HTTP server lifecycle.
-- The WebView bridge exposes explicit native methods, not a string command bus.
-- OpenAI, MCP, and control errors keep their own protocol-appropriate shapes.
-- Read-only discovery endpoints do not write API history.
-- Tool exposure and `remoteAllowed` are enforced at execution time.
-- Model directory scans use an immutable snapshot and explicit invalidation.
-- Store reads use an in-memory snapshot; writes use copy-on-write `AtomicFile` commits.
-- No pre-1.0 compatibility aliases may be added without defining a new versioned contract.
+## 开发者
 
-Detailed documents:
+Lociant 使用 Kotlin、MNN、NCNN 和 Ktor 构建。开发、构建和完整接口说明见：
 
-- [Android development](apps/android/README.md)
-- [Unified architecture](docs/unified-architecture.md)
-- [OpenAI API](docs/openai-compatible.md)
-- [Control API](docs/control-api.md)
-- [Agent and MCP integration](docs/agent-integration.md)
-- [Native development tools](tools/README.md)
+- [Android 开发说明](apps/android/README.md)
+- [Agent 与 MCP 接入](docs/agent-integration.md)
+- [OpenAI 兼容 API](docs/openai-compatible.md)
+- [控制 API](docs/control-api.md)
 
-## License
+## 许可证
 
 [MIT License](LICENSE)
