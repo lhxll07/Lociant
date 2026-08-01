@@ -94,6 +94,13 @@ const i18n = {
     'settings.performanceEco': 'Eco',
     'settings.performanceBalanced': 'Balanced',
     'settings.performanceFast': 'Fast',
+    'settings.inferenceBackend': 'Inference backend',
+    'settings.inferenceBackendSub': 'Engine used for model inference',
+    'settings.backendModel': 'Follow model',
+    'settings.backendAuto': 'Auto',
+    'settings.backendCpu': 'CPU',
+    'settings.backendOpencl': 'OpenCL (GPU)',
+    'settings.backendVulkan': 'Vulkan (GPU)',
     'settings.performanceEcoSub': 'Lower heat and longer battery life',
     'settings.performanceBalancedSub': 'Balanced speed and battery',
     'settings.performanceFastSub': 'Maximum local inference speed',
@@ -141,7 +148,7 @@ const i18n = {
     'settings.advancedIntro': 'Runtime records and API history.',
     'about.title': 'About Lociant',
     'about.subtitle': 'Version, source, and acknowledgements',
-    'about.version': '1.0.1',
+    'about.version': '1.0.2',
     'about.versionLabel': 'App version',
     'about.versionSub': 'Application and API contract version',
     'about.repository': 'Source repository',
@@ -233,6 +240,7 @@ const i18n = {
     'toast.modelReleased': 'Model released',
     'toast.modelDeleteFailed': 'Delete failed',
     'toast.copied': 'Copied',
+    'toast.backendFallback': 'Previous exit was abnormal; inference backend reset to default',
     'toast.copyFailed': 'Copy failed',
   },
 
@@ -328,6 +336,13 @@ const i18n = {
     'settings.performanceEco': '省电',
     'settings.performanceBalanced': '均衡',
     'settings.performanceFast': '极速',
+    'settings.inferenceBackend': '推理后端',
+    'settings.inferenceBackendSub': '模型推理使用的引擎',
+    'settings.backendModel': '跟随模型',
+    'settings.backendAuto': '自动',
+    'settings.backendCpu': 'CPU',
+    'settings.backendOpencl': 'OpenCL（GPU）',
+    'settings.backendVulkan': 'Vulkan（GPU）',
     'settings.performanceEcoSub': '降低发热，延长续航',
     'settings.performanceBalancedSub': '兼顾速度与续航',
     'settings.performanceFastSub': '最大化本地推理速度',
@@ -375,7 +390,7 @@ const i18n = {
     'settings.advancedIntro': '运行记录与 API 历史',
     'about.title': '关于 Lociant',
     'about.subtitle': '版本、源码与致谢',
-    'about.version': '1.0.1',
+    'about.version': '1.0.2',
     'about.versionLabel': '软件版本',
     'about.versionSub': '应用与 API 契约版本',
     'about.repository': '项目仓库',
@@ -467,6 +482,7 @@ const i18n = {
     'toast.modelReleased': '模型已释放',
     'toast.modelDeleteFailed': '删除失败',
     'toast.copied': '已复制',
+    'toast.backendFallback': '上次异常退出，推理后端已回退为默认',
     'toast.copyFailed': '复制失败',
   }
 }
@@ -552,10 +568,6 @@ const copyMcpUrlButton = document.getElementById('copyMcpUrlButton')
 const copyAuthHeaderButton = document.getElementById('copyAuthHeaderButton')
 const copyMcpConfigButton = document.getElementById('copyMcpConfigButton')
 const copyTestPromptButton = document.getElementById('copyTestPromptButton')
-const runtimeCapabilitiesButton = document.getElementById('runtimeCapabilitiesButton')
-const runtimeCapabilitiesState = document.getElementById('runtimeCapabilitiesState')
-const runtimeCapabilitiesPanel = document.getElementById('runtimeCapabilitiesPanel')
-const runtimeCapabilitiesBack = document.getElementById('runtimeCapabilitiesBack')
 const runtimeVisionText = document.getElementById('runtimeVisionText')
 const runtimeVisionButton = document.getElementById('runtimeVisionButton')
 const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
@@ -569,6 +581,8 @@ const runtimeModelState = document.getElementById('runtimeModelState')
 const runtimeModelNote = document.getElementById('runtimeModelNote')
 const runtimePerformanceModeInput = document.getElementById('runtimePerformanceModeInput')
 const runtimePerformanceText = document.getElementById('runtimePerformanceText')
+const runtimeBackendInput = document.getElementById('runtimeBackendInput')
+const runtimeBackendText = document.getElementById('runtimeBackendText')
 const runtimeResponseLengthInput = document.getElementById('runtimeResponseLengthInput')
 const runtimeResponseLengthText = document.getElementById('runtimeResponseLengthText')
 const runtimeResponseTokensInput = document.getElementById('runtimeResponseTokensInput')
@@ -578,12 +592,11 @@ const runtimeHistoryLimitInput = document.getElementById('runtimeHistoryLimitInp
 const runtimeCacheState = document.getElementById('runtimeCacheState')
 const runtimeCacheBadge = document.getElementById('runtimeCacheBadge')
 const runtimeReleaseModelButton = document.getElementById('runtimeReleaseModelButton')
-const runtimePerModelButton = document.getElementById('runtimePerModelButton')
 const runtimeAdvancedButton = document.getElementById('runtimeAdvancedButton')
 const runtimeAdvancedState = document.getElementById('runtimeAdvancedState')
 const runtimeAdvancedPanel = document.getElementById('runtimeAdvancedPanel')
 const runtimeAdvancedBack = document.getElementById('runtimeAdvancedBack')
-const aboutButton = document.getElementById('aboutButton')
+const runtimeAboutButton = document.getElementById('runtimeAboutButton')
 const aboutPanel = document.getElementById('aboutPanel')
 const aboutBack = document.getElementById('aboutBack')
 const aboutVersion = document.getElementById('aboutVersion')
@@ -629,7 +642,7 @@ let marketSearchTimer = null
 let modelProgressLastPercent = 0
 let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
-let currentLocale = 'en'
+let currentLocale = systemLocale()
 const localeStorePath = '/api/v1/store/runtime-settings/locale'
 let homeAttachedImage = null
 let activePage = 'home'
@@ -650,7 +663,6 @@ function runtimeDetails() {
   return [
     runtimeSettingsPanel,
     runtimeServerPanel,
-    runtimeCapabilitiesPanel,
     runtimeModelPanel,
     runtimeAdvancedPanel,
     aboutPanel,
@@ -902,8 +914,6 @@ function updateRuntimeServiceState(state) {
   const visionRunning = !!vision.running
   const visionStarting = String(vision.state || '').toLowerCase() === 'starting'
   const visionLabel = visionStateLabel(vision)
-  runtimeCapabilitiesState.textContent = visionLabel + ' · ' + runtimeWindowLabel()
-  runtimeCapabilitiesState.classList.toggle('running', visionRunning || visionStarting)
   runtimeVisionText.textContent = vision.message || (
     visionRunning
       ? (Math.round(Number(vision.fps) || 0) + ' fps · ' + ((((vision.lastDetection || {}).detections) || []).length || 0) + ' detections')
@@ -959,6 +969,10 @@ function updateRuntimeServiceState(state) {
   }
   updateHomeState()
   if (typeof updateModelMarketHint === 'function') updateModelMarketHint()
+  if (state.inferenceBackendFallback && !window.__lociantBackendFallbackNotified) {
+    window.__lociantBackendFallbackNotified = true
+    showToast(t('toast.backendFallback'))
+  }
 }
 
 function syncTopStatus() {
@@ -980,6 +994,16 @@ function updateModelExperienceState() {
   const performance = performanceModeFromThreads(threads, maxThreads)
   if (runtimePerformanceModeInput) runtimePerformanceModeInput.value = performance
   if (runtimePerformanceText) runtimePerformanceText.textContent = performanceSubText(performance)
+
+  const backend = String(state.inferenceBackend || 'model')
+  if (runtimeBackendInput) runtimeBackendInput.value = backend
+  if (runtimeBackendText) runtimeBackendText.textContent = ({
+    model: t('settings.backendModel'),
+    auto: t('settings.backendAuto'),
+    cpu: t('settings.backendCpu'),
+    opencl: t('settings.backendOpencl'),
+    vulkan: t('settings.backendVulkan')
+  })[backend] || t('settings.backendModel')
 
   const tokens = Number(state.maxOutputTokens) || 512
   const responseMode = responsePresetForTokens(tokens)
@@ -1477,10 +1501,34 @@ function isRuntimeModel(model) {
 /* ── Lociant WebUI — Settings panels ── */
 
 // ---- Locale ----
+const LOCALE_STORAGE_KEY = 'lociant.locale'
+
+function storedLocaleMode() {
+  try {
+    const raw = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    return raw ? String(raw) : ''
+  } catch (error) {
+    return ''
+  }
+}
+
+function persistLocaleMode(mode) {
+  try {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, mode || 'system')
+  } catch (error) {}
+}
+
 function loadLocaleSetting() {
+  const stored = storedLocaleMode()
+  if (stored) {
+    localeSetting = { mode: stored }
+    applyLocale()
+    return
+  }
   apiGet(localeStorePath)
     .then(result => {
       localeSetting = result && result.value ? result.value : { mode: 'system' }
+      persistLocaleMode(localeSetting.mode || 'system')
       applyLocale()
     })
     .catch(() => applyLocale())
@@ -1488,6 +1536,8 @@ function loadLocaleSetting() {
 
 function saveLocaleSetting(mode) {
   localeSetting = { mode: mode || 'system' }
+  persistLocaleMode(localeSetting.mode)
+  // Best-effort sync to the control-plane store for remote/API consistency.
   apiPut(localeStorePath, { value: localeSetting }).catch(() => {})
   applyLocale()
 }
@@ -2087,10 +2137,6 @@ function backToRuntimeSettings() {
   updateRuntimeServiceState(runtimeServiceState || {})
 }
 
-function openRuntimeCapabilitiesSettings() {
-  showSettingsDetail(runtimeCapabilitiesPanel)
-}
-
 function openRuntimeModelSettings() {
   showSettingsDetail(runtimeModelPanel)
   renderRuntimeModelChoices(runtimeModels)
@@ -2603,13 +2649,11 @@ runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
 runtimeSettingsBack.addEventListener('click', closeRuntimeSettingsBack)
 runtimeServerButton.addEventListener('click', openRuntimeServerSettings)
 runtimeServerBack.addEventListener('click', backToRuntimeSettings)
-runtimeCapabilitiesButton.addEventListener('click', openRuntimeCapabilitiesSettings)
-runtimeCapabilitiesBack.addEventListener('click', backToRuntimeSettings)
 runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
 runtimeModelBack.addEventListener('click', backToRuntimeSettings)
 runtimeAdvancedButton.addEventListener('click', openRuntimeAdvancedSettings)
 runtimeAdvancedBack.addEventListener('click', backToRuntimeSettings)
-aboutButton.addEventListener('click', openAboutSettings)
+if (runtimeAboutButton) runtimeAboutButton.addEventListener('click', openAboutSettings)
 aboutBack.addEventListener('click', closeAboutSettings)
 
 document.querySelectorAll('[data-about-link]').forEach(link => {
@@ -2712,6 +2756,11 @@ if (runtimePerformanceModeInput) {
     updateRuntimeSettings({ cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
   })
 }
+if (runtimeBackendInput) {
+  runtimeBackendInput.addEventListener('change', () => {
+    updateRuntimeSettings({ inferenceBackend: runtimeBackendInput.value || 'model' })
+  })
+}
 if (runtimeResponseLengthInput) {
   runtimeResponseLengthInput.addEventListener('change', () => {
     if (runtimeResponseLengthInput.value === 'custom') {
@@ -2760,9 +2809,6 @@ if (runtimeReleaseModelButton) {
     releaseRuntimeModel()
     showToast(t('toast.modelReleased'))
   })
-}
-if (runtimePerModelButton) {
-  runtimePerModelButton.addEventListener('click', () => showToast(t('settings.perModelConfigSub')))
 }
 
 // ---- Session ----
@@ -2832,9 +2878,9 @@ document.addEventListener('visibilitychange', () => {
 })
 
 // ---- Bootstrap ----
+loadLocaleSetting()
 refreshRuntimeServiceState()
 restoreHomeConversation()
 loadModels()
-loadLocaleSetting()
 tick()
 window.setInterval(tick, 1000)

@@ -201,7 +201,7 @@ class LociantAccessibilityService : AccessibilityService() {
     fun pasteIntoFocusedText(textLength: Int = 0): JSONObject {
         val root = rootInActiveWindow ?: return unavailable("No active accessibility window.")
         try {
-            val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            val focused = findPasteTarget(root)
                 ?: return JSONObject()
                     .put("ok", false)
                     .put("code", "focused_input_not_found")
@@ -229,6 +229,45 @@ class LociantAccessibilityService : AccessibilityService() {
         } finally {
             root.recycle()
         }
+    }
+
+    private fun findPasteTarget(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val inputFocus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (inputFocus != null) {
+            try {
+                if (editableTarget(inputFocus) != null) return inputFocus
+            } finally {
+                inputFocus.recycle()
+            }
+        }
+        val accessibilityFocus = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+        if (accessibilityFocus != null) {
+            try {
+                if (editableTarget(accessibilityFocus) != null) return accessibilityFocus
+            } finally {
+                accessibilityFocus.recycle()
+            }
+        }
+        return findFocusedEditableNode(root)
+    }
+
+    private fun findFocusedEditableNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        while (queue.isNotEmpty()) {
+            val current = queue.removeFirst()
+            if (current.isEnabled && current.isVisibleToUser && current.isEditable && current.isFocused) {
+                return current
+            }
+            var index = 0
+            while (true) {
+                val child = current.getChild(index) ?: break
+                queue.add(child)
+                index += 1
+            }
+            current.recycle()
+        }
+        return null
     }
 
     fun waitForUi(

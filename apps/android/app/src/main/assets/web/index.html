@@ -29,7 +29,7 @@
         </button>
       </nav>
 
-      <div class="version">v1.0.1</div>
+      <div class="version">v1.0.2</div>
     </aside>
 
     <main class="main">
@@ -121,11 +121,6 @@
               <span class="settings-tile-sub" data-i18n="settings.serverSub">端口、令牌、地址</span>
               <span class="settings-tile-state status-pill" id="runtimeServerState">--</span>
             </button>
-            <button class="settings-tile pressable" id="runtimeCapabilitiesButton" type="button">
-              <span class="settings-tile-title" data-i18n="settings.capabilitiesTitle">能力</span>
-              <span class="settings-tile-sub" data-i18n="settings.capabilitiesSub">视觉与远程工具</span>
-              <span class="settings-tile-state status-pill" id="runtimeCapabilitiesState">--</span>
-            </button>
             <button class="settings-tile pressable" id="runtimeModelButton" type="button">
               <span class="settings-tile-title" data-i18n="settings.defaultModelTitle">默认模型</span>
               <span class="settings-tile-sub" data-i18n="settings.defaultModelSub">模型与 CPU 线程</span>
@@ -135,11 +130,6 @@
               <span class="settings-tile-title" data-i18n="settings.advancedTitle">高级</span>
               <span class="settings-tile-sub" data-i18n="settings.advancedSub">会话与诊断</span>
               <span class="settings-tile-state status-pill" id="runtimeAdvancedState">--</span>
-            </button>
-            <button class="settings-tile pressable" id="aboutButton" type="button">
-              <span class="settings-tile-title" data-i18n="about.title">关于 Lociant</span>
-              <span class="settings-tile-sub" data-i18n="about.subtitle">版本、源码与致谢</span>
-              <span class="settings-tile-state status-pill" data-i18n="about.version">1.0.1</span>
             </button>
           </div>
         </section>
@@ -225,6 +215,28 @@
               <input class="switch-input" type="checkbox" id="runtimeWindowAutoInput">
             </label>
           </div>
+
+          <h3 class="group-title" data-i18n="settings.capabilitiesTitle">能力</h3>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.visionTitle">视觉</span>
+                <span class="settings-section-sub" id="runtimeVisionText" data-i18n="settings.visionSub">摄像头分析</span>
+              </span>
+              <button class="filled-button pressable" id="runtimeVisionButton" type="button" data-i18n="common.start">启动</button>
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.toolExposure">远程工具</span>
+                <span class="settings-section-sub" data-i18n="settings.toolExposureSub">可见能力等级</span>
+              </span>
+              <select class="settings-select-input" id="runtimeToolExposureInput">
+                <option value="read" data-i18n="settings.toolRead">只读</option>
+                <option value="sensor" data-i18n="settings.toolSensor">感知</option>
+                <option value="action" data-i18n="settings.toolAction">动作</option>
+              </select>
+            </div>
+          </div>
         </section>
 
         <section class="settings-page" id="runtimeServerPanel" aria-hidden="true">
@@ -307,43 +319,6 @@
           </div>
         </section>
 
-        <section class="settings-page" id="runtimeCapabilitiesPanel" aria-hidden="true">
-          <div class="detail-head">
-            <button class="back-chip pressable" id="runtimeCapabilitiesBack" type="button" data-i18n="common.back">返回</button>
-            <div>
-              <h2 data-i18n="settings.capabilitiesTitle">能力</h2>
-              <p data-i18n="settings.capabilitiesIntro">提供给本地服务和远程客户端的手机能力</p>
-            </div>
-          </div>
-          <div class="surface-list">
-            <div class="settings-section">
-              <span class="settings-section-main">
-                <span class="settings-section-title" data-i18n="settings.visionTitle">视觉</span>
-                <span class="settings-section-sub" id="runtimeVisionText" data-i18n="settings.visionSub">摄像头分析</span>
-              </span>
-              <button class="filled-button pressable" id="runtimeVisionButton" type="button" data-i18n="common.start">启动</button>
-            </div>
-            <div class="settings-section">
-              <span class="settings-section-main">
-                <span class="settings-section-title" data-i18n="settings.toolExposure">远程工具</span>
-                <span class="settings-section-sub" data-i18n="settings.toolExposureSub">可见能力等级</span>
-              </span>
-              <select class="settings-select-input" id="runtimeToolExposureInput">
-                <option value="read" data-i18n="settings.toolRead">只读</option>
-                <option value="sensor" data-i18n="settings.toolSensor">感知</option>
-                <option value="action" data-i18n="settings.toolAction">动作</option>
-              </select>
-            </div>
-          </div>
-          <h3 class="group-title">Limits</h3>
-          <div class="surface-list settings-metrics">
-            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">线程</span><strong id="runtimeCpuThreadsDisplay">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">默认</span><strong id="runtimeDefaultTokens">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">模型</span><strong id="runtimeModelTokens">--</strong></div>
-            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">生效</span><strong id="runtimeEffectiveTokens">--</strong></div>
-            <div class="diagnostic-row"><span>Device</span><strong id="runtimeDeviceState">--</strong></div>
-          </div>
-        </section>
 
         <section class="settings-page" id="runtimeModelPanel" aria-hidden="true">
           <div class="detail-head">
@@ -365,6 +340,21 @@
                   <option value="eco" data-i18n="settings.performanceEco">Eco</option>
                   <option value="balanced" data-i18n="settings.performanceBalanced">Balanced</option>
                   <option value="fast" data-i18n="settings.performanceFast">Fast</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-section model-experience-card">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.inferenceBackend">Inference backend</span>
+                <span class="settings-section-sub" id="runtimeBackendText" data-i18n="settings.inferenceBackendSub">Engine used for model inference</span>
+              </span>
+              <div class="model-experience-control">
+                <select class="settings-select-input" id="runtimeBackendInput">
+                  <option value="model" data-i18n="settings.backendModel">Follow model</option>
+                  <option value="auto" data-i18n="settings.backendAuto">Auto</option>
+                  <option value="cpu" data-i18n="settings.backendCpu">CPU</option>
+                  <option value="opencl" data-i18n="settings.backendOpencl">OpenCL (GPU)</option>
+                  <option value="vulkan" data-i18n="settings.backendVulkan">Vulkan (GPU)</option>
                 </select>
               </div>
             </div>
@@ -412,13 +402,6 @@
               </span>
               <button class="tonal-button pressable" id="runtimeReleaseModelButton" type="button" data-i18n="settings.release">Release</button>
             </div>
-            <button class="settings-section settings-action-section pressable" id="runtimePerModelButton" type="button">
-              <span class="settings-section-main">
-                <span class="settings-section-title" data-i18n="settings.perModelConfig">Per-model preferences</span>
-                <span class="settings-section-sub" data-i18n="settings.perModelConfigSub">Prepared for model-specific defaults</span>
-              </span>
-              <span class="status-pill" data-i18n="settings.soon">Soon</span>
-            </button>
             <div class="settings-section">
               <span class="settings-section-main">
                 <span class="settings-section-title" data-i18n="settings.defaultModelTitle">默认模型</span>
@@ -460,6 +443,25 @@
           </div>
           <h3 class="group-title" data-i18n="diagnostics.history">Recent API</h3>
           <div class="surface-list" id="runtimeDiagLog"></div>
+
+          <h3 class="group-title">Limits</h3>
+          <div class="surface-list settings-metrics">
+            <div class="diagnostic-row"><span data-i18n="settings.cpuThreadsShort">线程</span><strong id="runtimeCpuThreadsDisplay">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.defaultTokens">默认</span><strong id="runtimeDefaultTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.modelTokens">模型</span><strong id="runtimeModelTokens">--</strong></div>
+            <div class="diagnostic-row"><span data-i18n="settings.effectiveTokens">生效</span><strong id="runtimeEffectiveTokens">--</strong></div>
+            <div class="diagnostic-row"><span>Device</span><strong id="runtimeDeviceState">--</strong></div>
+          </div>
+
+          <h3 class="group-title" data-i18n="about.title">关于 Lociant</h3>
+          <div class="surface-list">
+            <button class="settings-section settings-action-section pressable" id="runtimeAboutButton" type="button">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="about.title">关于 Lociant</span>
+                <span class="settings-section-sub" data-i18n="about.subtitle">版本、源码与致谢</span>
+              </span>
+            </button>
+          </div>
         </section>
 
         <section class="settings-page" id="aboutPanel" aria-hidden="true">
@@ -476,7 +478,7 @@
                 <span class="settings-section-title" data-i18n="about.versionLabel">软件版本</span>
                 <span class="settings-section-sub" data-i18n="about.versionSub">应用与 API 契约版本</span>
               </span>
-              <span class="status-pill" id="aboutVersion">1.0.1</span>
+              <span class="status-pill" id="aboutVersion">1.0.2</span>
             </div>
             <a class="settings-section about-link" href="https://github.com/lhxll07/Lociant" target="_blank" rel="noopener noreferrer" data-about-link>
               <span class="settings-section-main">

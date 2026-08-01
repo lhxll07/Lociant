@@ -1,10 +1,34 @@
 /* ── Lociant WebUI — Settings panels ── */
 
 // ---- Locale ----
+const LOCALE_STORAGE_KEY = 'lociant.locale'
+
+function storedLocaleMode() {
+  try {
+    const raw = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    return raw ? String(raw) : ''
+  } catch (error) {
+    return ''
+  }
+}
+
+function persistLocaleMode(mode) {
+  try {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, mode || 'system')
+  } catch (error) {}
+}
+
 function loadLocaleSetting() {
+  const stored = storedLocaleMode()
+  if (stored) {
+    localeSetting = { mode: stored }
+    applyLocale()
+    return
+  }
   apiGet(localeStorePath)
     .then(result => {
       localeSetting = result && result.value ? result.value : { mode: 'system' }
+      persistLocaleMode(localeSetting.mode || 'system')
       applyLocale()
     })
     .catch(() => applyLocale())
@@ -12,6 +36,8 @@ function loadLocaleSetting() {
 
 function saveLocaleSetting(mode) {
   localeSetting = { mode: mode || 'system' }
+  persistLocaleMode(localeSetting.mode)
+  // Best-effort sync to the control-plane store for remote/API consistency.
   apiPut(localeStorePath, { value: localeSetting }).catch(() => {})
   applyLocale()
 }
@@ -609,10 +635,6 @@ function openRuntimeServerSettings() {
 function backToRuntimeSettings() {
   showSettingsHome()
   updateRuntimeServiceState(runtimeServiceState || {})
-}
-
-function openRuntimeCapabilitiesSettings() {
-  showSettingsDetail(runtimeCapabilitiesPanel)
 }
 
 function openRuntimeModelSettings() {

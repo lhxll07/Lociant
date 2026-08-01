@@ -113,13 +113,11 @@ runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
 runtimeSettingsBack.addEventListener('click', closeRuntimeSettingsBack)
 runtimeServerButton.addEventListener('click', openRuntimeServerSettings)
 runtimeServerBack.addEventListener('click', backToRuntimeSettings)
-runtimeCapabilitiesButton.addEventListener('click', openRuntimeCapabilitiesSettings)
-runtimeCapabilitiesBack.addEventListener('click', backToRuntimeSettings)
 runtimeModelButton.addEventListener('click', openRuntimeModelSettings)
 runtimeModelBack.addEventListener('click', backToRuntimeSettings)
 runtimeAdvancedButton.addEventListener('click', openRuntimeAdvancedSettings)
 runtimeAdvancedBack.addEventListener('click', backToRuntimeSettings)
-aboutButton.addEventListener('click', openAboutSettings)
+if (runtimeAboutButton) runtimeAboutButton.addEventListener('click', openAboutSettings)
 aboutBack.addEventListener('click', closeAboutSettings)
 
 document.querySelectorAll('[data-about-link]').forEach(link => {
@@ -222,6 +220,11 @@ if (runtimePerformanceModeInput) {
     updateRuntimeSettings({ cpuThreads: threadsForPerformanceMode(runtimePerformanceModeInput.value) })
   })
 }
+if (runtimeBackendInput) {
+  runtimeBackendInput.addEventListener('change', () => {
+    updateRuntimeSettings({ inferenceBackend: runtimeBackendInput.value || 'model' })
+  })
+}
 if (runtimeResponseLengthInput) {
   runtimeResponseLengthInput.addEventListener('change', () => {
     if (runtimeResponseLengthInput.value === 'custom') {
@@ -270,9 +273,6 @@ if (runtimeReleaseModelButton) {
     releaseRuntimeModel()
     showToast(t('toast.modelReleased'))
   })
-}
-if (runtimePerModelButton) {
-  runtimePerModelButton.addEventListener('click', () => showToast(t('settings.perModelConfigSub')))
 }
 
 // ---- Session ----
@@ -342,9 +342,9 @@ document.addEventListener('visibilitychange', () => {
 })
 
 // ---- Bootstrap ----
+loadLocaleSetting()
 refreshRuntimeServiceState()
 restoreHomeConversation()
 loadModels()
-loadLocaleSetting()
 tick()
 window.setInterval(tick, 1000)

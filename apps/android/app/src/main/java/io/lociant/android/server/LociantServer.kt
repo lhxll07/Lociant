@@ -22,6 +22,7 @@ import io.lociant.tools.AndroidTools
 import io.lociant.tools.LlmTools
 import io.lociant.tools.ModelTools
 import io.lociant.tools.RuntimeTools
+import io.lociant.tools.SensorTools
 import io.lociant.tools.VisionTools
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -53,6 +54,7 @@ import org.json.JSONObject
 import io.ktor.http.content.OutgoingContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.security.SecureRandom
@@ -73,6 +75,8 @@ class LociantServer(
     private var modelId = DEFAULT_MODEL_ID
     private var maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS
     private var cpuThreads = MnnRuntime.DEFAULT_CPU_THREADS
+    private var inferenceBackend = MnnRuntime.DEFAULT_INFERENCE_BACKEND
+    @Volatile private var backendFallbackApplied = false
     private var contextProfile = RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT
     private var historyLimit = RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT
     private var autoStart = false
@@ -105,6 +109,7 @@ class LociantServer(
                     chat = llmToolExecutor::execute,
                 ),
                 VisionTools(context, startVisionRuntime),
+                SensorTools(context),
 
             )
         )
@@ -164,6 +169,7 @@ class LociantServer(
         .put("modelId", modelId)
         .put("maxOutputTokens", maxOutputTokens)
         .put("cpuThreads", cpuThreads)
+        .put("inferenceBackend", inferenceBackend)
         .put("contextProfile", contextProfile)
         .put("historyLimit", historyLimit)
         .put("authToken", authToken)
@@ -521,6 +527,8 @@ class LociantServer(
             .put("hardMaxOutputTokens", HARD_MAX_OUTPUT_TOKENS)
             .put("cpuThreads", cpuThreads)
             .put("maxCpuThreads", maxCpuThreads())
+            .put("inferenceBackend", inferenceBackend)
+            .put("inferenceBackendFallback", backendFallbackApplied)
             .put("contextProfile", contextProfile)
             .put("historyLimit", historyLimit)
             .put("modelMaxOutputTokens", modelManager.maxNewTokens(modelId) ?: JSONObject.NULL)
@@ -601,7 +609,24 @@ class LociantServer(
 
     // ---- Settings ----
 
-    private fun loadSettings() { applySettings(localStore.getObject(SETTINGS_NAMESPACE, SETTINGS_KEY)) }
+    private fun loadSettings() {
+        val settings = localStore.getObject(SETTINGS_NAMESPACE, SETTINGS_KEY)
+        // A leftover marker means a previous run started with a non-CPU inference
+        // backend and did not end cleanly (crash / OOM / process kill). Fall back to
+        // the safe default so a bad GPU backend cannot make the app unusable.
+        val hadRiskyMarker = inferenceBackendMarker().isFile
+        applySettings(settings)
+        if (hadRiskyMarker && MnnRuntime.isRiskyBackend(inferenceBackend)) {
+            inferenceBackend = MnnRuntime.DEFAULT_INFERENCE_BACKEND
+            if (chatCapability.configureBackend(inferenceBackend)) chatController.resetLoadedModel()
+            backendFallbackApplied = true
+            inferenceBackendMarker().delete()
+            saveSettings()
+            Log.w(TAG, "Risky inference backend marker left by a previous run; fell back to ${MnnRuntime.DEFAULT_INFERENCE_BACKEND}")
+        }
+    }
+
+    private fun inferenceBackendMarker(): File = File(context.filesDir, "inference_backend_marker")
 
     private fun updateSettings(payload: JSONObject) { applySettings(settingsFrom(payload)); saveSettings() }
 
@@ -610,6 +635,7 @@ class LociantServer(
             .put("port", port).put("modelId", modelId)
             .put("maxOutputTokens", maxOutputTokens)
             .put("cpuThreads", cpuThreads)
+            .put("inferenceBackend", inferenceBackend)
             .put("contextProfile", contextProfile)
             .put("historyLimit", historyLimit)
             .put("authToken", authToken)
@@ -632,6 +658,17 @@ class LociantServer(
         if (cpuThreads != nextCpuThreads) {
             cpuThreads = nextCpuThreads
             if (chatCapability.configureCpuThreads(cpuThreads)) chatController.resetLoadedModel()
+        }
+        val nextBackend = MnnRuntime.normalizeBackend(settings.optString("inferenceBackend", MnnRuntime.DEFAULT_INFERENCE_BACKEND))
+        if (inferenceBackend != nextBackend) {
+            inferenceBackend = nextBackend
+            if (chatCapability.configureBackend(inferenceBackend)) chatController.resetLoadedModel()
+        }
+        val marker = inferenceBackendMarker()
+        if (MnnRuntime.isRiskyBackend(inferenceBackend)) {
+            if (!marker.isFile) marker.writeText(inferenceBackend)
+        } else {
+            marker.delete()
         }
         contextProfile = normalizeContextProfile(settings.optString("contextProfile", RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT))
         historyLimit = settings.optInt("historyLimit", historyLimitForContextProfile(contextProfile))

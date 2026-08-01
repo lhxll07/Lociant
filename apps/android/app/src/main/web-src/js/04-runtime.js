@@ -60,8 +60,6 @@ function updateRuntimeServiceState(state) {
   const visionRunning = !!vision.running
   const visionStarting = String(vision.state || '').toLowerCase() === 'starting'
   const visionLabel = visionStateLabel(vision)
-  runtimeCapabilitiesState.textContent = visionLabel + ' · ' + runtimeWindowLabel()
-  runtimeCapabilitiesState.classList.toggle('running', visionRunning || visionStarting)
   runtimeVisionText.textContent = vision.message || (
     visionRunning
       ? (Math.round(Number(vision.fps) || 0) + ' fps · ' + ((((vision.lastDetection || {}).detections) || []).length || 0) + ' detections')
@@ -117,6 +115,10 @@ function updateRuntimeServiceState(state) {
   }
   updateHomeState()
   if (typeof updateModelMarketHint === 'function') updateModelMarketHint()
+  if (state.inferenceBackendFallback && !window.__lociantBackendFallbackNotified) {
+    window.__lociantBackendFallbackNotified = true
+    showToast(t('toast.backendFallback'))
+  }
 }
 
 function syncTopStatus() {
@@ -138,6 +140,16 @@ function updateModelExperienceState() {
   const performance = performanceModeFromThreads(threads, maxThreads)
   if (runtimePerformanceModeInput) runtimePerformanceModeInput.value = performance
   if (runtimePerformanceText) runtimePerformanceText.textContent = performanceSubText(performance)
+
+  const backend = String(state.inferenceBackend || 'model')
+  if (runtimeBackendInput) runtimeBackendInput.value = backend
+  if (runtimeBackendText) runtimeBackendText.textContent = ({
+    model: t('settings.backendModel'),
+    auto: t('settings.backendAuto'),
+    cpu: t('settings.backendCpu'),
+    opencl: t('settings.backendOpencl'),
+    vulkan: t('settings.backendVulkan')
+  })[backend] || t('settings.backendModel')
 
   const tokens = Number(state.maxOutputTokens) || 512
   const responseMode = responsePresetForTokens(tokens)

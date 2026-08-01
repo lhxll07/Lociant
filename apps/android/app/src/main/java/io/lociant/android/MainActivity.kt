@@ -3,6 +3,7 @@ package io.lociant.android
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
@@ -12,10 +13,12 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.TextUtils
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.webkit.ConsoleMessage
 import android.webkit.PermissionRequest
 import android.webkit.WebSettings
 import android.webkit.WebChromeClient
@@ -145,6 +148,11 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
                     if (pendingWebPermissionRequest == request) pendingWebPermissionRequest = null
                 }
 
+                override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                    Log.d("Lociant", "web console [${message.lineNumber()}] ${message.message()}")
+                    return super.onConsoleMessage(message)
+                }
+
                 override fun onShowFileChooser(
                     webView: WebView,
                     filePathCallback: ValueCallback<Array<Uri>>,
@@ -180,6 +188,9 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
                 LociantBridge(host = this@MainActivity),
                 "LociantBridge",
             )
+            if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                WebView.setWebContentsDebuggingEnabled(true)
+            }
             loadUrl("${"https://appassets.androidplatform.net"}/assets/web/index.html")
         }
 

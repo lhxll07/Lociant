@@ -21,6 +21,12 @@ class ChatCapability(
         return changed
     }
 
+    fun configureBackend(value: String): Boolean {
+        val changed = mnnRuntime.configureBackend(value)
+        if (changed) resetLoadedModel()
+        return changed
+    }
+
     fun preload(modelIdRaw: String): ModelChatResult {
         val modelId = normalize(modelIdRaw)
         if (isLoaded(modelId)) return ModelChatResult(ok = true, modelId = modelId, message = "already loaded")

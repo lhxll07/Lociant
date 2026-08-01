@@ -63,7 +63,8 @@ The registry repeats the policy check during `tools/call`. A stale or forged man
 |---|---|---|
 | Runtime/model | `runtime_status`, `model_list`, `llm_status`, `llm_chat` | Local runtime and phone model inference |
 | Device | `device_status`, `clipboard_read`, `clipboard_write`, `app_open` | Android privacy rules still apply |
-| Screen/UI | `ui_screen_state`, `ui_click_node`, `ui_tap`, `ui_swipe`, navigation actions | Requires accessibility and usually an interactive device |
+| Sensors | `sensor_status`, `sensor_read`, `sensor_start`, `sensor_stop` | Aggregated summaries only; continuous monitoring is a side effect and should be stopped after use |
+| Screen/UI | `ui_screen_state`, `ui_click_node`, `ui_tap`, `ui_swipe`, `ui_paste`, `ui_set_text`, navigation actions | Requires accessibility and usually an interactive device |
 | Vision | `vision_status`, `vision_start`, `camera_capture`, `vision_stop` | Requires camera permission and unlocked interactive state |
 
 Tool names are current 1.0 contracts. They are not aliases for a retired capability system.
@@ -93,6 +94,8 @@ Supplying `sessionId` requires an existing Lociant session. Omitting it keeps th
 - Camera and accessibility operations depend on the screen, lock state, permissions and current Activity/service availability.
 - A tool success response means the handler completed, not that an external UI remained unchanged afterward.
 - Agents should re-read `ui_screen_state` after UI actions instead of assuming the previous node tree is still valid.
+- Sensors return aggregated summaries (mean/variance/min/max per axis), not raw streams. `sensor_read` is one-shot; `sensor_start` enables a bounded rolling window readable via `sensor_status`, and `sensor_stop` ends it. Raw high-frequency samples are not meaningful to an LLM.
+- To enter text into another app: `clipboard_write` the text, focus the target input with `ui_tap`/`ui_click_node`, then call `ui_paste` (uses `ACTION_PASTE` on the focused field, no context menu needed). `ui_set_text` writes text directly to an editable `nodeId` and bypasses the clipboard.
 - Destructive and open-world MCP hints come from explicit tool policy fields, not from whether the client is remote.
 
 ## Authentication And Network

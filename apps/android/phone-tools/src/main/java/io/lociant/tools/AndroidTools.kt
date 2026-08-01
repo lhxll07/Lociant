@@ -109,6 +109,20 @@ class AndroidTools(
                 .put("maxDepth", intParam("Maximum tree depth to scan for text. Default 8.")),
             policy = readScreenPolicy,
         ) { args -> uiWait(args) },
+        tool(
+            name = "ui_paste",
+            description = "Paste the current Android clipboard into the focused input field. First write the text with clipboard_write, then focus the target input, then call this tool.",
+            policy = actionPolicy,
+        ) { requireAccessibility().pasteIntoFocusedText() },
+        tool(
+            name = "ui_set_text",
+            description = "Replace the text of an editable nodeId returned by ui_screen_state, bypassing the clipboard.",
+            properties = JSONObject()
+                .put("nodeId", stringParam("nodeId of an editable node returned by ui_screen_state."))
+                .put("text", stringParam("Text to write into the field."))
+                .put("submit", boolParam("Request the editor to perform its IME action after writing. Default false.")),
+            policy = actionPolicy,
+        ) { args -> setNodeText(args) },
         globalActionTool("ui_back", "Press the Android Back button.", "back") { it.pressBack() },
         globalActionTool("ui_home", "Press the Android Home button.", "home") { it.pressHome() },
         globalActionTool("ui_recent_apps", "Open the Android recent apps overview.", "recent_apps") { it.pressRecentApps() },
@@ -264,6 +278,14 @@ class AndroidTools(
             args.optLong("idleMs", 500L).coerceIn(100L, 3000L),
             maxDepth(args, 8),
         )
+
+    private fun setNodeText(args: JSONObject): JSONObject {
+        val nodeId = args.optString("nodeId").trim()
+        if (nodeId.isEmpty()) throw IllegalArgumentException("nodeId is required")
+        val text = args.optString("text", "")
+        val submit = args.optBoolean("submit", false)
+        return requireAccessibility().setNodeText(nodeId, text, submit)
+    }
 
     private fun globalAction(action: String, block: (LociantAccessibilityService) -> Boolean): JSONObject =
         gestureResult(action, block(requireAccessibility()))

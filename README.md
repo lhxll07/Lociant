@@ -6,12 +6,13 @@
 
 ## 能做什么
 
-- 在手机本地运行 LLM / VLM 模型，进行对话和图片理解。
-- 查看屏幕、读取界面、点击、滑动、返回和打开 App。
-- 读取设备状态和剪贴板，调用摄像头进行拍摄或视觉分析。
-- 通过 MCP 给 Claude、Codex 或其他 Agent 使用，也支持 OpenAI 兼容 API。
+- **本地模型**：在手机上运行 LLM / VLM 模型，直接对话和图片理解，断网也能用。
+- **看屏幕、动手操作**：读取界面、点击、滑动、返回、打开 App，把内容写进任意输入框或粘贴到剪贴板。
+- **感知环境**：读取光线、距离、加速度、陀螺仪等传感器，让 Agent 知道手机是在口袋、桌面上还是被拿起，环境是亮是暗、手机在不在动。
+- **摄像头与视觉**：拍照、连续画面分析，识别视野里的物体。
+- **接入任何 Agent**：通过 MCP 给 Claude、Codex、OpenCode 等使用，也支持 OpenAI 兼容 API；可以在 CPU 和 GPU（OpenCL / Vulkan）推理后端之间切换。
 
-例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息，或者帮你测试刚装好的新应用。
+例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息、在输入框里帮你填好一段文字，或者先"感觉"一下手机现在是在口袋里还是桌上，再决定要不要亮屏操作。
 
 ## 一步一步开始
 
@@ -19,7 +20,7 @@
 
 当前发布包适用于 Android 8.0 及以上、`arm64-v8a` 设备：
 
-[下载 Lociant v1.0.1 APK](https://github.com/lhxll07/Lociant/releases/download/v1.0.1/lociant-1.0.1-arm64-v8a-release.apk)
+[下载 Lociant v1.0.2 APK](https://github.com/lhxll07/Lociant/releases/download/v1.0.2/lociant-1.0.2-arm64-v8a-release.apk)
 
 安装时如果系统提示允许安装未知来源应用，请按系统提示允许即可。
 

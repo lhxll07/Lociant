@@ -65,10 +65,6 @@ const copyMcpUrlButton = document.getElementById('copyMcpUrlButton')
 const copyAuthHeaderButton = document.getElementById('copyAuthHeaderButton')
 const copyMcpConfigButton = document.getElementById('copyMcpConfigButton')
 const copyTestPromptButton = document.getElementById('copyTestPromptButton')
-const runtimeCapabilitiesButton = document.getElementById('runtimeCapabilitiesButton')
-const runtimeCapabilitiesState = document.getElementById('runtimeCapabilitiesState')
-const runtimeCapabilitiesPanel = document.getElementById('runtimeCapabilitiesPanel')
-const runtimeCapabilitiesBack = document.getElementById('runtimeCapabilitiesBack')
 const runtimeVisionText = document.getElementById('runtimeVisionText')
 const runtimeVisionButton = document.getElementById('runtimeVisionButton')
 const runtimeToolExposureInput = document.getElementById('runtimeToolExposureInput')
@@ -82,6 +78,8 @@ const runtimeModelState = document.getElementById('runtimeModelState')
 const runtimeModelNote = document.getElementById('runtimeModelNote')
 const runtimePerformanceModeInput = document.getElementById('runtimePerformanceModeInput')
 const runtimePerformanceText = document.getElementById('runtimePerformanceText')
+const runtimeBackendInput = document.getElementById('runtimeBackendInput')
+const runtimeBackendText = document.getElementById('runtimeBackendText')
 const runtimeResponseLengthInput = document.getElementById('runtimeResponseLengthInput')
 const runtimeResponseLengthText = document.getElementById('runtimeResponseLengthText')
 const runtimeResponseTokensInput = document.getElementById('runtimeResponseTokensInput')
@@ -91,12 +89,11 @@ const runtimeHistoryLimitInput = document.getElementById('runtimeHistoryLimitInp
 const runtimeCacheState = document.getElementById('runtimeCacheState')
 const runtimeCacheBadge = document.getElementById('runtimeCacheBadge')
 const runtimeReleaseModelButton = document.getElementById('runtimeReleaseModelButton')
-const runtimePerModelButton = document.getElementById('runtimePerModelButton')
 const runtimeAdvancedButton = document.getElementById('runtimeAdvancedButton')
 const runtimeAdvancedState = document.getElementById('runtimeAdvancedState')
 const runtimeAdvancedPanel = document.getElementById('runtimeAdvancedPanel')
 const runtimeAdvancedBack = document.getElementById('runtimeAdvancedBack')
-const aboutButton = document.getElementById('aboutButton')
+const runtimeAboutButton = document.getElementById('runtimeAboutButton')
 const aboutPanel = document.getElementById('aboutPanel')
 const aboutBack = document.getElementById('aboutBack')
 const aboutVersion = document.getElementById('aboutVersion')
@@ -142,7 +139,7 @@ let marketSearchTimer = null
 let modelProgressLastPercent = 0
 let modelProgressHideTimer = null
 let localeSetting = { mode: 'system' }
-let currentLocale = 'en'
+let currentLocale = systemLocale()
 const localeStorePath = '/api/v1/store/runtime-settings/locale'
 let homeAttachedImage = null
 let activePage = 'home'
@@ -163,7 +160,6 @@ function runtimeDetails() {
   return [
     runtimeSettingsPanel,
     runtimeServerPanel,
-    runtimeCapabilitiesPanel,
     runtimeModelPanel,
     runtimeAdvancedPanel,
     aboutPanel,

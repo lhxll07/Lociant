@@ -16,6 +16,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
     @Volatile private var handle: Long = if (nativeAvailable) runCatching { nativeCreate() }.getOrDefault(0L) else 0L
     private var loadedConfigPath: String? = null
     @Volatile private var cpuThreads = DEFAULT_CPU_THREADS
+    @Volatile private var inferenceBackend = DEFAULT_INFERENCE_BACKEND
 
     @Synchronized
     fun configureCpuThreads(value: Int): Boolean {
@@ -23,6 +24,15 @@ class MnnRuntime(context: Context) : AutoCloseable {
         if (cpuThreads == next) return false
         cancel()
         cpuThreads = next
+        releaseHandle()
+        return true
+    }
+
+    fun configureBackend(value: String): Boolean {
+        val next = normalizeBackend(value)
+        if (inferenceBackend == next) return false
+        cancel()
+        inferenceBackend = next
         releaseHandle()
         return true
     }
@@ -170,6 +180,10 @@ class MnnRuntime(context: Context) : AutoCloseable {
             .put("thread_num", cpuThreads)
         applyVisualConfig(modelDir, config)
         mllm.put("thread_num", cpuThreads)
+        if (inferenceBackend != DEFAULT_INFERENCE_BACKEND) {
+            config.put("backend_type", inferenceBackend)
+            mllm.put("backend_type", inferenceBackend)
+        }
         val jinja = config.optJSONObject("jinja") ?: JSONObject().also { config.put("jinja", it) }
         val context = jinja.optJSONObject("context") ?: JSONObject().also { jinja.put("context", it) }
         context.put("enable_thinking", RuntimeDefaults.NativeRuntime.THINKING_ENABLED)
@@ -239,6 +253,15 @@ class MnnRuntime(context: Context) : AutoCloseable {
         const val DEFAULT_CPU_THREADS = 4
         const val MIN_CPU_THREADS = 1
         const val MAX_CPU_THREADS = 16
+
+        const val DEFAULT_INFERENCE_BACKEND = "model"
+        val INFERENCE_BACKENDS = setOf("model", "auto", "cpu", "opencl", "vulkan")
+        val RISKY_INFERENCE_BACKENDS = setOf("auto", "opencl", "vulkan")
+
+        fun normalizeBackend(value: String): String =
+            value.trim().lowercase().takeIf { it in INFERENCE_BACKENDS } ?: DEFAULT_INFERENCE_BACKEND
+
+        fun isRiskyBackend(value: String): Boolean = normalizeBackend(value) in RISKY_INFERENCE_BACKENDS
         private const val TAG = "LociantMnnRuntime"
 
 private val nativeAvailable: Boolean = runCatching {
