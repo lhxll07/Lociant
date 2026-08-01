@@ -1347,6 +1347,30 @@ select {
   text-align: center;
 }
 
+.market-runtime-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-container);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.market-runtime-hint .filled-button {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 0 14px;
+}
+
+.market-runtime-hint.is-hidden {
+  display: none;
+}
+
 .segmented-control {
   display: inline-flex;
   width: 100%;

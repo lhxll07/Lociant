@@ -513,6 +513,10 @@
             <input id="modelMarketSearch" type="search" data-i18n-placeholder="models.marketSearch" placeholder="搜索模型">
             <button class="tonal-button pressable" id="modelMarketRefreshButton" data-i18n="common.refresh">刷新</button>
           </div>
+          <div class="market-runtime-hint is-hidden" id="modelMarketRuntimeHint" role="status">
+            <span data-i18n="models.marketNeedsRuntime">Start the runtime to connect the model market</span>
+            <button class="filled-button pressable" id="modelMarketStartButton" type="button" data-i18n="models.marketStartRuntime">Start runtime</button>
+          </div>
           <div class="surface-list market-list" id="modelMarketList"></div>
         </div>
       </section>

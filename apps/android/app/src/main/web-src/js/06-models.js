@@ -12,6 +12,7 @@ function setModelView(view) {
   })
   if (modelView === 'local') loadModels()
   if (modelView === 'market') {
+    updateModelMarketHint()
     renderModelMarket(marketModels)
     if (!marketModels.length) loadModelMarket()
   }
@@ -113,9 +114,41 @@ function loadModelMarket(forceRefresh) {
     .then(data => {
       marketModels = (data && Array.isArray(data.models)) ? data.models : []
       renderModelMarket(marketModels)
+      updateModelMarketHint()
       showToast(t('toast.modelMarketLoaded'))
     })
-    .catch(() => showToast(t('toast.modelMarketFailed')))
+    .catch(() => {
+      updateModelMarketHint()
+      const state = runtimeServiceState || {}
+      if (state.running || state.starting) showToast(t('toast.modelMarketFailed'))
+    })
+}
+
+function updateModelMarketHint() {
+  if (!modelMarketRuntimeHint) return
+  const state = runtimeServiceState || {}
+  const needsRuntime = !(state.running || state.starting)
+  modelMarketRuntimeHint.classList.toggle('is-hidden', !needsRuntime)
+}
+
+function startRuntimeForMarket() {
+  startRuntime({})
+  updateModelMarketHint()
+  let attempts = 0
+  const timer = window.setInterval(() => {
+    const state = runtimeServiceState || {}
+    attempts += 1
+    if (state.running) {
+      window.clearInterval(timer)
+      updateModelMarketHint()
+      loadModelMarket(true)
+    } else if (attempts >= 30) {
+      window.clearInterval(timer)
+      updateModelMarketHint()
+    } else {
+      updateModelMarketHint()
+    }
+  }, 1000)
 }
 
 function renderModelMarket(models) {

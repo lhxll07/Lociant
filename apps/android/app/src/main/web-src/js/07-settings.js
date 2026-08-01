@@ -468,11 +468,12 @@ function renderDiagnosticsSummary(check) {
   cards.forEach(item => {
     const card = document.createElement('div')
     card.className = 'settings-section diagnostic-card' + (item.ok ? ' ok' : ' issue')
-    card.innerHTML = '<span class="settings-section-main">' +
-      '<span class="settings-section-title">' + item.title + '</span>' +
-      '<span class="settings-section-sub diagnostic-card-text">' + (item.text || '--') + '</span>' +
-      '</span>' +
-      '<span class="status-pill diagnostic-card-state">' + (item.ok ? t('diagnostics.ready') : t('diagnostics.issue')) + '</span>'
+    const main = document.createElement('span')
+    main.className = 'settings-section-main'
+    main.appendChild(el('span', 'settings-section-title', item.title))
+    main.appendChild(el('span', 'settings-section-sub diagnostic-card-text', item.text || '--'))
+    card.appendChild(main)
+    card.appendChild(el('span', 'status-pill diagnostic-card-state', item.ok ? t('diagnostics.ready') : t('diagnostics.issue')))
     runtimeDiagSummary.appendChild(card)
   })
 }
@@ -546,10 +547,10 @@ function updateDiagnostics(state) {
   requests.forEach(req => {
     const row = document.createElement('div')
     row.className = 'diag-row'
-    row.innerHTML = '<span class="diag-method">' + (req.method || '') + '</span>' +
-      '<span class="diag-path">' + (req.endpoint || '') + '</span>' +
-      '<span class="diag-status diag-' + (req.status < 400 ? 'ok' : 'err') + '">' + (req.status || '') + '</span>' +
-      '<span class="diag-time">' + (req.elapsedMs || 0) + 'ms</span>'
+    row.appendChild(el('span', 'diag-method', req.method || ''))
+    row.appendChild(el('span', 'diag-path', req.endpoint || ''))
+    row.appendChild(el('span', 'diag-status diag-' + (req.status < 400 ? 'ok' : 'err'), req.status || ''))
+    row.appendChild(el('span', 'diag-time', (req.elapsedMs || 0) + 'ms'))
     log.appendChild(row)
   })
 }

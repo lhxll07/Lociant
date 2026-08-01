@@ -138,11 +138,13 @@ class ChatController(
 
     // ---- Async queue ----
 
-    fun submitAsync(request: ModelChatRequest): String =
-        requestQueue.submit(request.modelId, request.source) { executeChat(request) }
+    fun submitAsync(request: ModelChatRequest, turnRequest: ModelChatRequest = request): String =
+        requestQueue.submit(request.modelId, request.source) {
+            executeChat(request).also { result -> saveModelTurn(turnRequest, result) }
+        }
 
     fun submitSync(request: ModelChatRequest, timeoutMs: Long): ModelChatResult =
-        requestQueue.submitSync(request.modelId, request.source, timeoutMs) { executeChat(request) }
+        requestQueue.submitSync(request.modelId, request.source, timeoutMs, chatCapability::cancel) { executeChat(request) }
 
     private fun executeStreamAsync(request: ModelChatRequest, onChunk: (String, Boolean) -> Unit): StreamJob =
         requestQueue.submitStream(request.modelId, request.source, onChunk) { executeChatStream(request, onChunk) }

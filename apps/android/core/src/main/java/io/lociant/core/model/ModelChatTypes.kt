@@ -52,9 +52,15 @@ sealed class ModelChatPart {
             val mimeType = raw.substringAfter("data:", "").substringBefore(";base64", "image/jpeg")
                 .ifBlank { "image/jpeg" }
             val base64 = raw.substringAfter("base64,", raw)
+            // Check the encoded size before Base64.decode can allocate the full byte array.
+            if (base64.length > MAX_BASE64_IMAGE_CHARS) return null
             val bytes = runCatching { Base64.decode(base64, Base64.DEFAULT) }.getOrNull() ?: return null
+            if (bytes.size > MAX_IMAGE_BYTES) return null
             return Image(mimeType, bytes)
         }
+
+        private const val MAX_IMAGE_BYTES = 16 * 1024 * 1024
+        private const val MAX_BASE64_IMAGE_CHARS = (MAX_IMAGE_BYTES * 4 / 3) + 4
     }
 }
 

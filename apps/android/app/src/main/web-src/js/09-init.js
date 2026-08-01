@@ -296,6 +296,9 @@ modelRuntimeButton.addEventListener('click', () => {
   openRuntimeSettings()
 })
 modelMarketRefreshButton.addEventListener('click', () => loadModelMarket(true))
+if (modelMarketStartButton) {
+  modelMarketStartButton.addEventListener('click', startRuntimeForMarket)
+}
 modelMarketSearch.addEventListener('input', () => {
   window.clearTimeout(marketSearchTimer)
   marketSearchTimer = window.setTimeout(() => {

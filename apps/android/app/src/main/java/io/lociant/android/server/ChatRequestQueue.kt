@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -37,12 +38,17 @@ class ChatRequestQueue(
         modelId: String,
         source: String,
         timeoutMs: Long,
+        cancelRunning: () -> Unit = {},
         work: () -> ModelChatResult,
     ): ModelChatResult {
         val future = CompletableFuture<ModelChatResult>()
         val job = newJob(modelId, source, JobKind.CHAT, future, work)
         if (!enqueue(job)) return job.task.result ?: rejectedResult(modelId)
         return runCatching { future.get(timeoutMs, TimeUnit.MILLISECONDS) }.getOrElse { error ->
+            if (error is TimeoutException) {
+                // The caller timed out, but native inference may still be running on the worker.
+                cancel(job.id, "chat timed out", cancelRunning)
+            }
             ModelChatResult(ok = false, modelId = modelId, message = error.message ?: "chat timed out")
         }
     }

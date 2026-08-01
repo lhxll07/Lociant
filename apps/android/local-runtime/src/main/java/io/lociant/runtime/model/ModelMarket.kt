@@ -15,6 +15,7 @@ class ModelMarket(
     private val modelManager: ModelManager,
 ) {
     private val installTasks = ConcurrentHashMap<String, InstallTask>()
+    private val taskLock = Any()
     @Volatile private var cachedCatalog: List<MarketRepo>? = null
     private val installExecutor = Executors.newCachedThreadPool { runnable ->
         Thread(runnable, "lociant-market-install").apply { isDaemon = true }
@@ -37,7 +38,7 @@ class ModelMarket(
                 it.modelName.equals(repoId, ignoreCase = true) ||
                 it.repoPath.equals(repoId, ignoreCase = true)
         } ?: error("Unknown ModelScope model: $repoId")
-        updateTask(repo.modelId, 0.0, "Starting")
+        require(beginTask(repo.modelId)) { "Model installation is already running: ${repo.modelId}" }
         return installRepo(repo, onProgress)
     }
 
@@ -49,12 +50,7 @@ class ModelMarket(
             .put("progress", task.progress)
             .put("message", task.message)
             .put("active", task.active)
-            .put("state", when {
-                task.active -> if ((task.progress ?: 0.0) >= 0.999) "done" else "installing"
-                (task.progress ?: 0.0) >= 0.999 -> "done"
-                task.message.contains("fail", ignoreCase = true) || task.message.contains("error", ignoreCase = true) -> "error"
-                else -> "done"
-            })
+            .put("state", task.state)
     }
 
     fun installAsync(repoId: String): JSONObject {
@@ -63,15 +59,19 @@ class ModelMarket(
                 it.modelName.equals(repoId, ignoreCase = true) ||
                 it.repoPath.equals(repoId, ignoreCase = true)
         } ?: error("Unknown ModelScope model: $repoId")
-        updateTask(repo.modelId, 0.0, "Starting")
+        if (!beginTask(repo.modelId)) {
+            return JSONObject()
+                .put("ok", true)
+                .put("jobId", repo.modelId)
+                .put("modelId", repo.modelId)
+                .put("message", "already installing")
+        }
         installExecutor.execute {
             try {
                 installRepo(repo) { progress, message ->
                     updateTask(repo.modelId, progress, message)
                 }
-            } catch (_: Throwable) {
-                // task state already updated by installRepo
-            }
+            } catch (_: Throwable) { }
         }
         return JSONObject()
             .put("ok", true)
@@ -81,19 +81,18 @@ class ModelMarket(
     }
 
     private fun installRepo(repo: MarketRepo, onProgress: (Double?, String) -> Unit = { _, _ -> }): ModelStatus {
-        val files = repoFiles(repo.repoPath)
-        val selected = selectMnnFiles(files)
-        require(selected.any { it.path == "config.json" }) { "ModelScope repo has no config.json" }
-        require(selected.any { it.path.endsWith(".mnn") && !it.path.contains("visual", ignoreCase = true) }) { "ModelScope repo has no LLM MNN file" }
-        require(selected.any { it.path.endsWith(".weight") && !it.path.contains("visual", ignoreCase = true) }) { "ModelScope repo has no LLM weight file" }
-
         val installParent = File((context.getExternalFilesDir(null) ?: context.filesDir), "models").apply { mkdirs() }
-        val tempRoot = File(installParent, ".market-${System.currentTimeMillis()}").apply { mkdirs() }
+        val tempRoot = File(installParent, ".market-${System.currentTimeMillis()}-${Thread.currentThread().id}").apply { mkdirs() }
         var targetDir: File? = null
         var backupDir: File? = null
         var targetPrepared = false
-
         try {
+            val files = repoFiles(repo.repoPath)
+            val selected = selectMnnFiles(files)
+            require(selected.any { it.path == "config.json" }) { "ModelScope repo has no config.json" }
+            require(selected.any { it.path.endsWith(".mnn") && !it.path.contains("visual", ignoreCase = true) }) { "ModelScope repo has no LLM MNN file" }
+            require(selected.any { it.path.endsWith(".weight") && !it.path.contains("visual", ignoreCase = true) }) { "ModelScope repo has no LLM weight file" }
+
             val total = selected.sumOf { it.size.coerceAtLeast(0L) }.takeIf { it > 0L }
             var downloaded = 0L
             selected.forEach { file ->
@@ -110,31 +109,38 @@ class ModelMarket(
                 ?: error("Downloaded files do not form a valid MNN model")
             modelManager.writeMnnDisplayName(modelRoot, repo.modelName)
             val spec = modelManager.inferMnnSpec(modelRoot, repo.modelName) ?: error("unknown MNN model package")
-            targetDir = modelManager.externalModelDir(spec)
-            backupDir = File(installParent, ".backup-${spec.id}").apply { deleteRecursively() }
-
-            updateTask(repo.modelId, 0.96, "Preparing model")
-            onProgress(0.96, "Preparing model")
-            if (targetDir.exists()) require(targetDir.renameTo(backupDir)) { "Cannot replace existing model" }
-            targetPrepared = true
-            if (!modelRoot.renameTo(targetDir)) {
-                updateTask(repo.modelId, null, "Writing model files")
-                onProgress(null, "Writing model files")
-                modelRoot.copyRecursively(targetDir, overwrite = true)
+            // Network and model inspection stay outside the lock; only the final directory swap is serialized.
+            return modelManager.withModelLock(spec.id) {
+                targetDir = modelManager.externalModelDir(spec)
+                backupDir = File(installParent, ".backup-${spec.id}").apply { deleteRecursively() }
+                try {
+                    updateTask(repo.modelId, 0.96, "Preparing model")
+                    onProgress(0.96, "Preparing model")
+                    if (targetDir!!.exists()) require(targetDir!!.renameTo(backupDir!!)) { "Cannot replace existing model" }
+                    targetPrepared = true
+                    if (!modelRoot.renameTo(targetDir!!)) {
+                        updateTask(repo.modelId, null, "Writing model files")
+                        onProgress(null, "Writing model files")
+                        modelRoot.copyRecursively(targetDir!!, overwrite = true)
+                    }
+                    tempRoot.deleteRecursively()
+                    backupDir!!.deleteRecursively()
+                    modelManager.invalidateCache()
+                    updateTask(repo.modelId, 1.0, "Model installed", active = false, state = "done")
+                    onProgress(1.0, "Model installed")
+                    modelManager.resolve(spec.id)
+                } catch (error: Throwable) {
+                    // Remove a partial target before restoring the previous directory.
+                    if (targetPrepared) targetDir?.deleteRecursively()
+                    val target = targetDir
+                    if (target != null && backupDir?.exists() == true) require(backupDir!!.renameTo(target)) { "Cannot restore previous model" }
+                    throw error
+                }
             }
-            tempRoot.deleteRecursively()
-            backupDir.deleteRecursively()
-            modelManager.invalidateCache()
-            updateTask(repo.modelId, 1.0, "Model installed", false)
-            onProgress(1.0, "Model installed")
-            return modelManager.resolve(spec.id)
         } catch (error: Throwable) {
-            if (targetPrepared) targetDir?.deleteRecursively()
-            val target = targetDir
-            if (target != null) backupDir?.takeIf { it.exists() }?.renameTo(target)
             tempRoot.deleteRecursively()
             modelManager.invalidateCache()
-            updateTask(repo.modelId, null, error.message ?: "Model install failed", false)
+            updateTask(repo.modelId, null, error.message ?: "Model install failed", active = false, state = "error")
             throw error
         }
     }
@@ -205,8 +211,23 @@ class ModelMarket(
             .contains(q)
     }
 
-    private fun updateTask(modelId: String, progress: Double?, message: String, active: Boolean = true) {
-        installTasks[normalizeId(modelId)] = InstallTask(progress, message, active)
+    private fun beginTask(modelId: String): Boolean {
+        val key = normalizeId(modelId)
+        synchronized(taskLock) {
+            if (installTasks[key]?.active == true) return false
+            installTasks[key] = InstallTask(0.0, "Starting", true, "installing")
+            return true
+        }
+    }
+
+    private fun updateTask(
+        modelId: String,
+        progress: Double?,
+        message: String,
+        active: Boolean = true,
+        state: String = if (active) "installing" else "done",
+    ) {
+        installTasks[normalizeId(modelId)] = InstallTask(progress, message, active, state)
         if (!active) {
             windowCleanup(modelId)
         }
@@ -216,7 +237,9 @@ class ModelMarket(
         val key = normalizeId(modelId)
         installExecutor.execute {
             Thread.sleep(8_000)
-            installTasks.remove(key)
+            synchronized(taskLock) {
+                if (installTasks[key]?.active != true) installTasks.remove(key)
+            }
         }
     }
 
@@ -336,6 +359,7 @@ class ModelMarket(
         val progress: Double?,
         val message: String,
         val active: Boolean,
+        val state: String,
     )
 
     companion object {

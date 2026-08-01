@@ -122,8 +122,8 @@ def list_lociant_tools(config: Config) -> list[dict[str, Any]]:
         if policy:
             tool["annotations"] = {
                 "readOnlyHint": not bool(policy.get("sideEffect", False)),
-                "destructiveHint": False,
-                "openWorldHint": bool(policy.get("remoteAllowed", False)),
+                "destructiveHint": bool(policy.get("destructive", False)),
+                "openWorldHint": bool(policy.get("openWorld", False)),
             }
         tools.append(tool)
     return tools

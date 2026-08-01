@@ -24,6 +24,7 @@ import io.lociant.tools.ModelTools
 import io.lociant.tools.RuntimeTools
 import io.lociant.tools.VisionTools
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.ApplicationRequest
@@ -292,7 +293,7 @@ class LociantServer(
         val endpoint = call.request.path()
         Log.i(TAG, "request start id=$requestId path=$endpoint")
 
-        val raw = call.receiveText()
+        val raw = receiveTextLimited(call)
         val response = try {
             val parsed = ModelApiMapper.parseOpenAiChat(raw).withHeaderSession(call.request.headerSessionId())
             val currentRequest = chatController.boundRequest(parsed, modelId, maxOutputTokens)
@@ -305,7 +306,7 @@ class LociantServer(
             val request = chatController.sessionRequest(currentRequest)
             val turnRequest = currentRequest.copy(sessionId = request.sessionId, modelId = request.modelId, persistSession = request.persistSession)
             if (JSONObject(raw).optBoolean("async", false)) {
-                val asyncId = chatController.submitAsync(request)
+                val asyncId = chatController.submitAsync(request, turnRequest)
                 Log.i(TAG, "request async id=$requestId asyncId=$asyncId")
                 call.respondText(JSONObject().put("id", asyncId).put("status", "queued").toString(), JsonContentType, HttpStatusCode.Accepted)
                 return
@@ -736,10 +737,20 @@ class LociantServer(
     // ---- Helpers ----
 
     private suspend fun requestJson(call: ApplicationCall): JSONObject {
-        val raw = call.receiveText()
+        val raw = receiveTextLimited(call)
         if (raw.isBlank()) return JSONObject()
         return runCatching { JSONObject(raw) }
             .getOrElse { throw InvalidRequestException("Request body must be a JSON object", it) }
+    }
+
+    private suspend fun receiveTextLimited(call: ApplicationCall): String {
+        val declaredLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+        require(declaredLength == null || declaredLength <= MAX_JSON_BODY_BYTES) {
+            "Request body is too large"
+        }
+        return call.receiveText().also { body ->
+            require(body.length <= MAX_JSON_BODY_BYTES) { "Request body is too large" }
+        }
     }
 
 
@@ -755,6 +766,7 @@ class LociantServer(
         private const val DEFAULT_MAX_OUTPUT_TOKENS = io.lociant.core.model.DEFAULT_OUTPUT_TOKENS
         private const val MIN_OUTPUT_TOKENS = io.lociant.core.model.MIN_OUTPUT_TOKENS
         private const val HARD_MAX_OUTPUT_TOKENS = io.lociant.core.model.HARD_MAX_OUTPUT_TOKENS
+        private const val MAX_JSON_BODY_BYTES = 4L * 1024L * 1024L
         private const val SETTINGS_NAMESPACE = RuntimeDefaults.Settings.SERVER_NAMESPACE
         private const val SETTINGS_KEY = RuntimeDefaults.Settings.SERVER_KEY
         private val JsonContentType = ContentType.Application.Json.withParameter("charset", "utf-8")

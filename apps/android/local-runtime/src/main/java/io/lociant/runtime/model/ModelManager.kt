@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 data class ModelSpec(
     val id: String,
@@ -104,15 +105,17 @@ class ModelManager(context: Context) {
                 .put("id", spec.id)
         }
 
-        val dirs = listOfNotNull(findInstalledDir(spec)).ifEmpty { externalDirs(spec).filter { it.exists() } }
-        if (dirs.isEmpty()) {
+        val failed = withModelLock(spec.id) {
+            val dirs = listOfNotNull(findInstalledDir(spec)).ifEmpty { externalDirs(spec).filter { it.exists() } }
+            if (dirs.isEmpty()) return@withModelLock null
+            dirs.filterNot { it.deleteRecursively() }
+        }
+        if (failed == null) {
             return JSONObject()
                 .put("ok", false)
                 .put("message", "Model not installed")
                 .put("id", spec.id)
         }
-
-        val failed = dirs.filterNot { it.deleteRecursively() }
         invalidateCache()
         return JSONObject()
             .put("ok", failed.isEmpty())
@@ -153,6 +156,15 @@ class ModelManager(context: Context) {
     fun externalModelDir(spec: ModelSpec): File {
         val root = appContext.getExternalFilesDir(null) ?: appContext.filesDir
         return File(root, "models/${modelDirName(spec)}")
+    }
+
+    /**
+     * Serializes final filesystem changes for one model. Downloading and unpacking must stay
+     * outside this lock so independent installs do not wait on each other's network or disk I/O.
+     */
+    fun <T> withModelLock(modelId: String, block: () -> T): T {
+        val lock = modelLocks.computeIfAbsent(normalizeId(modelId)) { Any() }
+        return synchronized(lock, block)
     }
 
     private fun missingFiles(spec: ModelSpec, externalDir: File?): List<String> {
@@ -211,7 +223,7 @@ class ModelManager(context: Context) {
         if (!configFile.isFile) return null
         val config = runCatching { JSONObject(configFile.readText(Charsets.UTF_8)) }.getOrNull() ?: return null
         if (!looksLikeMnnConfig(dir, config)) return null
-        val required = inferMnnRequiredFiles(dir, config)
+        val required = inferMnnRequiredFiles(dir, config) ?: return null
         if (!required.any { it.endsWith(".mnn") && !it.contains("visual") } ||
             !required.any { it.endsWith(".weight") && !it.contains("visual") }) return null
         val baseName = cleanModelName(config.optString("model_name")
@@ -247,10 +259,10 @@ class ModelManager(context: Context) {
         }
     }
 
-    private fun inferMnnRequiredFiles(dir: File, config: JSONObject): List<String> {
+    private fun inferMnnRequiredFiles(dir: File, config: JSONObject): List<String>? {
         val files = linkedSetOf("config.json")
-        addConfiguredOrFallback(files, dir, config.optString("llm_model"), "llm.mnn", required = true)
-        addConfiguredOrFallback(files, dir, config.optString("llm_weight"), "llm.mnn.weight", required = true)
+        if (!addConfiguredOrFallback(files, dir, config.optString("llm_model"), "llm.mnn", required = true)) return null
+        if (!addConfiguredOrFallback(files, dir, config.optString("llm_weight"), "llm.mnn.weight", required = true)) return null
         if (files.none { it.endsWith(".mnn") && !it.contains("visual") }) {
             dir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(".mnn") && !it.name.contains("visual", ignoreCase = true) }
                 ?.let { files += it.name }
@@ -259,9 +271,10 @@ class ModelManager(context: Context) {
             dir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(".weight") && !it.name.contains("visual", ignoreCase = true) }
                 ?.let { files += it.name }
         }
-        addConfiguredOrFallback(files, dir, config.optString("tokenizer_file").ifBlank { config.optString("tokenizer") }, "tokenizer.txt", required = true)
+        if (!addConfiguredOrFallback(files, dir, config.optString("tokenizer_file").ifBlank { config.optString("tokenizer") }, "tokenizer.txt", required = true)) return null
         if (File(dir, "llm_config.json").isFile) files += "llm_config.json"
-        val visual = config.optString("visual_model").trim().replace('\\', '/').trimStart('/')
+        val configuredVisual = config.optString("visual_model")
+        val visual = safeModelPath(dir, configuredVisual) ?: return null
         if (visual.isNotBlank() && File(dir, visual).isFile) {
             files += visual
             val visualWeight = "$visual.weight"
@@ -297,13 +310,24 @@ class ModelManager(context: Context) {
             .orEmpty()
     }
 
-    private fun addConfiguredOrFallback(files: MutableSet<String>, dir: File, configured: String, fallback: String, required: Boolean) {
-        val value = configured.trim().replace('\\', '/').trimStart('/')
+    private fun addConfiguredOrFallback(files: MutableSet<String>, dir: File, configured: String, fallback: String, required: Boolean): Boolean {
+        val value = safeModelPath(dir, configured) ?: return configured.isBlank()
         when {
             value.isNotBlank() -> files += value
             File(dir, fallback).isFile -> files += fallback
             required -> files += fallback
         }
+        return true
+    }
+
+    private fun safeModelPath(root: File, value: String): String? {
+        val normalized = value.trim().replace('\\', '/')
+        if (normalized.isBlank()) return ""
+        if (normalized.startsWith('/') || normalized.contains(':') || normalized.split('/').any { it.isBlank() || it == "." || it == ".." }) {
+            return null
+        }
+        val file = File(root, normalized)
+        return normalized.takeIf { file.canonicalFile.toPath().startsWith(root.canonicalFile.toPath()) }
     }
 
     private fun cleanModelName(value: String): String {
@@ -365,6 +389,7 @@ class ModelManager(context: Context) {
         private const val SOURCE_ASSET = "asset"
         private const val SOURCE_EXTERNAL = "external"
         private const val MAX_MODEL_SCAN_DEPTH = 3
+        private val modelLocks = ConcurrentHashMap<String, Any>()
 
         private val knownDirs = mapOf(
             YOLO_ID to "yolov8n",

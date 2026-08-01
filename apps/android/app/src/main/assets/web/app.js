@@ -206,6 +206,8 @@ const i18n = {
     'models.installed': 'Installed',
     'models.installing': 'Installing',
     'models.delete': 'Delete',
+    'models.marketNeedsRuntime': 'Start the runtime to connect the model market',
+    'models.marketStartRuntime': 'Start runtime',
 
     'empty.models': 'No models yet',
     'toast.modelsReloaded': 'Models refreshed',
@@ -424,6 +426,8 @@ const i18n = {
     'models.installed': '已安装',
     'models.installing': '安装中',
     'models.delete': '删除',
+    'models.marketNeedsRuntime': '启动运行时即可连接模型市场',
+    'models.marketStartRuntime': '启动运行时',
 
     'empty.models': '暂无模型',
     'toast.modelsReloaded': '模型已刷新',
@@ -475,6 +479,8 @@ const modelMarketBack = document.getElementById('modelMarketBack')
 const modelMarketList = document.getElementById('modelMarketList')
 const modelMarketSearch = document.getElementById('modelMarketSearch')
 const modelMarketRefreshButton = document.getElementById('modelMarketRefreshButton')
+const modelMarketRuntimeHint = document.getElementById('modelMarketRuntimeHint')
+const modelMarketStartButton = document.getElementById('modelMarketStartButton')
 const modelProgress = document.getElementById('modelProgress')
 const modelProgressText = document.getElementById('modelProgressText')
 const modelProgressPercent = document.getElementById('modelProgressPercent')
@@ -919,6 +925,7 @@ function updateRuntimeServiceState(state) {
     updateDiagnostics(runtimeServiceState)
   }
   updateHomeState()
+  if (typeof updateModelMarketHint === 'function') updateModelMarketHint()
 }
 
 function syncTopStatus() {
@@ -1090,6 +1097,7 @@ function setModelView(view) {
   })
   if (modelView === 'local') loadModels()
   if (modelView === 'market') {
+    updateModelMarketHint()
     renderModelMarket(marketModels)
     if (!marketModels.length) loadModelMarket()
   }
@@ -1191,9 +1199,41 @@ function loadModelMarket(forceRefresh) {
     .then(data => {
       marketModels = (data && Array.isArray(data.models)) ? data.models : []
       renderModelMarket(marketModels)
+      updateModelMarketHint()
       showToast(t('toast.modelMarketLoaded'))
     })
-    .catch(() => showToast(t('toast.modelMarketFailed')))
+    .catch(() => {
+      updateModelMarketHint()
+      const state = runtimeServiceState || {}
+      if (state.running || state.starting) showToast(t('toast.modelMarketFailed'))
+    })
+}
+
+function updateModelMarketHint() {
+  if (!modelMarketRuntimeHint) return
+  const state = runtimeServiceState || {}
+  const needsRuntime = !(state.running || state.starting)
+  modelMarketRuntimeHint.classList.toggle('is-hidden', !needsRuntime)
+}
+
+function startRuntimeForMarket() {
+  startRuntime({})
+  updateModelMarketHint()
+  let attempts = 0
+  const timer = window.setInterval(() => {
+    const state = runtimeServiceState || {}
+    attempts += 1
+    if (state.running) {
+      window.clearInterval(timer)
+      updateModelMarketHint()
+      loadModelMarket(true)
+    } else if (attempts >= 30) {
+      window.clearInterval(timer)
+      updateModelMarketHint()
+    } else {
+      updateModelMarketHint()
+    }
+  }, 1000)
 }
 
 function renderModelMarket(models) {
@@ -1871,11 +1911,12 @@ function renderDiagnosticsSummary(check) {
   cards.forEach(item => {
     const card = document.createElement('div')
     card.className = 'settings-section diagnostic-card' + (item.ok ? ' ok' : ' issue')
-    card.innerHTML = '<span class="settings-section-main">' +
-      '<span class="settings-section-title">' + item.title + '</span>' +
-      '<span class="settings-section-sub diagnostic-card-text">' + (item.text || '--') + '</span>' +
-      '</span>' +
-      '<span class="status-pill diagnostic-card-state">' + (item.ok ? t('diagnostics.ready') : t('diagnostics.issue')) + '</span>'
+    const main = document.createElement('span')
+    main.className = 'settings-section-main'
+    main.appendChild(el('span', 'settings-section-title', item.title))
+    main.appendChild(el('span', 'settings-section-sub diagnostic-card-text', item.text || '--'))
+    card.appendChild(main)
+    card.appendChild(el('span', 'status-pill diagnostic-card-state', item.ok ? t('diagnostics.ready') : t('diagnostics.issue')))
     runtimeDiagSummary.appendChild(card)
   })
 }
@@ -1949,10 +1990,10 @@ function updateDiagnostics(state) {
   requests.forEach(req => {
     const row = document.createElement('div')
     row.className = 'diag-row'
-    row.innerHTML = '<span class="diag-method">' + (req.method || '') + '</span>' +
-      '<span class="diag-path">' + (req.endpoint || '') + '</span>' +
-      '<span class="diag-status diag-' + (req.status < 400 ? 'ok' : 'err') + '">' + (req.status || '') + '</span>' +
-      '<span class="diag-time">' + (req.elapsedMs || 0) + 'ms</span>'
+    row.appendChild(el('span', 'diag-method', req.method || ''))
+    row.appendChild(el('span', 'diag-path', req.endpoint || ''))
+    row.appendChild(el('span', 'diag-status diag-' + (req.status < 400 ? 'ok' : 'err'), req.status || ''))
+    row.appendChild(el('span', 'diag-time', (req.elapsedMs || 0) + 'ms'))
     log.appendChild(row)
   })
 }
@@ -2703,6 +2744,9 @@ modelRuntimeButton.addEventListener('click', () => {
   openRuntimeSettings()
 })
 modelMarketRefreshButton.addEventListener('click', () => loadModelMarket(true))
+if (modelMarketStartButton) {
+  modelMarketStartButton.addEventListener('click', startRuntimeForMarket)
+}
 modelMarketSearch.addEventListener('input', () => {
   window.clearTimeout(marketSearchTimer)
   marketSearchTimer = window.setTimeout(() => {

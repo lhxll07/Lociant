@@ -205,6 +205,8 @@ const i18n = {
     'models.installed': 'Installed',
     'models.installing': 'Installing',
     'models.delete': 'Delete',
+    'models.marketNeedsRuntime': 'Start the runtime to connect the model market',
+    'models.marketStartRuntime': 'Start runtime',
 
     'empty.models': 'No models yet',
     'toast.modelsReloaded': 'Models refreshed',
@@ -423,6 +425,8 @@ const i18n = {
     'models.installed': '已安装',
     'models.installing': '安装中',
     'models.delete': '删除',
+    'models.marketNeedsRuntime': '启动运行时即可连接模型市场',
+    'models.marketStartRuntime': '启动运行时',
 
     'empty.models': '暂无模型',
     'toast.modelsReloaded': '模型已刷新',

@@ -116,6 +116,7 @@ function updateRuntimeServiceState(state) {
     updateDiagnostics(runtimeServiceState)
   }
   updateHomeState()
+  if (typeof updateModelMarketHint === 'function') updateModelMarketHint()
 }
 
 function syncTopStatus() {
