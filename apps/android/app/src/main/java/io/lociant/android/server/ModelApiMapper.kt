@@ -101,22 +101,45 @@ object ModelApiMapper {
                     name = message.optString("name"),
                     toolCallId = message.optString("tool_call_id"),
                     toolCalls = parseToolCalls(message.optJSONArray("tool_calls")),
+                    reasoning = message.optString("reasoning_content"),
                 )
             }
     }
 
-    fun toolAssistantMessage(toolCall: ModelToolCall): ModelChatMessage {
-        return ModelChatMessage("assistant", emptyList(), toolCalls = listOf(toolCall))
+    fun toolAssistantMessage(toolCall: ModelToolCall, reasoning: String = ""): ModelChatMessage {
+        return toolAssistantMessage(listOf(toolCall), reasoning)
+    }
+
+    /**
+     * Keeps one assistant tool-call message for a model turn. OpenAI-compatible
+     * providers require all calls from the same turn to be grouped before the
+     * matching tool results.
+     */
+    fun toolAssistantMessage(toolCalls: List<ModelToolCall>, reasoning: String = ""): ModelChatMessage {
+        return ModelChatMessage("assistant", emptyList(), toolCalls = toolCalls, reasoning = reasoning)
     }
 
     fun toolResultMessage(toolCall: ModelToolCall, result: JSONObject): ModelChatMessage {
         return ModelChatMessage(
             role = "tool",
-            parts = listOf(ModelChatPart.Text(result.toString())),
+            parts = listOf(ModelChatPart.Text(truncatedToolResult(result))),
             toolCallId = toolCall.id,
             name = toolCall.name,
         )
     }
+
+    /**
+     * Bounds tool results fed back to the model. Full accessibility trees from
+     * a few rounds can otherwise overflow the model's context window and
+     * interrupt the session.
+     */
+    private fun truncatedToolResult(result: JSONObject): String {
+        val raw = result.toString()
+        if (raw.length <= TOOL_RESULT_MAX_CHARS) return raw
+        return raw.take(TOOL_RESULT_MAX_CHARS) + "\n...(tool result truncated by Lociant)"
+    }
+
+    private const val TOOL_RESULT_MAX_CHARS = 8000
 
     private fun parseOpenAiContent(content: Any?): List<ModelChatPart> {
         return when (content) {

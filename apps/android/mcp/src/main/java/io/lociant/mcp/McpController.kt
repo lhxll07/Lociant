@@ -4,110 +4,200 @@ import io.lociant.core.api.ApiContract
 import io.lociant.core.tools.ToolCallOrigin
 import io.lociant.core.tools.ToolExposure
 import io.lociant.core.tools.ToolRegistry
-import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveText
-import io.ktor.server.response.header
-import io.ktor.server.response.respondText
+import io.ktor.server.request.header
+import io.ktor.server.response.respond
+import io.ktor.server.sse.ServerSSESession
+import io.modelcontextprotocol.kotlin.sdk.server.Server
+import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
+import io.modelcontextprotocol.kotlin.sdk.server.StreamableHttpServerTransport
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.ContentBlock
+import io.modelcontextprotocol.kotlin.sdk.types.ImageContent
+import io.modelcontextprotocol.kotlin.sdk.types.Implementation
+import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import io.modelcontextprotocol.kotlin.sdk.types.ToolAnnotations
+import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
+import kotlinx.serialization.json.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * MCP Streamable HTTP endpoint backed by the official MCP Kotlin SDK
+ * (io.modelcontextprotocol:kotlin-sdk), the same SDK RikkaHub uses on the
+ * client side. JSON-RPC framing, protocol-version negotiation, session
+ * management and SSE/JSON response selection are handled by the SDK instead
+ * of hand-rolled code.
+ *
+ * Tools are sourced from [ToolRegistry] with the configured [ToolExposure].
+ * One [Server] + [StreamableHttpServerTransport] pair is created per MCP
+ * session; the transport manages `Mcp-Session-Id` lifecycle automatically.
+ */
 class McpController(
     private val toolRegistry: ToolRegistry,
     private val exposure: () -> ToolExposure,
 ) {
-    suspend fun post(call: ApplicationCall) {
-        val raw = call.receiveText()
-        val message = runCatching { JSONObject(raw.ifBlank { "{}" }) }.getOrElse {
-            call.respondText(error(null, -32700, "Parse error").toString(), JsonContentType, HttpStatusCode.BadRequest)
-            return
-        }
-        val id = message.opt("id")
-        if (id == null || id == JSONObject.NULL) {
-            call.response.header("MCP-Protocol-Version", ProtocolVersion)
-            call.respondText("", JsonContentType, HttpStatusCode.Accepted)
-            return
-        }
-        val response = handle(message)
-        call.response.header("MCP-Protocol-Version", ProtocolVersion)
-        call.respondText(response.toString(), JsonContentType)
+    private val transports = ConcurrentHashMap<String, StreamableHttpServerTransport>()
+
+    suspend fun handlePost(call: ApplicationCall) {
+        val transport = getOrCreateTransport(call) ?: return
+        transport.handleRequest(null, call)
     }
 
-    private fun handle(message: JSONObject): JSONObject {
-        val id = message.opt("id")
-        return runCatching {
-            when (message.optString("method")) {
-                "initialize" -> result(id, initializeResult(message.optJSONObject("params")))
-                "ping" -> result(id, JSONObject())
-                "tools/list" -> result(id, JSONObject().put("tools", mcpTools()))
-                "tools/call" -> result(id, callTool(message.optJSONObject("params") ?: JSONObject()))
-                "resources/list" -> result(id, JSONObject().put("resources", JSONArray()))
-                "prompts/list" -> result(id, JSONObject().put("prompts", JSONArray()))
-                else -> error(id, -32601, "Unsupported MCP method: ${message.optString("method")}")
+    suspend fun handleSse(session: ServerSSESession, call: ApplicationCall) {
+        val transport = findTransport(call) ?: return
+        transport.handleRequest(session, call)
+    }
+
+    suspend fun handleDelete(call: ApplicationCall) {
+        val transport = findTransport(call) ?: return
+        transport.handleRequest(null, call)
+    }
+
+    private suspend fun findTransport(call: ApplicationCall): StreamableHttpServerTransport? {
+        val sessionId = call.request.header(McpSessionIdHeader)
+        if (sessionId.isNullOrEmpty()) {
+            call.respond(HttpStatusCode.BadRequest, "Bad Request: No valid session ID provided")
+            return null
+        }
+        val transport = transports[sessionId]
+        if (transport == null) {
+            call.respond(HttpStatusCode.NotFound, "Session not found")
+        }
+        return transport
+    }
+
+    private suspend fun getOrCreateTransport(call: ApplicationCall): StreamableHttpServerTransport? {
+        val sessionId = call.request.header(McpSessionIdHeader)
+        if (sessionId != null) {
+            val transport = transports[sessionId]
+            if (transport == null) {
+                call.respond(HttpStatusCode.NotFound, "Session not found")
             }
-        }.getOrElse { failure ->
-            error(id, -32000, failure.message ?: "MCP request failed")
+            return transport
         }
+
+        val transport = StreamableHttpServerTransport(
+            StreamableHttpServerTransport.Configuration(enableJsonResponse = true),
+        )
+        transport.setOnSessionInitialized { id -> transports[id] = transport }
+        transport.setOnSessionClosed { id -> transports.remove(id) }
+
+        val server = buildServer()
+        server.onClose { transport.sessionId?.let { transports.remove(it) } }
+        server.createSession(transport)
+        return transport
     }
 
-    private fun initializeResult(params: JSONObject?): JSONObject = JSONObject()
-        .put("protocolVersion", params?.optString("protocolVersion")?.takeIf { it.isNotBlank() } ?: ProtocolVersion)
-        .put("capabilities", JSONObject().put("tools", JSONObject().put("listChanged", false)))
-        .put("serverInfo", JSONObject().put("name", "lociant").put("version", ApiContract.VERSION))
-        .put("instructions", "Use Lociant tools for Android-native sensing, screen context, local phone models, camera frames, and explicit phone UI actions.")
+    private fun buildServer(): Server {
+        val server = Server(
+            serverInfo = Implementation(name = "lociant", version = ApiContract.VERSION),
+            options = ServerOptions(
+                capabilities = ServerCapabilities(
+                    tools = ServerCapabilities.Tools(listChanged = false),
+                ),
+            ),
+            instructions = "Use Lociant tools for Android-native sensing, screen context, local phone models, camera frames, and explicit phone UI actions.",
+        )
 
-    private fun mcpTools(): JSONArray {
-        val output = JSONArray()
-        val tools = toolRegistry.definitions(exposure())
-        for (index in 0 until tools.length()) {
-            val item = tools.optJSONObject(index) ?: continue
+        val definitions = toolRegistry.definitions(exposure())
+        for (index in 0 until definitions.length()) {
+            val item = definitions.optJSONObject(index) ?: continue
             val function = item.optJSONObject("function") ?: continue
             val name = function.optString("name")
             if (name.isBlank()) continue
             val policy = item.optJSONObject("x_policy") ?: JSONObject()
-            output.put(JSONObject()
-                .put("name", name)
-                .put("description", function.optString("description"))
-                .put("inputSchema", function.optJSONObject("parameters") ?: JSONObject().put("type", "object"))
-                .put("annotations", JSONObject()
-                    .put("readOnlyHint", !policy.optBoolean("sideEffect", false))
-                    .put("destructiveHint", policy.optBoolean("destructive", false))
-                    .put("openWorldHint", policy.optBoolean("openWorld", false))))
+
+            server.addTool(
+                name = name,
+                description = function.optString("description"),
+                inputSchema = toToolSchema(function.optJSONObject("parameters")),
+                toolAnnotations = ToolAnnotations(
+                    title = null,
+                    readOnlyHint = !policy.optBoolean("sideEffect", false),
+                    destructiveHint = policy.optBoolean("destructive", false),
+                    idempotentHint = null,
+                    openWorldHint = policy.optBoolean("openWorld", false),
+                ),
+            ) { request -> callTool(name, request) }
         }
-        return output
+        return server
     }
 
-    private fun callTool(params: JSONObject): JSONObject {
-        val name = params.optString("name")
-        if (name.isBlank()) return JSONObject()
-            .put("content", JSONArray().put(textContent("tools/call requires params.name")))
-            .put("isError", true)
-        val args = params.optJSONObject("arguments") ?: JSONObject()
+    private fun callTool(name: String, request: CallToolRequest): CallToolResult {
+        val args = request.arguments?.let { kotlinToOrg(it) as? JSONObject } ?: JSONObject()
         val response = toolRegistry.call(name, args, exposure(), ToolCallOrigin.Remote)
         val result = response.optJSONObject("result") ?: response
         val isError = !response.optBoolean("ok", false) || result.optBoolean("ok", true) == false
-        val content = JSONArray()
 
+        val content = mutableListOf<ContentBlock>()
         result.keys().forEach { key ->
             val value = result.opt(key)
             if (value is String) {
                 parseDataUrl(value)?.let { image ->
-                    content.put(JSONObject()
-                        .put("type", "image")
-                        .put("data", image.data)
-                        .put("mimeType", image.mimeType))
+                    content.add(ImageContent(data = image.data, mimeType = image.mimeType))
                 }
             }
         }
-        content.put(textContent(jsonText(compactForText(result))))
+        content.add(TextContent(jsonText(compactForText(result))))
 
-        return JSONObject()
-            .put("content", content)
-            .put("structuredContent", stripLargeMedia(result))
-            .put("isError", isError)
+        return CallToolResult(
+            content = content,
+            isError = isError,
+            structuredContent = stripLargeMedia(result) as? JsonObject,
+        )
     }
+
+    // ---- Schema / value conversion (org.json <-> kotlinx.serialization.json) ----
+
+    private fun toToolSchema(params: JSONObject?): ToolSchema {
+        if (params == null) return ToolSchema()
+        return ToolSchema(
+            properties = params.optJSONObject("properties")?.let { orgToKotlin(it) as? JsonObject }
+                ?: JsonObject(emptyMap()),
+            required = params.optJSONArray("required")?.let { array ->
+                (0 until array.length()).map { array.getString(it) }
+            } ?: emptyList(),
+            defs = params.optJSONObject("\$defs")?.let { orgToKotlin(it) as? JsonObject }
+                ?: JsonObject(emptyMap()),
+        )
+    }
+
+    private fun orgToKotlin(value: Any?): JsonElement = when (value) {
+        is JSONObject -> buildJsonObject {
+            value.keys().forEach { key -> put(key, orgToKotlin(value.opt(key))) }
+        }
+        is JSONArray -> buildJsonArray {
+            for (index in 0 until value.length()) add(orgToKotlin(value.opt(index)))
+        }
+        is Boolean -> JsonPrimitive(value)
+        is Int -> JsonPrimitive(value)
+        is Long -> JsonPrimitive(value)
+        is Double -> JsonPrimitive(value)
+        is String -> JsonPrimitive(value)
+        JSONObject.NULL, null -> JsonNull
+        else -> JsonPrimitive(value.toString())
+    }
+
+    private fun kotlinToOrg(value: JsonElement): Any? = when (value) {
+        is JsonObject -> JSONObject().also { out -> value.forEach { (key, item) -> out.put(key, kotlinToOrg(item)) } }
+        is JsonArray -> JSONArray().also { out -> value.forEach { out.put(kotlinToOrg(it)) } }
+        is JsonPrimitive -> when {
+            value.isString -> value.content
+            value.booleanOrNull != null -> value.booleanOrNull
+            value.longOrNull != null -> value.longOrNull
+            value.doubleOrNull != null -> value.doubleOrNull
+            else -> value.content
+        }
+        is JsonNull, null -> JSONObject.NULL
+    }
+
+    // ---- Response shaping (kept from the original implementation) ----
 
     private fun compactForText(value: Any?): Any? = when (value) {
         is JSONObject -> JSONObject().also { out ->
@@ -124,22 +214,22 @@ class McpController(
     }
 
     private fun stripLargeMedia(value: Any?): Any? = when (value) {
-        is JSONObject -> JSONObject().also { out ->
+        is JSONObject -> buildJsonObject {
             value.keys().forEach { key ->
                 val item = value.opt(key)
                 val image = if (item is String) parseDataUrl(item) else null
                 if (image != null) {
-                    out.put("${key}MimeType", image.mimeType)
-                    out.put("${key}Base64Bytes", image.data.length)
+                    put("${key}MimeType", image.mimeType)
+                    put("${key}Base64Bytes", image.data.length)
                 } else {
-                    out.put(key, stripLargeMedia(item))
+                    put(key, orgToKotlin(stripLargeMedia(item)))
                 }
             }
         }
-        is JSONArray -> JSONArray().also { out ->
-            for (index in 0 until value.length()) out.put(stripLargeMedia(value.opt(index)))
+        is JSONArray -> buildJsonArray {
+            for (index in 0 until value.length()) add(orgToKotlin(stripLargeMedia(value.opt(index))))
         }
-        else -> value
+        else -> orgToKotlin(value)
     }
 
     private fun jsonText(value: Any?): String = when (value) {
@@ -163,24 +253,9 @@ class McpController(
         }.getOrNull()
     }
 
-    private fun textContent(text: String): JSONObject = JSONObject()
-        .put("type", "text")
-        .put("text", text)
-
-    private fun result(id: Any?, payload: JSONObject): JSONObject = JSONObject()
-        .put("jsonrpc", "2.0")
-        .put("id", id)
-        .put("result", payload)
-
-    private fun error(id: Any?, code: Int, message: String): JSONObject = JSONObject()
-        .put("jsonrpc", "2.0")
-        .put("id", id ?: JSONObject.NULL)
-        .put("error", JSONObject().put("code", code).put("message", message))
-
     private data class DataUrl(val mimeType: String, val data: String)
 
     private companion object {
-        private const val ProtocolVersion = "2025-06-18"
-        private val JsonContentType = ContentType.Application.Json.withParameter("charset", "utf-8")
+        private const val McpSessionIdHeader = "mcp-session-id"
     }
 }

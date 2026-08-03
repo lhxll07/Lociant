@@ -12,23 +12,66 @@ Do not scrape the WebView or depend on `LociantBridge`. The bridge is an interna
 
 ## MCP Configuration
 
-Example client configuration:
+`POST /mcp` is a Streamable HTTP MCP endpoint implemented with the official
+MCP Kotlin SDK (`io.modelcontextprotocol:kotlin-sdk`, same SDK RikkaHub uses
+client-side). The SDK handles JSON-RPC framing, protocol-version negotiation,
+session management (`Mcp-Session-Id`) and JSON/SSE response selection, so no
+protocol logic is hand-rolled in Lociant.
+
+Client requirements (MCP Streamable HTTP spec):
+
+- `Content-Type: application/json` on POST bodies;
+- `Accept: application/json, text/event-stream` (both values);
+- Bearer auth via `Authorization: Bearer TOKEN` when a token is configured.
+
+### RikkaHub (recommended on the phone)
+
+设置 → MCP → 导入，粘贴以下 JSON（Streamable HTTP 的 `type` 固定为
+`streamable_http`；`headers` 是 `[name, value]` 对数组）：
 
 ```json
 {
-  "mcpServers": {
+  "type": "streamable_http",
+  "commonOptions": {
+    "name": "Lociant 手机工具",
+    "enable": true,
+    "headers": [
+      ["Authorization", "Bearer TOKEN"]
+    ]
+  },
+  "url": "http://PHONE_IP:11434/mcp"
+}
+```
+
+导入后在“助手设置 → MCP 服务器”中勾选该服务器，工具才会出现在该助手
+的工具列表；对会改动手机状态的工具建议开启“需要审批”。
+
+### OpenCode (desktop agent)
+
+`opencode.json` 的远程 MCP 类型固定为 `remote`。OpenCode 默认 MCP 请求
+超时只有 5 秒，而手机工具（如 `llm_chat`、`ui_screen_state`）经常超过，
+必须显式调大 `timeout`（毫秒）；老版本 OpenCode 不会自动发送
+`Accept` 头，也请显式带上：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
     "lociant": {
-      "type": "streamable-http",
+      "type": "remote",
       "url": "http://PHONE_IP:11434/mcp",
+      "enabled": true,
+      "timeout": 120000,
       "headers": {
-        "Authorization": "Bearer TOKEN"
+        "Authorization": "Bearer TOKEN",
+        "Accept": "application/json, text/event-stream"
       }
     }
   }
 }
 ```
 
-The endpoint accepts JSON-RPC `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list` and `prompts/list`. Resources and prompts currently return empty lists.
+`PHONE_IP` 和 `TOKEN` 可在 Lociant 主页/设置里看到（`lanUrl` 与 API Token）。
 
 Clients limited to stdio may run:
 
@@ -68,6 +111,10 @@ The registry repeats the policy check during `tools/call`. A stale or forged man
 | Vision | `vision_status`, `vision_start`, `camera_capture`, `vision_stop` | Requires camera permission and unlocked interactive state |
 
 Tool names are current 1.0 contracts. They are not aliases for a retired capability system.
+
+## Cloud Model Provider
+
+Lociant is local-first but can opt into an OpenAI-compatible cloud model as an additional model backend. Configure `cloudBaseUrl`, `cloudApiKey`, `cloudModel` and `cloudEnabled` in settings; the cloud model then appears in the model list and `llm_chat`/chat requests routed to it work through the same tool-call pipeline. The API key is stored on the phone only.
 
 ## LLM Tool
 

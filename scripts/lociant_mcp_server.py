@@ -301,7 +301,7 @@ def split_csv(value: str) -> set[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Expose Lociant phone tools through MCP stdio.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help=f"Lociant HTTP base URL, default: {DEFAULT_BASE_URL}")
-    parser.add_argument("--timeout", type=int, default=30, help="HTTP timeout in seconds")
+    parser.add_argument("--timeout", type=int, default=120, help="HTTP timeout in seconds (phone-side tools such as llm_chat can take a while)")
     parser.add_argument("--api-key", default="", help="optional Lociant API token")
     parser.add_argument("--allow", default="", help="comma-separated tool allowlist")
     parser.add_argument("--deny", default="", help="comma-separated tool denylist")

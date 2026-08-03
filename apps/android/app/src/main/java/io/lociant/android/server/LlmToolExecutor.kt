@@ -49,6 +49,7 @@ class LlmToolExecutor(
             modelId = request.modelId,
             persistSession = request.persistSession,
         )
+        chatController.persistUserTurn(turnRequest)
         val timeoutMs = optionalPositiveInt(args, "timeoutMs")
             ?.toLong()
             ?.coerceIn(1_000L, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)

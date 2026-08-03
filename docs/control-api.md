@@ -29,7 +29,7 @@ PUT /api/v1/settings
 
 `GET runtime` reports server, model, queue and device state. Runtime start/stop is intentionally absent: Android foreground-service lifecycle is initiated locally through the app.
 
-`PUT settings` merges supplied fields into current settings. Supported fields include `port`, `modelId`, `maxOutputTokens`, `cpuThreads`, `inferenceBackend`, `contextProfile`, `historyLimit`, `authToken`, `toolExposure`, `autoStart` and `currentSessionId`. `inferenceBackend` selects the MNN engine backend (`model` follows the model config, or `cpu`, `opencl`, `vulkan`, `auto`); a leftover crash marker left by a previous abnormal exit automatically resets a non-CPU backend to `model`.
+`PUT settings` merges supplied fields into current settings. Supported fields include `port`, `modelId`, `maxOutputTokens`, `cpuThreads`, `inferenceBackend`, `cloudBaseUrl`, `cloudApiKey`, `cloudModel`, `cloudEnabled`, `contextProfile`, `historyLimit`, `authToken`, `toolExposure`, `autoStart` and `currentSessionId`. When `cloudEnabled` is true and `cloudBaseUrl`/`cloudModel` are set, Lociant registers the cloud model as a ready model and routes chat requests for it to the OpenAI-compatible endpoint; the API key is stored in the local settings store. `inferenceBackend` selects the MNN engine backend (`model` follows the model config, or `cpu`, `opencl`, `vulkan`, `auto`); a leftover crash marker left by a previous abnormal exit automatically resets a non-CPU backend to `model`.
 
 Changing `port` takes effect on the next service start. An occupied port produces a visible startup error and is never replaced automatically.
 

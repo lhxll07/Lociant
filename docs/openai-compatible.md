@@ -43,6 +43,8 @@ The response is the standard list shape and contains only ready chat-capable mod
 
 Complete model status and management are available through `/api/v1/models`, not an OpenAI extension.
 
+When a cloud model is configured and enabled (settings `cloudEnabled`, `cloudBaseUrl`, `cloudModel`), it is registered as an additional ready model with `owned_by` `cloud` and its normalized model name as the id. Chat requests for that id are routed to the OpenAI-compatible endpoint; the local MNN backend remains the default.
+
 ## Chat Completions
 
 ```http

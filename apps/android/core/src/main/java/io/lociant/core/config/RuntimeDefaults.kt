@@ -51,10 +51,30 @@ object RuntimeDefaults {
         const val CONFIG_CACHE_DIR = "mnn-chat-config"
     }
 
+    object Cloud {
+        /** 0 = do not cap cloud output tokens; follow the provider default. */
+        const val OUTPUT_TOKENS_DEFAULT = 0
+        const val CONTEXT_WINDOW_DEFAULT = 131072
+        const val CONTEXT_WINDOW_MIN = 16384
+        const val CONTEXT_WINDOW_MAX = 524288
+        const val HISTORY_LIMIT_DEFAULT = 256
+        const val HISTORY_LIMIT_MAX = 1024
+    }
+
     object Queue {
         const val MAX_QUEUED_REQUESTS = 16
         const val CHAT_TIMEOUT_MS = 300_000L
         const val STREAM_HEARTBEAT_MS = 10_000L
         const val TASK_RETENTION_MS = 300_000L
+    }
+
+    object Agent {
+        /** Enough room for phone tasks that require several verify-and-correct steps. */
+        const val MAX_ROUNDS = 16
+        /** A separate budget protects against several tool calls in one model turn. */
+        const val MAX_TOOL_CALLS = 32
+        /** Retry only one completed transient provider request. */
+        const val MAX_TRANSIENT_RETRIES = 1
+        const val TOOL_TIMEOUT_MS = 60_000L
     }
 }

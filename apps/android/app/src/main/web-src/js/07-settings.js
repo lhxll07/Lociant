@@ -59,6 +59,7 @@ function applyLocale() {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
   updateRuntimeServiceState(runtimeServiceState || {})
+  if (typeof updateOnboardingState === 'function') updateOnboardingState()
 }
 
 // ---- Sessions ----
@@ -99,6 +100,7 @@ function renderSessions(sessions) {
     row.appendChild(body)
     row.appendChild(check)
     row.addEventListener('click', () => {
+      if (homeChatInFlight) return
       selectRuntimeSession(session.id)
     })
     runtimeSessionList.appendChild(row)
@@ -136,6 +138,7 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
+      if (homeChatInFlight) return
       Promise.resolve(selectRuntimeSession(session.id))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state, session.id))
@@ -148,6 +151,7 @@ function renderHomeSessions(sessions) {
         .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
     })
     const deleteSession = event => {
+      if (homeChatInFlight) return
       event.preventDefault()
       event.stopPropagation()
       const deletingCurrent = session.id === homeCurrentSessionId()
@@ -253,11 +257,30 @@ function appendAssistantRun() {
   node.className = 'chat-message assistant assistant-run'
   const chain = el('div', 'chat-tool-chain')
   const content = el('div', 'chat-run-content')
+  const status = el('div', 'chat-run-status')
   node.appendChild(chain)
   node.appendChild(content)
+  node.appendChild(status)
   homeChatFeed.appendChild(node)
   homeChatFeed.scrollTop = homeChatFeed.scrollHeight
-  return { node, chain, content }
+  return { node, chain, content, status }
+}
+
+function updateRunStatus(target, text) {
+  const status = target && target.status ? target.status : null
+  if (!status) return
+  if (text) {
+    status.textContent = text
+    status.classList.add('active')
+  } else {
+    status.textContent = ''
+    status.classList.remove('active')
+  }
+}
+
+function runStatusText(key, args) {
+  const parts = Array.isArray(args) ? args.slice() : []
+  return t(key).replace(/%s/g, () => (parts.length ? String(parts.shift()) : ''))
 }
 
 function chatTextTarget(target) {
@@ -268,7 +291,7 @@ function chatNodeTarget(target) {
   return target && target.node ? target.node : target
 }
 
-function appendToolBubble(toolCall, target) {
+function appendToolBubble(toolCall, target, seq) {
   if (!homeChatFeed || !toolCall) return null
   const scope = target && target.chain ? target.chain : homeChatFeed
   const id = toolCall.id || toolCall.toolCallId || ''
@@ -276,6 +299,7 @@ function appendToolBubble(toolCall, target) {
   const node = existing || document.createElement('div')
   node.className = 'tool-call-item'
   if (id) node.dataset.toolCallId = id
+  if (seq !== undefined) node.dataset.toolSeq = String(seq)
   const info = normalizeToolBubbleInfo(toolCall)
   node.classList.toggle('done', info.status === 'completed')
   node.classList.toggle('error', info.status === 'failed')
@@ -287,7 +311,16 @@ function appendToolBubble(toolCall, target) {
   if (info.args) main.appendChild(el('code', '', info.args))
   node.appendChild(main)
   node.appendChild(el('span', 'tool-call-state', info.statusLabel))
-  if (!existing) scope.appendChild(node)
+  if (!existing) {
+    scope.appendChild(node)
+    // Keep bubbles in chronological (top-to-bottom) order even if events
+    // arrive out of sequence.
+    if (seq !== undefined && scope.querySelectorAll('.tool-call-item').length > 1) {
+      const items = Array.from(scope.querySelectorAll('.tool-call-item'))
+      items.sort((a, b) => Number(a.dataset.toolSeq || 0) - Number(b.dataset.toolSeq || 0))
+      items.forEach(item => scope.appendChild(item))
+    }
+  }
   if (target && target.chain) {
     chatNodeTarget(target).classList.add('has-tools')
   }
@@ -399,6 +432,13 @@ function renderHomeConversation(sessionId, messages) {
   if (!items.length) return
   items.forEach(item => {
     const role = item && item.role ? item.role : 'assistant'
+    // Tool messages carry raw result JSON; render them as a compact tool note
+    // instead of dumping code into the conversation.
+    if (role === 'tool') {
+      const name = item && (item.name || item.toolName)
+      if (name) appendToolBubble(Object.assign({}, item, { name: name, status: 'completed' }))
+      return
+    }
     const text = item && (item.text || item.content || item.message || '')
     if (text) appendChatBubble(role, text, { active: sessionId === homeCurrentSessionId() })
   })
@@ -420,14 +460,25 @@ function shouldPreferLatestHomeSession(state, currentId) {
 }
 
 function restoreHomeConversation(options) {
+  // A chat is still streaming into the live feed; do not reload or switch
+  // sessions while it is in flight.
+  if (homeChatInFlight) return
   const forceLatest = !!(options && options.forceLatest)
   const state = runtimeServiceState || runtimeState()
   updateRuntimeServiceState(state)
   const latest = latestHomeSession(state)
   const currentId = homeCurrentSessionId()
-  const target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
+  let target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
     ? (latest && latest.id)
     : currentId
+  // If the last turn was interrupted, restore that session so the failure is
+  // visible instead of silently switching to another conversation. Only do so
+  // while the session still exists in the current list.
+  if (homeChatFailure && homeChatFailure.sessionId &&
+      (homeChatFailure.sessionId === currentId ||
+       activeHomeSessions(state).some(session => session && session.id === homeChatFailure.sessionId))) {
+    target = homeChatFailure.sessionId
+  }
   if (!target) {
     clearHomeMessages()
     return null
@@ -437,6 +488,12 @@ function restoreHomeConversation(options) {
     updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
+  if (homeChatFailure && homeChatFailure.sessionId === target) {
+    const failure = homeChatFailure
+    homeChatFailure = null
+    if (failure.prompt) appendChatBubble('user', failure.prompt)
+    appendChatBubble('assistant', failure.message || t('toast.modelImportFailed'))
+  }
   return target
 }
 
@@ -639,7 +696,11 @@ function backToRuntimeSettings() {
 
 function openRuntimeModelSettings() {
   showSettingsDetail(runtimeModelPanel)
-  renderRuntimeModelChoices(runtimeModels)
+  if (typeof loadModels === 'function') {
+    loadModels().then(() => renderRuntimeModelChoices(runtimeModels))
+  } else {
+    renderRuntimeModelChoices(runtimeModels)
+  }
 }
 
 function openRuntimeAdvancedSettings() {

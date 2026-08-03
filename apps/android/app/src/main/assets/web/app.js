@@ -21,8 +21,6 @@ const i18n = {
     'status.running': 'Running',
     'status.stopped': 'Stopped',
 
-    'home.quickDiagnostics': 'Run diagnostics',
-    'home.quickConnection': 'Copy connection',
     'home.placeholder': 'Ask Lociant, or describe a tool task',
     'home.send': 'Send',
     'home.runtimeLabel': 'Runtime',
@@ -36,7 +34,13 @@ const i18n = {
     'home.localChatMeta': 'Local model',
     'home.readyModels': 'ready models',
     'home.emptyReply': 'No reply.',
+    'home.runStatusTool': 'Running tool %s (round %s)\u2026',
+    'home.runStatusRound': 'Calling model (round %s)\u2026',
+    'home.runStatusRetry': 'Network hiccup, retrying\u2026',
+    'home.runStatusStall': 'Still working (waited %s s)\u2026',
+    'home.toolRunDone': 'Tools executed successfully',
     'home.thinking': 'Thinking...',
+    'home.thought': 'Thought',
     'home.deleteChat': 'Delete chat',
     'home.uploadImage': 'Upload photo',
     'home.removeImage': 'Remove photo',
@@ -94,6 +98,21 @@ const i18n = {
     'settings.performanceEco': 'Eco',
     'settings.performanceBalanced': 'Balanced',
     'settings.performanceFast': 'Fast',
+    'settings.cloudTitle': 'Cloud model',
+    'settings.cloudSub': 'Use an OpenAI-compatible cloud API',
+    'settings.cloudBaseUrl': 'API base URL',
+    'settings.cloudBaseUrlSub': 'https://api.openai.com/v1',
+    'settings.cloudApiKey': 'API key',
+    'settings.cloudApiKeySub': 'Stored locally on this phone',
+    'settings.cloudModel': 'Model name',
+    'settings.cloudModelSub': 'e.g. gpt-4o-mini, qwen-max',
+    'settings.cloudResponseLength': 'Cloud response length',
+    'settings.cloudResponseLengthSub': '0 = follow the provider default',
+    'settings.cloudLengthUnlimited': 'Unlimited (provider default)',
+    'settings.cloudContextWindow': 'Cloud context window',
+    'settings.cloudContextWindowSub': 'History trimming budget for cloud models',
+    'settings.cloudHistoryLimit': 'Cloud history messages',
+    'settings.cloudHistoryLimitSub': 'Conversation turns kept in cloud context',
     'settings.inferenceBackend': 'Inference backend',
     'settings.inferenceBackendSub': 'Engine used for model inference',
     'settings.backendModel': 'Follow model',
@@ -146,11 +165,69 @@ const i18n = {
     'settings.advancedTitle': 'Advanced',
     'settings.advancedSub': 'Sessions and diagnostics',
     'settings.advancedIntro': 'Runtime records and API history.',
+    'onboarding.settingsTitle': 'Getting started',
+    'onboarding.settingsSub': 'Finish the first setup step by step',
+    'onboarding.open': 'Start',
+    'onboarding.kicker': 'Getting started',
+    'onboarding.close': 'Close guide',
+    'onboarding.welcomeTitle': 'Let us prepare your phone',
+    'onboarding.welcomeBody': 'Lociant lets a cloud model use apps, the screen, and system abilities on your phone. Follow these steps and your first run will be straightforward.',
+    'onboarding.welcomeNote': 'Cloud models are recommended first: setup is simpler, while your phone does the actual work.',
+    'onboarding.cloudTitle': 'Connect a cloud model',
+    'onboarding.cloudBody': 'DeepSeek is a good place to start. Create an API Key, paste it below, and it will stay on this phone.',
+    'onboarding.deepseekHint': 'A clear, pay-as-you-go starting point',
+    'onboarding.usePreset': 'Use preset',
+    'onboarding.apiKeyLabel': 'DeepSeek API Key',
+    'onboarding.cloudConfigured': 'Cloud model is ready.',
+    'onboarding.cloudPresetApplied': 'DeepSeek address and model filled in. Add your API Key.',
+    'onboarding.cloudRequired': 'Add an API Key before continuing.',
+    'onboarding.skipCloud': 'Skip for now and use a local model',
+    'onboarding.runtimeTitle': 'Start the runtime',
+    'onboarding.runtimeBody': 'The runtime is a small service on your phone. The cloud model understands your request; the runtime clicks, types, and reads the page.',
+    'onboarding.runtimeHint': 'Keep it running so the Agent can operate the phone.',
+    'onboarding.runtimeStopped': 'Not running',
+    'onboarding.runtimeStarting': 'Starting...',
+    'onboarding.runtimeRunning': 'Runtime is running',
+    'onboarding.startRuntime': 'Start runtime',
+    'onboarding.waitRuntime': 'Waiting for runtime',
+    'onboarding.permissionsTitle': 'Grant the important permission',
+    'onboarding.permissionsBody': 'Accessibility is required to click, type, and read the current page. Overlay, notifications, and camera are optional and can be enabled when needed.',
+    'onboarding.accessibility': 'Accessibility service',
+    'onboarding.accessibilityHint': 'Required: operate and read apps',
+    'onboarding.overlay': 'Overlay',
+    'onboarding.overlayHint': 'Optional: show runtime status',
+    'onboarding.granted': 'Ready',
+    'onboarding.needsGrant': 'Needs access',
+    'onboarding.optional': 'Optional',
+    'onboarding.grantAccessibility': 'Enable accessibility',
+    'onboarding.openAppPermissions': 'Open app permissions',
+    'onboarding.mcpTitle': 'Connect the phone to a desktop Agent',
+    'onboarding.mcpBody': 'MCP is a standard connection for Codex, Claude, or another client to discover and call phone tools. The phone executes; the computer handles conversation and orchestration.',
+    'onboarding.mcpEndpointLabel': 'MCP endpoint',
+    'onboarding.copyMcpConfig': 'Copy MCP config',
+    'onboarding.mcpHint': 'You can also copy the full MCP config and API token from Settings → Runtime → Server. Keep the computer and phone on the same network.',
+    'onboarding.localTitle': 'Local models are experimental',
+    'onboarding.localBody': 'Local models keep requests on the phone, but packages are larger and depend more on memory and chip support. New users should start with DeepSeek and explore later.',
+    'onboarding.localNote': 'Older phones can try them too; speed and available models depend on the device.',
+    'onboarding.viewLocalModels': 'View local models',
+    'onboarding.viewModelMarket': 'Open model market',
+    'onboarding.doneTitle': 'You are ready to try it',
+    'onboarding.doneBody': 'Go back home and say what you want done. Start small, then hand over more involved tasks.',
+    'onboarding.exampleWechat': '“Open WeChat and sort my unread messages”',
+    'onboarding.exampleBilibili': '“Show me what is new on Bilibili”',
+    'onboarding.exampleApp': '“Open this new app and test its login flow”',
+    'onboarding.rerunHint': 'Want to see this again later? Open Settings → Getting started to run the guide again.',
+    'onboarding.previous': 'Back',
+    'onboarding.skip': 'Later',
+    'onboarding.start': 'Start setup',
+    'onboarding.next': 'Next',
+    'onboarding.finish': 'Go to home',
+    'onboarding.stepCount': 'Step %s of %s',
     'about.title': 'About Lociant',
     'about.subtitle': 'Version, source, and acknowledgements',
-    'about.version': '1.0.2',
+    'about.version': '1.1.0',
     'about.versionLabel': 'App version',
-    'about.versionSub': 'Application and API contract version',
+    'about.versionSub': 'Application version',
     'about.repository': 'Source repository',
     'about.license': 'License',
     'about.licenseSub': 'MIT License',
@@ -220,6 +297,11 @@ const i18n = {
     'models.localSub': 'Installed packages',
     'models.runtimeTitle': 'Runtime',
     'models.runtimeSub': 'Default model and API',
+    'models.cloudTitle': 'Cloud model',
+    'models.cloudSub': 'OpenAI-compatible cloud API',
+    'models.cloudHintTitle': 'Make it the default',
+    'models.cloudHint': 'After saving, select it as the default in the runtime model list',
+    'models.cloudHintEnabled': 'Ready. Select it as the default model in runtime settings',
     'models.marketTitle': 'Model market',
     'models.marketSub': 'ModelScope MNN models',
     'models.marketSearch': 'Search models',
@@ -263,8 +345,6 @@ const i18n = {
     'status.running': '运行中',
     'status.stopped': '已停止',
 
-    'home.quickDiagnostics': '运行诊断',
-    'home.quickConnection': '复制连接配置',
     'home.placeholder': '问问 Lociant，或输入一个工具调用任务',
     'home.send': '发送',
     'home.runtimeLabel': '运行时',
@@ -278,7 +358,13 @@ const i18n = {
     'home.localChatMeta': '本地模型',
     'home.readyModels': '个就绪模型',
     'home.emptyReply': '没有回复。',
+    'home.runStatusTool': '正在执行工具 %s（第 %s 轮）…',
+    'home.runStatusRound': '正在调用模型（第 %s 轮）…',
+    'home.runStatusRetry': '网络波动，正在重试…',
+    'home.runStatusStall': '仍在处理中（已等待 %s 秒）…',
+    'home.toolRunDone': '工具已执行完成',
     'home.thinking': '思考中...',
+    'home.thought': '已思考',
     'home.deleteChat': '删除对话',
     'home.uploadImage': '上传照片',
     'home.removeImage': '移除照片',
@@ -336,6 +422,21 @@ const i18n = {
     'settings.performanceEco': '省电',
     'settings.performanceBalanced': '均衡',
     'settings.performanceFast': '极速',
+    'settings.cloudTitle': '云端模型',
+    'settings.cloudSub': '使用 OpenAI 兼容的云端 API',
+    'settings.cloudBaseUrl': 'API 地址',
+    'settings.cloudBaseUrlSub': 'https://api.openai.com/v1',
+    'settings.cloudApiKey': 'API 密钥',
+    'settings.cloudApiKeySub': '仅保存在本机',
+    'settings.cloudModel': '模型名称',
+    'settings.cloudModelSub': '例如 gpt-4o-mini、qwen-max',
+    'settings.cloudResponseLength': '云端回复长度',
+    'settings.cloudResponseLengthSub': '0 = 跟随云端默认，不限制',
+    'settings.cloudLengthUnlimited': '不限制（跟随云端默认）',
+    'settings.cloudContextWindow': '云端上下文窗口',
+    'settings.cloudContextWindowSub': '云端模型的历史裁剪预算',
+    'settings.cloudHistoryLimit': '云端历史条数',
+    'settings.cloudHistoryLimitSub': '云端上下文中保留的对话轮数',
     'settings.inferenceBackend': '推理后端',
     'settings.inferenceBackendSub': '模型推理使用的引擎',
     'settings.backendModel': '跟随模型',
@@ -388,11 +489,69 @@ const i18n = {
     'settings.advancedTitle': '高级',
     'settings.advancedSub': '会话与诊断',
     'settings.advancedIntro': '运行记录与 API 历史',
+    'onboarding.settingsTitle': '新手引导',
+    'onboarding.settingsSub': '一步一步完成首次设置',
+    'onboarding.open': '开始',
+    'onboarding.kicker': '新手引导',
+    'onboarding.close': '关闭引导',
+    'onboarding.welcomeTitle': '先把手机准备好',
+    'onboarding.welcomeBody': 'Lociant 可以让云端模型调用手机上的应用、屏幕和系统能力。跟着这几步走，第一次使用也不会迷路。',
+    'onboarding.welcomeNote': '推荐先用云端模型，配置简单，手机只负责执行动作。',
+    'onboarding.cloudTitle': '先接入云端模型',
+    'onboarding.cloudBody': '推荐 DeepSeek。注册并复制 API Key 后填到下面，密钥只保存在这台手机上。',
+    'onboarding.deepseekHint': '适合第一次使用，按量计费，配置清楚',
+    'onboarding.usePreset': '使用预设',
+    'onboarding.apiKeyLabel': 'DeepSeek API Key',
+    'onboarding.cloudConfigured': '云端模型已经准备好。',
+    'onboarding.cloudPresetApplied': 'DeepSeek 地址和模型已填好，请补上 API Key。',
+    'onboarding.cloudRequired': '请先填入 API Key，再继续。',
+    'onboarding.skipCloud': '暂时跳过，使用本地模型',
+    'onboarding.runtimeTitle': '开启运行时',
+    'onboarding.runtimeBody': '运行时是手机里的小服务。云端模型负责理解你的话，它负责真正点击、输入、读取页面。',
+    'onboarding.runtimeHint': '保持运行时开启，Agent 才能操作手机。',
+    'onboarding.runtimeStopped': '未启动',
+    'onboarding.runtimeStarting': '启动中...',
+    'onboarding.runtimeRunning': '运行时已开启',
+    'onboarding.startRuntime': '启动运行时',
+    'onboarding.waitRuntime': '等待运行时启动',
+    'onboarding.permissionsTitle': '给它必要的权限',
+    'onboarding.permissionsBody': '无障碍权限是必需的，用来点击、输入和读取当前页面。悬浮窗、通知和摄像头按需要开启。',
+    'onboarding.accessibility': '无障碍服务',
+    'onboarding.accessibilityHint': '必需：操作和读取应用',
+    'onboarding.overlay': '悬浮窗',
+    'onboarding.overlayHint': '可选：显示运行状态',
+    'onboarding.granted': '已就绪',
+    'onboarding.needsGrant': '需要授权',
+    'onboarding.optional': '可选',
+    'onboarding.grantAccessibility': '去开启无障碍',
+    'onboarding.openAppPermissions': '打开应用权限',
+    'onboarding.mcpTitle': '把手机接给电脑上的 Agent',
+    'onboarding.mcpBody': 'MCP 是一条标准连接，让 Codex、Claude 或其他客户端发现并调用手机工具。手机负责执行，电脑负责对话和编排。',
+    'onboarding.mcpEndpointLabel': 'MCP 地址',
+    'onboarding.copyMcpConfig': '复制 MCP 配置',
+    'onboarding.mcpHint': '在“设置 → 运行时 → 服务”中，也可以复制完整 MCP 配置和 API 令牌。电脑和手机需要在同一个局域网。',
+    'onboarding.localTitle': '本地模型，实验性功能',
+    'onboarding.localBody': '本地模型不需要把请求发到云端，但安装包更大，对内存和芯片要求也更高。新手建议先用 DeepSeek，之后再慢慢试。',
+    'onboarding.localNote': '旧手机也可以试试，只是速度和可用模型会因设备而异。',
+    'onboarding.viewLocalModels': '查看本地模型',
+    'onboarding.viewModelMarket': '打开模型市场',
+    'onboarding.doneTitle': '可以开始了',
+    'onboarding.doneBody': '回到主页，直接说出你想做的事。先从简单任务开始，成功后再交给它更复杂的工作。',
+    'onboarding.exampleWechat': '“打开微信，帮我整理未读消息”',
+    'onboarding.exampleBilibili': '“看看 B 站有什么新动态”',
+    'onboarding.exampleApp': '“打开这个新 App，帮我试试登录流程”',
+    'onboarding.rerunHint': '以后想重新看？进入“设置 → 新手引导”即可再次运行。',
+    'onboarding.previous': '上一步',
+    'onboarding.skip': '以后再看',
+    'onboarding.start': '开始设置',
+    'onboarding.next': '下一步',
+    'onboarding.finish': '回到主页',
+    'onboarding.stepCount': '第 %s 步，共 %s 步',
     'about.title': '关于 Lociant',
     'about.subtitle': '版本、源码与致谢',
-    'about.version': '1.0.2',
+    'about.version': '1.1.0',
     'about.versionLabel': '软件版本',
-    'about.versionSub': '应用与 API 契约版本',
+    'about.versionSub': '应用版本',
     'about.repository': '项目仓库',
     'about.license': '许可证',
     'about.licenseSub': 'MIT License',
@@ -462,6 +621,11 @@ const i18n = {
     'models.localSub': '已安装模型包',
     'models.runtimeTitle': '运行时',
     'models.runtimeSub': '默认模型与 API',
+    'models.cloudTitle': '云端模型',
+    'models.cloudSub': 'OpenAI 兼容云端 API',
+    'models.cloudHintTitle': '设为默认模型',
+    'models.cloudHint': '保存后，在运行时的模型列表中选择它作为默认模型',
+    'models.cloudHintEnabled': '已就绪。到运行时设置中把它设为默认模型即可使用',
     'models.marketTitle': '模型市场',
     'models.marketSub': 'ModelScope MNN 模型',
     'models.marketSearch': '搜索模型',
@@ -516,6 +680,11 @@ const modelLocalButton = document.getElementById('modelLocalButton')
 const modelLocalBack = document.getElementById('modelLocalBack')
 const modelLocalState = document.getElementById('modelLocalState')
 const modelRuntimeButton = document.getElementById('modelRuntimeButton')
+const modelCloudButton = document.getElementById('modelCloudButton')
+const modelCloudBack = document.getElementById('modelCloudBack')
+const modelCloudState = document.getElementById('modelCloudState')
+const modelCloudHintText = document.getElementById('modelCloudHintText')
+const modelCloudView = document.getElementById('modelCloudView')
 const modelRuntimeState = document.getElementById('modelRuntimeState')
 const modelList = document.getElementById('modelList')
 const modelMarketPanel = document.getElementById('modelMarketPanel')
@@ -583,6 +752,10 @@ const runtimePerformanceModeInput = document.getElementById('runtimePerformanceM
 const runtimePerformanceText = document.getElementById('runtimePerformanceText')
 const runtimeBackendInput = document.getElementById('runtimeBackendInput')
 const runtimeBackendText = document.getElementById('runtimeBackendText')
+const runtimeCloudEnabledInput = document.getElementById('runtimeCloudEnabledInput')
+const runtimeCloudBaseUrlInput = document.getElementById('runtimeCloudBaseUrlInput')
+const runtimeCloudApiKeyInput = document.getElementById('runtimeCloudApiKeyInput')
+const runtimeCloudModelInput = document.getElementById('runtimeCloudModelInput')
 const runtimeResponseLengthInput = document.getElementById('runtimeResponseLengthInput')
 const runtimeResponseLengthText = document.getElementById('runtimeResponseLengthText')
 const runtimeResponseTokensInput = document.getElementById('runtimeResponseTokensInput')
@@ -613,6 +786,30 @@ const runtimeModelTokens = document.getElementById('runtimeModelTokens')
 const runtimeEffectiveTokens = document.getElementById('runtimeEffectiveTokens')
 const runtimeDeviceState = document.getElementById('runtimeDeviceState')
 const settingsHomePage = document.getElementById('settingsList')
+const onboardingSettingsButton = document.getElementById('onboardingSettingsButton')
+const onboardingModal = document.getElementById('onboardingModal')
+const onboardingDialog = document.querySelector('#onboardingModal .onboarding-dialog')
+const onboardingCloseButton = document.getElementById('onboardingCloseButton')
+const onboardingBackButton = document.getElementById('onboardingBackButton')
+const onboardingSkipButton = document.getElementById('onboardingSkipButton')
+const onboardingPrimaryButton = document.getElementById('onboardingPrimaryButton')
+const onboardingStepCount = document.getElementById('onboardingStepCount')
+const onboardingSteps = Array.from(document.querySelectorAll('[data-onboarding-step]'))
+const onboardingProgress = Array.from(document.querySelectorAll('.onboarding-progress span'))
+const onboardingDeepSeekButton = document.getElementById('onboardingDeepSeekButton')
+const onboardingApiKeyInput = document.getElementById('onboardingApiKeyInput')
+const onboardingCloudStatus = document.getElementById('onboardingCloudStatus')
+const onboardingCloudSkipButton = document.getElementById('onboardingCloudSkipButton')
+const onboardingMcpUrl = document.getElementById('onboardingMcpUrl')
+const onboardingMcpCopyButton = document.getElementById('onboardingMcpCopyButton')
+const onboardingRuntimeDot = document.getElementById('onboardingRuntimeDot')
+const onboardingRuntimeStatus = document.getElementById('onboardingRuntimeStatus')
+const onboardingAccessibilityStatus = document.getElementById('onboardingAccessibilityStatus')
+const onboardingOverlayStatus = document.getElementById('onboardingOverlayStatus')
+const onboardingAccessibilityButton = document.getElementById('onboardingAccessibilityButton')
+const onboardingAppPermissionButton = document.getElementById('onboardingAppPermissionButton')
+const onboardingLocalButton = document.getElementById('onboardingLocalButton')
+const onboardingMarketButton = document.getElementById('onboardingMarketButton')
 const homeRailToggle = document.getElementById('homeRailToggle')
 const homeSidebar = document.getElementById('homeSidebar')
 const homeSessionCount = document.getElementById('homeSessionCount')
@@ -969,6 +1166,7 @@ function updateRuntimeServiceState(state) {
   }
   updateHomeState()
   if (typeof updateModelMarketHint === 'function') updateModelMarketHint()
+  if (typeof updateModelCloudState === 'function') updateModelCloudState()
   if (state.inferenceBackendFallback && !window.__lociantBackendFallbackNotified) {
     window.__lociantBackendFallbackNotified = true
     showToast(t('toast.backendFallback'))
@@ -1004,6 +1202,38 @@ function updateModelExperienceState() {
     opencl: t('settings.backendOpencl'),
     vulkan: t('settings.backendVulkan')
   })[backend] || t('settings.backendModel')
+
+  const cloudEnabled = !!state.cloudEnabled
+  if (runtimeCloudEnabledInput) runtimeCloudEnabledInput.checked = cloudEnabled
+  if (runtimeCloudBaseUrlInput && document.activeElement !== runtimeCloudBaseUrlInput) runtimeCloudBaseUrlInput.value = String(state.cloudBaseUrl || '')
+  if (runtimeCloudApiKeyInput && document.activeElement !== runtimeCloudApiKeyInput) runtimeCloudApiKeyInput.value = String(state.cloudApiKey || '')
+  if (runtimeCloudModelInput && document.activeElement !== runtimeCloudModelInput) runtimeCloudModelInput.value = String(state.cloudModel || '')
+  const cloudTokens = Number(state.cloudMaxOutputTokens) || 0
+  if (runtimeCloudResponseLengthInput && document.activeElement !== runtimeCloudResponseLengthInput) {
+    const cloudPreset = [0, 1024, 4096, 8192].includes(cloudTokens) ? String(cloudTokens) : 'custom'
+    runtimeCloudResponseLengthInput.value = cloudPreset
+    if (runtimeCloudResponseTokensInput) {
+      runtimeCloudResponseTokensInput.value = String(cloudTokens)
+      runtimeCloudResponseTokensInput.classList.toggle('is-hidden', cloudPreset !== 'custom')
+    }
+  }
+  if (runtimeCloudResponseLengthText) {
+    runtimeCloudResponseLengthText.textContent = cloudTokens > 0
+      ? (cloudTokens + ' tokens')
+      : t('settings.cloudLengthUnlimited')
+  }
+  const cloudContext = Number(state.cloudContextWindow) || 131072
+  if (runtimeCloudContextWindowInput && document.activeElement !== runtimeCloudContextWindowInput) {
+    const ctxPreset = [16384, 32768, 65536, 131072, 262144].includes(cloudContext) ? String(cloudContext) : 'custom'
+    runtimeCloudContextWindowInput.value = ctxPreset
+    if (runtimeCloudContextWindowTokensInput) {
+      runtimeCloudContextWindowTokensInput.value = String(cloudContext)
+      runtimeCloudContextWindowTokensInput.classList.toggle('is-hidden', ctxPreset !== 'custom')
+    }
+  }
+  if (runtimeCloudHistoryLimitInput && document.activeElement !== runtimeCloudHistoryLimitInput) {
+    runtimeCloudHistoryLimitInput.value = String(Number(state.cloudHistoryLimit) || 256)
+  }
 
   const tokens = Number(state.maxOutputTokens) || 512
   const responseMode = responsePresetForTokens(tokens)
@@ -1144,7 +1374,7 @@ function runtimeWindowLabel(state) {
 
 function setModelView(view) {
   modelView = view || 'home'
-  const views = { home: modelHomeView, local: modelLocalView, market: modelMarketPanel }
+  const views = { home: modelHomeView, local: modelLocalView, market: modelMarketPanel, cloud: modelCloudView }
   Object.keys(views).forEach(key => {
     const node = views[key]
     if (!node) return
@@ -1158,14 +1388,29 @@ function setModelView(view) {
     renderModelMarket(marketModels)
     if (!marketModels.length) loadModelMarket()
   }
+  if (modelView === 'cloud') {
+    updateModelCloudState()
+  }
+}
+
+function updateModelCloudState() {
+  if (!modelCloudState || !modelCloudHintText) return
+  const state = runtimeServiceState || {}
+  const enabled = !!state.cloudEnabled && !!state.cloudModel
+  modelCloudState.textContent = enabled ? String(state.cloudModel) : '--'
+  modelCloudState.classList.toggle('running', enabled)
+  modelCloudHintText.textContent = enabled
+    ? t('models.cloudHintEnabled')
+    : t('models.cloudHint')
 }
 
 function loadModels(refresh) {
   const path = refresh ? '/api/v1/models?refresh=true' : '/api/v1/models'
-  retryApi(() => apiGet(path), () => ({ models: [] })).then(data => {
+  return retryApi(() => apiGet(path), () => ({ models: [] })).then(data => {
     runtimeModels = data && Array.isArray(data.models) ? data.models : []
     renderModels(runtimeModels)
     updateModelHomeState()
+    return runtimeModels
   })
 }
 
@@ -1461,7 +1706,13 @@ function renderRuntimeModelChoices(models) {
   if (!runtimeModelList) return
   runtimeModelList.innerHTML = ''
   const readyModels = (Array.isArray(models) ? models : []).filter(model => model && model.ready && isRuntimeModel(model))
-  const currentModelId = (runtimeServiceState && runtimeServiceState.modelId) || (readyModels[0] && readyModels[0].id) || '--'
+  const state = runtimeServiceState || {}
+  const cloudId = String(state.cloudModel || '').trim()
+  const cloudIdLower = cloudId.toLowerCase()
+  if (state.cloudEnabled && cloudId && !readyModels.some(m => m && String(m.id || '').toLowerCase() === cloudIdLower)) {
+    readyModels.push({ id: cloudId, name: cloudId, runtime: 'cloud', type: 'chat', ready: true, installed: true, cloud: true })
+  }
+  const currentModelId = state.modelId || (readyModels[0] && readyModels[0].id) || '--'
   runtimeModelState.textContent = currentModelId
   runtimeModelNote.textContent = readyModels.length ? t('settings.defaultModelNote') : t('empty.models')
   if (!readyModels.length) {
@@ -1559,6 +1810,7 @@ function applyLocale() {
     button.classList.toggle('active', button.dataset.langMode === (localeSetting.mode || 'system'))
   })
   updateRuntimeServiceState(runtimeServiceState || {})
+  if (typeof updateOnboardingState === 'function') updateOnboardingState()
 }
 
 // ---- Sessions ----
@@ -1599,6 +1851,7 @@ function renderSessions(sessions) {
     row.appendChild(body)
     row.appendChild(check)
     row.addEventListener('click', () => {
+      if (homeChatInFlight) return
       selectRuntimeSession(session.id)
     })
     runtimeSessionList.appendChild(row)
@@ -1636,6 +1889,7 @@ function renderHomeSessions(sessions) {
     row.appendChild(body)
     row.appendChild(remove)
     row.addEventListener('click', () => {
+      if (homeChatInFlight) return
       Promise.resolve(selectRuntimeSession(session.id))
         .then(state => {
           updateRuntimeServiceState(markHomeSessionActive(state, session.id))
@@ -1648,6 +1902,7 @@ function renderHomeSessions(sessions) {
         .catch(error => showToast((error && error.message) || t('toast.modelImportFailed')))
     })
     const deleteSession = event => {
+      if (homeChatInFlight) return
       event.preventDefault()
       event.stopPropagation()
       const deletingCurrent = session.id === homeCurrentSessionId()
@@ -1753,11 +2008,30 @@ function appendAssistantRun() {
   node.className = 'chat-message assistant assistant-run'
   const chain = el('div', 'chat-tool-chain')
   const content = el('div', 'chat-run-content')
+  const status = el('div', 'chat-run-status')
   node.appendChild(chain)
   node.appendChild(content)
+  node.appendChild(status)
   homeChatFeed.appendChild(node)
   homeChatFeed.scrollTop = homeChatFeed.scrollHeight
-  return { node, chain, content }
+  return { node, chain, content, status }
+}
+
+function updateRunStatus(target, text) {
+  const status = target && target.status ? target.status : null
+  if (!status) return
+  if (text) {
+    status.textContent = text
+    status.classList.add('active')
+  } else {
+    status.textContent = ''
+    status.classList.remove('active')
+  }
+}
+
+function runStatusText(key, args) {
+  const parts = Array.isArray(args) ? args.slice() : []
+  return t(key).replace(/%s/g, () => (parts.length ? String(parts.shift()) : ''))
 }
 
 function chatTextTarget(target) {
@@ -1768,7 +2042,7 @@ function chatNodeTarget(target) {
   return target && target.node ? target.node : target
 }
 
-function appendToolBubble(toolCall, target) {
+function appendToolBubble(toolCall, target, seq) {
   if (!homeChatFeed || !toolCall) return null
   const scope = target && target.chain ? target.chain : homeChatFeed
   const id = toolCall.id || toolCall.toolCallId || ''
@@ -1776,6 +2050,7 @@ function appendToolBubble(toolCall, target) {
   const node = existing || document.createElement('div')
   node.className = 'tool-call-item'
   if (id) node.dataset.toolCallId = id
+  if (seq !== undefined) node.dataset.toolSeq = String(seq)
   const info = normalizeToolBubbleInfo(toolCall)
   node.classList.toggle('done', info.status === 'completed')
   node.classList.toggle('error', info.status === 'failed')
@@ -1787,7 +2062,16 @@ function appendToolBubble(toolCall, target) {
   if (info.args) main.appendChild(el('code', '', info.args))
   node.appendChild(main)
   node.appendChild(el('span', 'tool-call-state', info.statusLabel))
-  if (!existing) scope.appendChild(node)
+  if (!existing) {
+    scope.appendChild(node)
+    // Keep bubbles in chronological (top-to-bottom) order even if events
+    // arrive out of sequence.
+    if (seq !== undefined && scope.querySelectorAll('.tool-call-item').length > 1) {
+      const items = Array.from(scope.querySelectorAll('.tool-call-item'))
+      items.sort((a, b) => Number(a.dataset.toolSeq || 0) - Number(b.dataset.toolSeq || 0))
+      items.forEach(item => scope.appendChild(item))
+    }
+  }
   if (target && target.chain) {
     chatNodeTarget(target).classList.add('has-tools')
   }
@@ -1899,6 +2183,13 @@ function renderHomeConversation(sessionId, messages) {
   if (!items.length) return
   items.forEach(item => {
     const role = item && item.role ? item.role : 'assistant'
+    // Tool messages carry raw result JSON; render them as a compact tool note
+    // instead of dumping code into the conversation.
+    if (role === 'tool') {
+      const name = item && (item.name || item.toolName)
+      if (name) appendToolBubble(Object.assign({}, item, { name: name, status: 'completed' }))
+      return
+    }
     const text = item && (item.text || item.content || item.message || '')
     if (text) appendChatBubble(role, text, { active: sessionId === homeCurrentSessionId() })
   })
@@ -1920,14 +2211,25 @@ function shouldPreferLatestHomeSession(state, currentId) {
 }
 
 function restoreHomeConversation(options) {
+  // A chat is still streaming into the live feed; do not reload or switch
+  // sessions while it is in flight.
+  if (homeChatInFlight) return
   const forceLatest = !!(options && options.forceLatest)
   const state = runtimeServiceState || runtimeState()
   updateRuntimeServiceState(state)
   const latest = latestHomeSession(state)
   const currentId = homeCurrentSessionId()
-  const target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
+  let target = forceLatest || shouldPreferLatestHomeSession(state, currentId)
     ? (latest && latest.id)
     : currentId
+  // If the last turn was interrupted, restore that session so the failure is
+  // visible instead of silently switching to another conversation. Only do so
+  // while the session still exists in the current list.
+  if (homeChatFailure && homeChatFailure.sessionId &&
+      (homeChatFailure.sessionId === currentId ||
+       activeHomeSessions(state).some(session => session && session.id === homeChatFailure.sessionId))) {
+    target = homeChatFailure.sessionId
+  }
   if (!target) {
     clearHomeMessages()
     return null
@@ -1937,6 +2239,12 @@ function restoreHomeConversation(options) {
     updateRuntimeServiceState(markHomeSessionActive(selected || state, target))
   }
   loadHomeConversation(target, { silent: true })
+  if (homeChatFailure && homeChatFailure.sessionId === target) {
+    const failure = homeChatFailure
+    homeChatFailure = null
+    if (failure.prompt) appendChatBubble('user', failure.prompt)
+    appendChatBubble('assistant', failure.message || t('toast.modelImportFailed'))
+  }
   return target
 }
 
@@ -2139,7 +2447,11 @@ function backToRuntimeSettings() {
 
 function openRuntimeModelSettings() {
   showSettingsDetail(runtimeModelPanel)
-  renderRuntimeModelChoices(runtimeModels)
+  if (typeof loadModels === 'function') {
+    loadModels().then(() => renderRuntimeModelChoices(runtimeModels))
+  } else {
+    renderRuntimeModelChoices(runtimeModels)
+  }
 }
 
 function openRuntimeAdvancedSettings() {
@@ -2161,6 +2473,8 @@ function closeAboutSettings() {
 // ---- Sidebar ----
 let sidebarBusy = false
 let nativeKeyboardInset = 0
+let homeChatInFlight = false
+let homeChatFailure = null
 
 function clearPress(target) {
   if (target) target.classList.remove('is-pressed')
@@ -2212,11 +2526,6 @@ function navigateTo(page) {
   syncTopStatus()
 }
 
-function openRuntimeServerFromHome() {
-  navigateTo('settings')
-  openRuntimeServerSettings()
-}
-
 function syncKeyboardOffset() {
   const chatFocused = document.activeElement === homeChatInput
   if (!document.documentElement || !chatFocused) {
@@ -2246,19 +2555,6 @@ window.__lociantKeyboardInset = function(insetPx) {
 function showHomeConversationLoading(text) {
   clearHomeMessages()
   appendChatBubble('assistant', text || t('home.thinking'))
-}
-
-function handleHomeAction(action) {
-  if (action === 'diagnostics') {
-    navigateTo('settings')
-    openRuntimeAdvancedSettings()
-    runRuntimeDiagnostics()
-    return
-  }
-  if (action === 'copy-config') {
-    openRuntimeServerFromHome()
-    return
-  }
 }
 
 function setHomeImageAttachment(file, dataUrl) {
@@ -2295,20 +2591,44 @@ function homeChatMessages(prompt, image) {
   return [{ role: 'user', content }]
 }
 
-function homeChatRequestBody(modelId, sessionId, prompt, image) {
-  return {
+let homeToolManifest = null
+async function loadHomeToolManifest() {
+  // Cache only a successful non-empty manifest. A failed or empty first fetch
+  // (for example before the runtime is started) must not permanently disable
+  // tool passing for later chats.
+  if (Array.isArray(homeToolManifest) && homeToolManifest.length) return homeToolManifest
+  try {
+    const data = await apiGet('/api/v1/tools')
+    const next = (data && Array.isArray(data.data)) ? data.data : []
+    if (next.length) homeToolManifest = next
+    return next
+  } catch (error) {
+    return homeToolManifest || []
+  }
+}
+
+async function homeChatRequestBody(modelId, sessionId, prompt, image) {
+  const body = {
     model: modelId,
     stream: true,
     stream_options: { include_usage: true },
     sessionId,
     messages: homeChatMessages(prompt, image)
   }
+  const tools = await loadHomeToolManifest()
+  if (Array.isArray(tools) && tools.length) {
+    body.tools = tools
+    body.execute_tools = true
+  }
+  return body
 }
 
 function submitHomeChat(text) {
+  if (homeChatInFlight) return
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
   if (!prompt && !image) return
+  homeChatFailure = null
   appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
@@ -2317,6 +2637,7 @@ function submitHomeChat(text) {
   const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
   const sessionId = homeCurrentSessionId()
   upsertHomeSessionPreview(sessionId, prompt || t('home.imageAttached'), 'user')
+  homeChatInFlight = true
   Promise.resolve(homeChatRequestBody(modelId, sessionId, prompt, image))
     .then(body => streamOpenAiHomeChat(body, pending))
     .then(result => {
@@ -2327,9 +2648,16 @@ function submitHomeChat(text) {
       upsertHomeSessionPreview(sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
       refreshRuntimeServiceState()
     }).catch(error => {
-      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
-      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+      const message = (error && error.message) || t('toast.modelImportFailed')
+      // Remember interrupted turns so returning to the app restores them
+      // instead of silently dropping the conversation.
+      homeChatFailure = { sessionId: sessionId, message: message, prompt: prompt || t('home.imageAttached') }
+      if (!document.hidden) {
+        if (pending) renderChatMarkdown(chatTextTarget(pending), message)
+        else appendChatBubble('assistant', message)
+      }
     }).finally(() => {
+      homeChatInFlight = false
       if (homeChatSendButton) homeChatSendButton.disabled = false
     })
 }
@@ -2360,37 +2688,116 @@ async function streamOpenAiHomeChat(body, target) {
   const writer = target ? createChatTextStream(chatTextTarget(target)) : null
   let buffer = ''
   let text = ''
+  let reasoningDone = false
+  let reasoningText = ''
+  let reasoningNode = null
+  let thinkingNode = null
   const toolAccumulator = createToolCallAccumulator()
   const toolCalls = []
-  while (true) {
-    const read = await reader.read()
-    if (read.done) break
-    buffer += decoder.decode(read.value, { stream: true })
-    const events = buffer.split('\n\n')
-    buffer = events.pop() || ''
-    for (const event of events) {
-      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue
-        const data = line.slice(5).trim()
-        if (!data || data === '[DONE]') continue
-        const json = JSON.parse(data)
-        const delta = json.choices && json.choices[0] && json.choices[0].delta
-        if (delta && typeof delta.content === 'string') {
-          text += delta.content
-          if (writer) writer.push(delta.content)
+  let toolSeq = 0
+  const toolSeqByKey = new Map()
+  // Live run status: the server emits lociant phase/ping events so the UI can
+  // show progress instead of looking hung while a tool runs or the model thinks.
+  let lastProgressAt = Date.now()
+  let streamFinished = false
+  const watchdog = window.setInterval(() => {
+    if (streamFinished) return
+    const idleMs = Date.now() - lastProgressAt
+    if (idleMs > 45000) {
+      updateRunStatus(target, runStatusText('home.runStatusStall', [Math.round(idleMs / 1000)]))
+    }
+  }, 1000)
+  function ensureReasoningUi() {
+    if (reasoningNode || !target) return
+    const scope = chatTextTarget(target)
+    if (!scope) return
+    reasoningNode = el('div', 'chat-reasoning')
+    thinkingNode = el('span', 'chat-thinking', t('home.thinking'))
+    const body = el('span', 'chat-reasoning-text')
+    reasoningNode.appendChild(thinkingNode)
+    reasoningNode.appendChild(body)
+    scope.insertBefore(reasoningNode, scope.firstChild)
+  }
+  function finishReasoningUi() {
+    if (reasoningDone || !thinkingNode) return
+    reasoningDone = true
+    thinkingNode.textContent = t('home.thought')
+    thinkingNode.classList.add('done')
+  }
+  try {
+    while (true) {
+      const read = await reader.read()
+      if (read.done) break
+      buffer += decoder.decode(read.value, { stream: true })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+      for (const event of events) {
+        const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          const data = line.slice(5).trim()
+          if (!data || data === '[DONE]') continue
+          const json = JSON.parse(data)
+          if (json && json.error) throw new Error((json.error.message) || 'API request failed')
+          if (json && json.lociant) {
+            const info = json.lociant
+            if (info.type === 'ping') {
+              continue
+            }
+            if (info.type === 'phase') {
+              lastProgressAt = Date.now()
+              if (info.phase === 'tool_running') {
+                updateRunStatus(target, runStatusText('home.runStatusTool', [info.tool || '', info.round || '']))
+              } else if (info.phase === 'round') {
+                updateRunStatus(target, runStatusText('home.runStatusRound', [info.round || '']))
+              } else if (info.phase === 'retry') {
+                updateRunStatus(target, runStatusText('home.runStatusRetry'))
+              } else if (info.phase === 'tool_done') {
+                updateRunStatus(target, '')
+              }
+              continue
+            }
+          }
+          const delta = json.choices && json.choices[0] && json.choices[0].delta
+          const reasoning = delta && typeof delta.reasoning_content === 'string' ? delta.reasoning_content : ''
+          if (reasoning) {
+            lastProgressAt = Date.now()
+            reasoningText += reasoning
+            ensureReasoningUi()
+            if (reasoningNode) reasoningNode.querySelector('.chat-reasoning-text').textContent = reasoningText
+          }
+          if (delta && typeof delta.content === 'string') {
+            lastProgressAt = Date.now()
+            if (reasoningText) finishReasoningUi()
+            text += delta.content
+            if (writer) writer.push(delta.content)
+          }
+          const calls = delta ? normalizeToolCalls(delta.tool_calls) : []
+          if (calls.length) lastProgressAt = Date.now()
+          calls.forEach(call => {
+            const merged = toolAccumulator.push(call)
+            const key = merged._key
+            if (!toolSeqByKey.has(key)) toolSeqByKey.set(key, toolSeq++)
+            appendToolBubble(merged, target, toolSeqByKey.get(key))
+          })
         }
-        const calls = delta ? normalizeToolCalls(delta.tool_calls) : []
-        calls.forEach(call => {
-          const merged = toolAccumulator.push(call)
-          appendToolBubble(merged, target)
-        })
       }
     }
+  } finally {
+    streamFinished = true
+    window.clearInterval(watchdog)
+    updateRunStatus(target, '')
   }
+  if (reasoningText && !reasoningDone) finishReasoningUi()
   if (writer) writer.finish(text)
   toolCalls.push.apply(toolCalls, toolAccumulator.values())
-  if (!text && target && !toolCalls.length) renderChatMarkdown(chatTextTarget(target), t('home.emptyReply'))
+  if (!text && target && !toolCalls.length) {
+    renderChatMarkdown(chatTextTarget(target), t('home.emptyReply'))
+  } else if (!text && target && toolCalls.length) {
+    // Tools ran but the model produced no final text; show a completion note
+    // instead of looking like the session died silently.
+    renderChatMarkdown(chatTextTarget(target), t('home.toolRunDone'))
+  }
   return { text, toolCalls }
 }
 
@@ -2412,7 +2819,8 @@ function createToolCallAccumulator() {
   const calls = []
   return {
     push(part) {
-      const key = (part && part.id) || String((part && part.index) || calls.length)
+      const partIndex = (part && part.index !== undefined && part.index !== null) ? part.index : calls.length
+      const key = (part && part.id) || String(partIndex)
       let current = calls.find(call => call._key === key)
       if (!current) {
         current = { _key: key, id: part && part.id, index: part && part.index, type: part && part.type, name: '', arguments: '' }
@@ -2508,6 +2916,11 @@ function runtimeStateSignature(state) {
 
 function refreshRuntimeServiceState() {
   const state = runtimeState()
+  if (homeChatInFlight && state && Array.isArray(state.sessions)) {
+    // While a chat is streaming, the in-flight turn is not persisted yet;
+    // keep the live session previews so the current session stays in the list.
+    delete state.sessions
+  }
   const signature = runtimeStateSignature(state)
   if (signature !== runtimePollSignature) {
     runtimePollSignature = signature
@@ -2516,12 +2929,17 @@ function refreshRuntimeServiceState() {
   if (!runtimePollTimer) {
     runtimePollTimer = window.setInterval(() => {
       const next = runtimeState()
+      if (homeChatInFlight && next && Array.isArray(next.sessions)) {
+        // Do not let the two-second runtime poll replace the live preview while
+        // the server is still processing the current turn.
+        delete next.sessions
+      }
       const nextSignature = runtimeStateSignature(next)
       if (nextSignature !== runtimePollSignature) {
         runtimePollSignature = nextSignature
         updateRuntimeServiceState(next)
       }
-    }, 4000)
+    }, 2000)
   }
 }
 
@@ -2637,13 +3055,6 @@ if (homeImageInput) {
 if (homeImageRemoveButton) {
   homeImageRemoveButton.addEventListener('click', clearHomeImageAttachment)
 }
-if (homeChatFeed) {
-  homeChatFeed.addEventListener('click', event => {
-    const button = event.target.closest('[data-home-action]')
-    if (button) handleHomeAction(button.dataset.homeAction)
-  })
-}
-
 // ---- Settings navigation ----
 runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
 runtimeSettingsBack.addEventListener('click', closeRuntimeSettingsBack)
@@ -2761,6 +3172,75 @@ if (runtimeBackendInput) {
     updateRuntimeSettings({ inferenceBackend: runtimeBackendInput.value || 'model' })
   })
 }
+if (runtimeCloudEnabledInput) {
+  runtimeCloudEnabledInput.addEventListener('change', () => {
+    updateRuntimeSettings({ cloudEnabled: !!runtimeCloudEnabledInput.checked })
+  })
+}
+function cloudSettingsPayload() {
+  return {
+    cloudBaseUrl: runtimeCloudBaseUrlInput ? runtimeCloudBaseUrlInput.value.trim() : '',
+    cloudApiKey: runtimeCloudApiKeyInput ? runtimeCloudApiKeyInput.value.trim() : '',
+    cloudModel: runtimeCloudModelInput ? runtimeCloudModelInput.value.trim() : ''
+  }
+}
+if (runtimeCloudBaseUrlInput) {
+  runtimeCloudBaseUrlInput.addEventListener('change', () => updateRuntimeSettings(cloudSettingsPayload()))
+}
+if (runtimeCloudApiKeyInput) {
+  runtimeCloudApiKeyInput.addEventListener('change', () => updateRuntimeSettings(cloudSettingsPayload()))
+}
+if (runtimeCloudModelInput) {
+  runtimeCloudModelInput.addEventListener('change', () => updateRuntimeSettings(cloudSettingsPayload()))
+}
+if (runtimeCloudResponseLengthInput) {
+  runtimeCloudResponseLengthInput.addEventListener('change', () => {
+    if (runtimeCloudResponseLengthInput.value === 'custom') {
+      if (runtimeCloudResponseTokensInput) {
+        runtimeCloudResponseTokensInput.classList.remove('is-hidden')
+        runtimeCloudResponseTokensInput.focus()
+      }
+      return
+    }
+    if (runtimeCloudResponseTokensInput) runtimeCloudResponseTokensInput.classList.add('is-hidden')
+    updateRuntimeSettings({ cloudMaxOutputTokens: Number(runtimeCloudResponseLengthInput.value) || 0 })
+  })
+}
+if (runtimeCloudResponseTokensInput) {
+  runtimeCloudResponseTokensInput.addEventListener('change', () => {
+    const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+    const value = Math.max(0, Math.min(hardMax, Math.round(Number(runtimeCloudResponseTokensInput.value) || 0)))
+    runtimeCloudResponseTokensInput.value = String(value)
+    updateRuntimeSettings({ cloudMaxOutputTokens: value })
+  })
+}
+if (runtimeCloudContextWindowInput) {
+  runtimeCloudContextWindowInput.addEventListener('change', () => {
+    if (runtimeCloudContextWindowInput.value === 'custom') {
+      if (runtimeCloudContextWindowTokensInput) {
+        runtimeCloudContextWindowTokensInput.classList.remove('is-hidden')
+        runtimeCloudContextWindowTokensInput.focus()
+      }
+      return
+    }
+    if (runtimeCloudContextWindowTokensInput) runtimeCloudContextWindowTokensInput.classList.add('is-hidden')
+    updateRuntimeSettings({ cloudContextWindow: Number(runtimeCloudContextWindowInput.value) || 131072 })
+  })
+}
+if (runtimeCloudContextWindowTokensInput) {
+  runtimeCloudContextWindowTokensInput.addEventListener('change', () => {
+    const value = Math.max(16384, Math.min(524288, Math.round(Number(runtimeCloudContextWindowTokensInput.value) || 131072)))
+    runtimeCloudContextWindowTokensInput.value = String(value)
+    updateRuntimeSettings({ cloudContextWindow: value })
+  })
+}
+if (runtimeCloudHistoryLimitInput) {
+  runtimeCloudHistoryLimitInput.addEventListener('change', () => {
+    const value = Math.max(1, Math.min(1024, Math.round(Number(runtimeCloudHistoryLimitInput.value) || 256)))
+    runtimeCloudHistoryLimitInput.value = String(value)
+    updateRuntimeSettings({ cloudHistoryLimit: value })
+  })
+}
 if (runtimeResponseLengthInput) {
   runtimeResponseLengthInput.addEventListener('change', () => {
     if (runtimeResponseLengthInput.value === 'custom') {
@@ -2813,6 +3293,7 @@ if (runtimeReleaseModelButton) {
 
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {
+  if (homeChatInFlight) return
   createRuntimeSession()
 })
 if (runtimeDiagRunButton) {
@@ -2836,6 +3317,8 @@ modelLocalButton.addEventListener('click', () => setModelView('local'))
 modelLocalBack.addEventListener('click', () => setModelView('home'))
 modelMarketButton.addEventListener('click', () => setModelView('market'))
 modelMarketBack.addEventListener('click', () => setModelView('home'))
+modelCloudButton.addEventListener('click', () => setModelView('cloud'))
+modelCloudBack.addEventListener('click', () => setModelView('home'))
 modelRuntimeButton.addEventListener('click', () => {
   navigateTo('settings')
   openRuntimeSettings()
@@ -2884,3 +3367,263 @@ restoreHomeConversation()
 loadModels()
 tick()
 window.setInterval(tick, 1000)
+
+
+/* === 10-onboarding.js === */
+/* Lociant WebUI - first-run setup guide */
+
+const ONBOARDING_STORAGE_KEY = 'lociant.onboarding.1.1.0'
+const ONBOARDING_STEP_TOTAL = 7
+const DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
+const DEEPSEEK_MODEL = 'deepseek-chat'
+let onboardingStep = 0
+let onboardingPollTimer = null
+let onboardingTransitionTimer = null
+
+function onboardingFormat(key, ...parts) {
+  const values = parts.slice()
+  return t(key).replace(/%s/g, () => (values.length ? String(values.shift()) : ''))
+}
+
+function onboardingHasSeen() {
+  try {
+    return window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === 'done'
+  } catch (error) {
+    return false
+  }
+}
+
+function markOnboardingSeen() {
+  try {
+    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, 'done')
+  } catch (error) {}
+}
+
+function onboardingCloudReady() {
+  const state = runtimeServiceState || {}
+  return !!(state.cloudEnabled && String(state.cloudBaseUrl || '').trim() &&
+    String(state.cloudApiKey || '').trim() && String(state.cloudModel || '').trim())
+}
+
+function onboardingRuntimeRunning() {
+  return !!(runtimeServiceState && runtimeServiceState.running)
+}
+
+function setOnboardingStep(step) {
+  const previousStep = onboardingStep
+  const nextStep = Math.max(0, Math.min(ONBOARDING_STEP_TOTAL - 1, Number(step) || 0))
+  onboardingStep = nextStep
+  if (onboardingDialog) {
+    onboardingDialog.classList.remove('is-forward', 'is-backward')
+    onboardingDialog.classList.add(nextStep < previousStep ? 'is-backward' : 'is-forward')
+    window.clearTimeout(onboardingTransitionTimer)
+    onboardingTransitionTimer = window.setTimeout(() => {
+      onboardingDialog.classList.remove('is-forward', 'is-backward')
+    }, 340)
+  }
+  onboardingSteps.forEach((node, index) => {
+    const active = index === onboardingStep
+    node.classList.toggle('active', active)
+    node.setAttribute('aria-hidden', active ? 'false' : 'true')
+  })
+  onboardingProgress.forEach((node, index) => {
+    node.classList.toggle('active', index <= onboardingStep)
+  })
+  if (onboardingStepCount) {
+    onboardingStepCount.textContent = onboardingFormat('onboarding.stepCount', onboardingStep + 1, ONBOARDING_STEP_TOTAL)
+  }
+  if (onboardingBackButton) onboardingBackButton.classList.toggle('is-hidden', onboardingStep === 0)
+  updateOnboardingState()
+}
+
+function updateOnboardingState() {
+  if (!onboardingModal || onboardingModal.hidden) return
+  const state = runtimeServiceState || {}
+  const cloudReady = onboardingCloudReady()
+  const running = onboardingRuntimeRunning()
+  const starting = !!state.starting
+  const accessibilityGranted = state.accessibilityPermissionGranted === true
+  const overlayGranted = state.windowAllowed === true
+
+  if (onboardingApiKeyInput && document.activeElement !== onboardingApiKeyInput) {
+    onboardingApiKeyInput.value = String(state.cloudApiKey || '')
+  }
+  if (onboardingCloudStatus) {
+    onboardingCloudStatus.textContent = cloudReady
+      ? t('onboarding.cloudConfigured')
+      : (state.cloudBaseUrl && state.cloudModel ? t('onboarding.cloudPresetApplied') : '')
+    onboardingCloudStatus.classList.toggle('is-ready', cloudReady)
+  }
+  if (onboardingRuntimeStatus) {
+    onboardingRuntimeStatus.textContent = running
+      ? t('onboarding.runtimeRunning')
+      : (starting ? t('onboarding.runtimeStarting') : t('onboarding.runtimeStopped'))
+  }
+  if (onboardingRuntimeDot) onboardingRuntimeDot.classList.toggle('is-ready', running)
+  if (onboardingAccessibilityStatus) {
+    onboardingAccessibilityStatus.textContent = accessibilityGranted ? t('onboarding.granted') : t('onboarding.needsGrant')
+    onboardingAccessibilityStatus.classList.toggle('is-ready', accessibilityGranted)
+  }
+  if (onboardingOverlayStatus) {
+    onboardingOverlayStatus.textContent = overlayGranted ? t('onboarding.granted') : t('onboarding.optional')
+    onboardingOverlayStatus.classList.toggle('is-ready', overlayGranted)
+  }
+  if (onboardingMcpUrl) {
+    onboardingMcpUrl.textContent = state.port ? mcpEndpointUrl() : '--'
+  }
+  updateOnboardingPrimaryButton(cloudReady, running, starting, accessibilityGranted)
+}
+
+function updateOnboardingPrimaryButton(cloudReady, running, starting, accessibilityGranted) {
+  if (!onboardingPrimaryButton) return
+  const label = onboardingStep === 0
+    ? t('onboarding.start')
+    : onboardingStep === 1
+      ? (cloudReady ? t('onboarding.next') : t('common.save'))
+      : onboardingStep === 2
+        ? (running ? t('onboarding.next') : (starting ? t('onboarding.waitRuntime') : t('onboarding.startRuntime')))
+        : onboardingStep === 3
+          ? (accessibilityGranted ? t('onboarding.next') : t('onboarding.grantAccessibility'))
+          : onboardingStep === 6 ? t('onboarding.finish') : t('onboarding.next')
+  onboardingPrimaryButton.textContent = label
+}
+
+function openOnboarding() {
+  if (!onboardingModal) return
+  onboardingStep = 0
+  onboardingModal.hidden = false
+  onboardingModal.setAttribute('aria-hidden', 'false')
+  app.classList.add('onboarding-open')
+  setOnboardingStep(0)
+  window.clearInterval(onboardingPollTimer)
+  onboardingPollTimer = window.setInterval(() => {
+    refreshRuntimeServiceState()
+    updateOnboardingState()
+  }, 1000)
+  window.setTimeout(() => {
+    if (onboardingStep === 0 && onboardingPrimaryButton) onboardingPrimaryButton.focus()
+  }, 80)
+}
+
+function closeOnboarding(markSeen) {
+  if (!onboardingModal) return
+  if (markSeen) markOnboardingSeen()
+  window.clearInterval(onboardingPollTimer)
+  onboardingPollTimer = null
+  onboardingModal.hidden = true
+  onboardingModal.setAttribute('aria-hidden', 'true')
+  app.classList.remove('onboarding-open')
+}
+
+function finishOnboarding() {
+  markOnboardingSeen()
+  closeOnboarding(false)
+  navigateTo('home')
+}
+
+function saveOnboardingCloudSettings() {
+  const key = onboardingApiKeyInput ? onboardingApiKeyInput.value.trim() : ''
+  const baseUrl = (runtimeCloudBaseUrlInput && runtimeCloudBaseUrlInput.value.trim()) ||
+    String(runtimeServiceState && runtimeServiceState.cloudBaseUrl || '').trim() || DEEPSEEK_BASE_URL
+  const model = (runtimeCloudModelInput && runtimeCloudModelInput.value.trim()) ||
+    String(runtimeServiceState && runtimeServiceState.cloudModel || '').trim() || DEEPSEEK_MODEL
+  if (!key) {
+    if (onboardingCloudStatus) onboardingCloudStatus.textContent = t('onboarding.cloudRequired')
+    if (onboardingApiKeyInput) onboardingApiKeyInput.focus()
+    return false
+  }
+  updateRuntimeSettings({
+    cloudEnabled: true,
+    cloudBaseUrl: baseUrl,
+    cloudApiKey: key,
+    cloudModel: model,
+  })
+  return onboardingCloudReady()
+}
+
+function useDeepSeekPreset() {
+  if (runtimeCloudBaseUrlInput) runtimeCloudBaseUrlInput.value = DEEPSEEK_BASE_URL
+  if (runtimeCloudModelInput) runtimeCloudModelInput.value = DEEPSEEK_MODEL
+  updateRuntimeSettings({ cloudBaseUrl: DEEPSEEK_BASE_URL, cloudModel: DEEPSEEK_MODEL })
+  if (onboardingCloudStatus) onboardingCloudStatus.textContent = t('onboarding.cloudPresetApplied')
+  if (onboardingApiKeyInput) onboardingApiKeyInput.focus()
+}
+
+function runOnboardingPrimaryAction() {
+  if (onboardingStep === 0) {
+    setOnboardingStep(1)
+    return
+  }
+  if (onboardingStep === 1) {
+    if (saveOnboardingCloudSettings()) setOnboardingStep(2)
+    return
+  }
+  if (onboardingStep === 2) {
+    if (onboardingRuntimeRunning()) {
+      setOnboardingStep(3)
+    } else if (!(runtimeServiceState && runtimeServiceState.starting)) {
+      startRuntime({})
+    }
+    updateOnboardingState()
+    return
+  }
+  if (onboardingStep === 3) {
+    if (runtimeServiceState && runtimeServiceState.accessibilityPermissionGranted === true) {
+      setOnboardingStep(4)
+    } else {
+      native('requestAccessibilityPermission')
+    }
+    updateOnboardingState()
+    return
+  }
+  if (onboardingStep === 4) {
+    setOnboardingStep(5)
+    return
+  }
+  if (onboardingStep === 5) {
+    setOnboardingStep(6)
+    return
+  }
+  finishOnboarding()
+}
+
+function leaveOnboardingToModels(view) {
+  closeOnboarding(false)
+  navigateTo('models')
+  setModelView(view)
+}
+
+if (onboardingSettingsButton) onboardingSettingsButton.addEventListener('click', openOnboarding)
+if (onboardingCloseButton) onboardingCloseButton.addEventListener('click', () => closeOnboarding(true))
+if (onboardingSkipButton) onboardingSkipButton.addEventListener('click', () => closeOnboarding(true))
+if (onboardingBackButton) onboardingBackButton.addEventListener('click', () => setOnboardingStep(onboardingStep - 1))
+if (onboardingPrimaryButton) onboardingPrimaryButton.addEventListener('click', runOnboardingPrimaryAction)
+if (onboardingDeepSeekButton) onboardingDeepSeekButton.addEventListener('click', useDeepSeekPreset)
+if (onboardingApiKeyInput) onboardingApiKeyInput.addEventListener('input', updateOnboardingState)
+if (onboardingCloudSkipButton) onboardingCloudSkipButton.addEventListener('click', () => setOnboardingStep(2))
+if (onboardingMcpCopyButton) onboardingMcpCopyButton.addEventListener('click', () => copyConnectionText(mcpConfigText))
+if (onboardingAccessibilityButton) {
+  onboardingAccessibilityButton.addEventListener('click', () => {
+    if (runtimeServiceState && runtimeServiceState.accessibilityPermissionGranted === true) {
+      native('openPermissionSettings', 'accessibility')
+    } else {
+      native('requestAccessibilityPermission')
+    }
+  })
+}
+if (onboardingAppPermissionButton) {
+  onboardingAppPermissionButton.addEventListener('click', () => native('openPermissionSettings', 'app'))
+}
+if (onboardingLocalButton) onboardingLocalButton.addEventListener('click', () => leaveOnboardingToModels('local'))
+if (onboardingMarketButton) onboardingMarketButton.addEventListener('click', () => leaveOnboardingToModels('market'))
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && onboardingModal && !onboardingModal.hidden) {
+    refreshRuntimeServiceState()
+    updateOnboardingState()
+  }
+})
+
+window.setTimeout(() => {
+  if (!onboardingHasSeen()) openOnboarding()
+}, 180)

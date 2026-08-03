@@ -8,6 +8,7 @@ import io.lociant.runtime.model.ModelMarket
 import io.lociant.core.model.ModelChatRequest
 import io.lociant.core.model.ModelToolCall
 import io.lociant.core.model.ModelToolChoice
+import io.lociant.core.model.ToolLoopGuard
 import io.lociant.core.config.RuntimeDefaults
 import io.lociant.runtime.model.MnnRuntime
 import io.lociant.tools.runtime.DeviceInteraction
@@ -49,11 +50,22 @@ import io.ktor.server.routing.routing
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.plugins.statuspages.exception
 import io.ktor.server.application.install
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.sse.SSE
+import io.ktor.server.sse.sse
+import io.ktor.server.routing.route
+import io.ktor.server.routing.intercept
+import io.ktor.server.application.ApplicationCallPipeline
+import io.modelcontextprotocol.kotlin.sdk.types.McpJson
 import org.json.JSONArray
 import org.json.JSONObject
 import io.ktor.http.content.OutgoingContent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -77,6 +89,13 @@ class LociantServer(
     private var cpuThreads = MnnRuntime.DEFAULT_CPU_THREADS
     private var inferenceBackend = MnnRuntime.DEFAULT_INFERENCE_BACKEND
     @Volatile private var backendFallbackApplied = false
+    private var cloudBaseUrl = ""
+    private var cloudApiKey = ""
+    private var cloudModel = ""
+    private var cloudEnabled = false
+    private var cloudMaxOutputTokens = RuntimeDefaults.Cloud.OUTPUT_TOKENS_DEFAULT
+    private var cloudContextWindow = RuntimeDefaults.Cloud.CONTEXT_WINDOW_DEFAULT
+    private var cloudHistoryLimit = RuntimeDefaults.Cloud.HISTORY_LIMIT_DEFAULT
     private var contextProfile = RuntimeDefaults.Sessions.CONTEXT_PROFILE_DEFAULT
     private var historyLimit = RuntimeDefaults.Sessions.MODEL_HISTORY_LIMIT
     private var autoStart = false
@@ -170,6 +189,12 @@ class LociantServer(
         .put("maxOutputTokens", maxOutputTokens)
         .put("cpuThreads", cpuThreads)
         .put("inferenceBackend", inferenceBackend)
+        .put("cloudBaseUrl", cloudBaseUrl)
+        .put("cloudModel", cloudModel)
+        .put("cloudEnabled", cloudEnabled)
+        .put("cloudMaxOutputTokens", cloudMaxOutputTokens)
+        .put("cloudContextWindow", cloudContextWindow)
+        .put("cloudHistoryLimit", cloudHistoryLimit)
         .put("contextProfile", contextProfile)
         .put("historyLimit", historyLimit)
         .put("authToken", authToken)
@@ -213,6 +238,9 @@ class LociantServer(
                             call.respondProblem(HttpStatusCode.InternalServerError, "Internal server error", "The request could not be completed", "internal-error")
                         }
                     }
+                    install(SSE)
+                    install(ContentNegotiation) { json(McpJson) }
+
                     routing {
                         options("/{...}") { call.withCors(); call.respondText("", JsonContentType, HttpStatusCode.NoContent) }
                         get(ApiContract.HEALTH) { call.withCors(); call.respondText(healthJson().toString(), JsonContentType) }
@@ -223,7 +251,14 @@ class LociantServer(
                             call.respondText(response.toString(), JsonContentType)
                         }
                         post(ApiContract.OpenAi.CHAT_COMPLETIONS) { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else handleChat(call) }
-                        post(ApiContract.Mcp.ENDPOINT) { call.withCors(); if (!call.authorized()) call.respondUnauthorized() else mcpController.post(call) }
+                        route(ApiContract.Mcp.ENDPOINT) {
+                            intercept(ApplicationCallPipeline.Call) {
+                                if (!call.authorized()) throw UnauthorizedRequestException()
+                            }
+                            post { call.withCors(); mcpController.handlePost(call) }
+                            sse { call.withCors(); mcpController.handleSse(this, call) }
+                            delete { call.withCors(); mcpController.handleDelete(call) }
+                        }
 
                         get(ApiContract.Control.RUNTIME) { call.withCors(); requireAuthorized(call); call.respondText(runtimeSummary().toString(), JsonContentType) }
                         get(ApiContract.Control.SETTINGS) { call.withCors(); requireAuthorized(call); call.respondText(settingsJson().toString(), JsonContentType) }
@@ -311,6 +346,10 @@ class LociantServer(
             }
             val request = chatController.sessionRequest(currentRequest)
             val turnRequest = currentRequest.copy(sessionId = request.sessionId, modelId = request.modelId, persistSession = request.persistSession)
+            // Persist the user turn before queueing, streaming, or executing
+            // tools. The database remains the source of truth if the process
+            // is backgrounded or the client disconnects mid-agent run.
+            chatController.persistUserTurn(turnRequest)
             if (JSONObject(raw).optBoolean("async", false)) {
                 val asyncId = chatController.submitAsync(request, turnRequest)
                 Log.i(TAG, "request async id=$requestId asyncId=$asyncId")
@@ -318,13 +357,24 @@ class LociantServer(
                 return
             }
             if (request.stream) {
-                call.respond(chatController.openAiStreamContent(requestId, request, turnRequest, includeStreamUsage))
+                if (request.executeTools && (request.tools?.length() ?: 0) > 0) {
+                    call.respond(chatController.openAiAgentStreamContent(
+                        requestId, request, turnRequest, includeStreamUsage,
+                        executeTool = ::executeToolCall,
+                    ))
+                } else {
+                    call.respond(chatController.openAiStreamContent(requestId, request, turnRequest, includeStreamUsage))
+                }
                 chatController.recordRequestAsync(call.request.httpMethod.value, endpoint, 200, System.currentTimeMillis() - started, modelId)
                 Log.i(TAG, "request stream end id=$requestId elapsed=${System.currentTimeMillis() - started}")
                 return
             }
             val result = withContext(Dispatchers.IO) {
-                chatController.submitSync(request, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
+                if (request.executeTools && (request.tools?.length() ?: 0) > 0) {
+                    runExecuteToolsLoop(request)
+                } else {
+                    chatController.submitSync(request, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
+                }
             }
             chatController.saveModelTurn(turnRequest, result)
             val status = if (result.ok) HttpStatusCode.OK else HttpStatusCode.BadRequest
@@ -348,7 +398,7 @@ class LociantServer(
             return HttpStatusCode.BadRequest to ModelApiMapper.error("tool_not_found", "Unknown local Lociant tool: ${toolCall.name}")
         }
 
-        val toolResult = executeToolCall(toolCall)
+        val toolResult = runToolCallBounded(toolCall)
         val followUp = request.copy(
             toolChoice = ModelToolChoice.None,
             executeTools = false,
@@ -358,6 +408,11 @@ class LociantServer(
             ),
         )
         val sessionRequest = chatController.sessionRequest(followUp)
+        chatController.persistUserTurn(request.copy(
+            sessionId = sessionRequest.sessionId,
+            modelId = sessionRequest.modelId,
+            persistSession = sessionRequest.persistSession,
+        ))
         val result = withContext(Dispatchers.IO) {
             chatController.submitSync(sessionRequest, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
         }
@@ -397,6 +452,92 @@ class LociantServer(
             .put("tool_call_id", toolCall.id)
     }
 
+    private suspend fun runExecuteToolsLoop(
+        sessionRequest: io.lociant.core.model.ModelChatRequest,
+        maxRounds: Int = RuntimeDefaults.Agent.MAX_ROUNDS,
+    ): io.lociant.core.model.ModelChatResult {
+        var current = sessionRequest
+        var result = submitWithTransientRetry(current)
+        var rounds = 0
+        var toolCallsExecuted = 0
+        val loopGuard = ToolLoopGuard()
+        while (current.executeTools && result.ok && result.toolCalls.isNotEmpty() && rounds < maxRounds) {
+            val repeated = result.toolCalls.firstOrNull { loopGuard.observe(it) }
+            if (repeated != null) {
+                return result.copy(
+                    ok = false,
+                    toolCalls = emptyList(),
+                    message = "stopped after repeated tool call: ${repeated.name}",
+                )
+            }
+            if (toolCallsExecuted + result.toolCalls.size > RuntimeDefaults.Agent.MAX_TOOL_CALLS) {
+                return result.copy(
+                    ok = false,
+                    toolCalls = emptyList(),
+                    message = "reached the tool-call limit (${RuntimeDefaults.Agent.MAX_TOOL_CALLS}); the task may be incomplete",
+                )
+            }
+            val messages = current.messages.toMutableList()
+            // Keep one assistant tool-call message for the whole model turn,
+            // followed by one tool result per call.
+            messages.add(ModelApiMapper.toolAssistantMessage(result.toolCalls, result.reasoning))
+            result.toolCalls.forEach { call ->
+                val outcome = runToolCallBounded(call)
+                messages.add(ModelApiMapper.toolResultMessage(call, outcome))
+            }
+            toolCallsExecuted += result.toolCalls.size
+            current = chatController.trimAgentContext(current.copy(messages = messages))
+            rounds++
+            result = submitWithTransientRetry(current)
+        }
+        if (result.ok && result.toolCalls.isNotEmpty() && rounds >= maxRounds) {
+            return result.copy(
+                ok = false,
+                message = "reached the tool-round limit ($maxRounds); the task may be incomplete",
+            )
+        }
+        return result
+    }
+
+    /**
+     * Runs one phone-side tool with a hard deadline so a hanging tool cannot
+     * block the calling request forever.
+     */
+    private suspend fun runToolCallBounded(toolCall: ModelToolCall): JSONObject = try {
+        withTimeout(RuntimeDefaults.Agent.TOOL_TIMEOUT_MS) {
+            withContext(Dispatchers.Default) { executeToolCall(toolCall) }
+        }
+    } catch (error: TimeoutCancellationException) {
+        JSONObject()
+            .put("ok", false)
+            .put("tool_call_id", toolCall.id)
+            .put("error", JSONObject()
+                .put("code", "tool_timeout")
+                .put("message", "tool ${toolCall.name} timed out after ${RuntimeDefaults.Agent.TOOL_TIMEOUT_MS / 1000}s"))
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Throwable) {
+        JSONObject()
+            .put("ok", false)
+            .put("tool_call_id", toolCall.id)
+            .put("error", JSONObject()
+                .put("code", "tool_failed")
+                .put("message", error.message ?: "tool failed"))
+    }
+
+    /** Retries a non-stream round once when the failure is transient (timeout / 5xx / rate limit). */
+    private suspend fun submitWithTransientRetry(request: io.lociant.core.model.ModelChatRequest): io.lociant.core.model.ModelChatResult {
+        var attempt = 0
+        while (true) {
+            val result = withContext(Dispatchers.IO) {
+                chatController.submitSync(request, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
+            }
+            if (result.ok || !result.retryable || attempt >= RuntimeDefaults.Agent.MAX_TRANSIENT_RETRIES) return result
+            attempt++
+            Log.w(TAG, "non-stream tool round retry attempt=$attempt reason=${result.message}")
+        }
+    }
+
     private fun responseJson(result: io.lociant.core.model.ModelChatResult, sessionId: String): JSONObject {
         if (!result.ok) return ModelApiMapper.error("chat_failed", result.message)
         return ModelApiMapper.openAiResponse(result).put("sessionId", sessionId)
@@ -429,6 +570,13 @@ class LociantServer(
         requireAuthorized(call)
         val refresh = call.request.queryParameters["refresh"]?.toBooleanStrictOrNull() ?: false
         val models = withContext(Dispatchers.IO) { JSONArray(modelManager.listModelsJson(refresh)) }
+        cloudModelJson()?.let { cloud ->
+            var exists = false
+            for (index in 0 until models.length()) {
+                if (models.optJSONObject(index)?.optString("id") == cloud.optString("id")) { exists = true; break }
+            }
+            if (!exists) models.put(cloud)
+        }
         call.respondText(JSONObject().put("models", models).toString(), JsonContentType)
     }
 
@@ -529,6 +677,13 @@ class LociantServer(
             .put("maxCpuThreads", maxCpuThreads())
             .put("inferenceBackend", inferenceBackend)
             .put("inferenceBackendFallback", backendFallbackApplied)
+            .put("cloudBaseUrl", cloudBaseUrl)
+            .put("cloudApiKey", cloudApiKey)
+            .put("cloudModel", if (cloudEnabled) cloudModel else "")
+            .put("cloudEnabled", cloudEnabled)
+            .put("cloudMaxOutputTokens", cloudMaxOutputTokens)
+            .put("cloudContextWindow", cloudContextWindow)
+            .put("cloudHistoryLimit", cloudHistoryLimit)
             .put("contextProfile", contextProfile)
             .put("historyLimit", historyLimit)
             .put("modelMaxOutputTokens", modelManager.maxNewTokens(modelId) ?: JSONObject.NULL)
@@ -576,7 +731,25 @@ class LociantServer(
                 .put("object", "model").put("created", 0)
                 .put("owned_by", model.optString("runtime", "lociant")))
         }
+        cloudModelJson()?.let { models.put(it) }
         return JSONObject().put("object", "list").put("data", models)
+    }
+
+    private fun cloudModelJson(): JSONObject? {
+        if (!cloudEnabled || cloudModel.isBlank()) return null
+        val id = ModelManager.normalizeId(cloudModel)
+        return JSONObject()
+            .put("id", id.ifBlank { cloudModel })
+            .put("name", cloudModel)
+            .put("object", "model")
+            .put("created", 0)
+            .put("owned_by", "cloud")
+            .put("runtime", "cloud")
+            .put("type", "chat")
+            .put("ready", true)
+            .put("installed", true)
+            .put("source", "cloud")
+            .put("cloud", true)
     }
 
     private fun sessionPolicyJson(): JSONObject = JSONObject()
@@ -636,6 +809,13 @@ class LociantServer(
             .put("maxOutputTokens", maxOutputTokens)
             .put("cpuThreads", cpuThreads)
             .put("inferenceBackend", inferenceBackend)
+            .put("cloudBaseUrl", cloudBaseUrl)
+            .put("cloudApiKey", cloudApiKey)
+            .put("cloudModel", cloudModel)
+            .put("cloudEnabled", cloudEnabled)
+            .put("cloudMaxOutputTokens", cloudMaxOutputTokens)
+            .put("cloudContextWindow", cloudContextWindow)
+            .put("cloudHistoryLimit", cloudHistoryLimit)
             .put("contextProfile", contextProfile)
             .put("historyLimit", historyLimit)
             .put("authToken", authToken)
@@ -659,6 +839,22 @@ class LociantServer(
             cpuThreads = nextCpuThreads
             if (chatCapability.configureCpuThreads(cpuThreads)) chatController.resetLoadedModel()
         }
+        cloudBaseUrl = settings.optString("cloudBaseUrl").trim()
+        cloudApiKey = settings.optString("cloudApiKey").trim()
+        cloudModel = settings.optString("cloudModel").trim()
+        cloudEnabled = settings.optBoolean("cloudEnabled", false)
+        cloudMaxOutputTokens = settings.optInt("cloudMaxOutputTokens", RuntimeDefaults.Cloud.OUTPUT_TOKENS_DEFAULT)
+            .coerceIn(0, HARD_MAX_OUTPUT_TOKENS)
+        cloudContextWindow = settings.optInt("cloudContextWindow", RuntimeDefaults.Cloud.CONTEXT_WINDOW_DEFAULT)
+            .coerceIn(RuntimeDefaults.Cloud.CONTEXT_WINDOW_MIN, RuntimeDefaults.Cloud.CONTEXT_WINDOW_MAX)
+        cloudHistoryLimit = settings.optInt("cloudHistoryLimit", RuntimeDefaults.Cloud.HISTORY_LIMIT_DEFAULT)
+            .coerceIn(1, RuntimeDefaults.Cloud.HISTORY_LIMIT_MAX)
+        chatCapability.configureCloud(
+            cloudBaseUrl, cloudApiKey, cloudModel, cloudEnabled,
+            maxOutputTokens = cloudMaxOutputTokens.takeIf { it > 0 },
+            contextWindow = cloudContextWindow,
+        )
+        chatController.configureCloudHistoryLimit(cloudHistoryLimit)
         val nextBackend = MnnRuntime.normalizeBackend(settings.optString("inferenceBackend", MnnRuntime.DEFAULT_INFERENCE_BACKEND))
         if (inferenceBackend != nextBackend) {
             inferenceBackend = nextBackend

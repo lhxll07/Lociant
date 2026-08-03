@@ -101,13 +101,6 @@ if (homeImageInput) {
 if (homeImageRemoveButton) {
   homeImageRemoveButton.addEventListener('click', clearHomeImageAttachment)
 }
-if (homeChatFeed) {
-  homeChatFeed.addEventListener('click', event => {
-    const button = event.target.closest('[data-home-action]')
-    if (button) handleHomeAction(button.dataset.homeAction)
-  })
-}
-
 // ---- Settings navigation ----
 runtimeSettingsButton.addEventListener('click', openRuntimeSettings)
 runtimeSettingsBack.addEventListener('click', closeRuntimeSettingsBack)
@@ -225,6 +218,75 @@ if (runtimeBackendInput) {
     updateRuntimeSettings({ inferenceBackend: runtimeBackendInput.value || 'model' })
   })
 }
+if (runtimeCloudEnabledInput) {
+  runtimeCloudEnabledInput.addEventListener('change', () => {
+    updateRuntimeSettings({ cloudEnabled: !!runtimeCloudEnabledInput.checked })
+  })
+}
+function cloudSettingsPayload() {
+  return {
+    cloudBaseUrl: runtimeCloudBaseUrlInput ? runtimeCloudBaseUrlInput.value.trim() : '',
+    cloudApiKey: runtimeCloudApiKeyInput ? runtimeCloudApiKeyInput.value.trim() : '',
+    cloudModel: runtimeCloudModelInput ? runtimeCloudModelInput.value.trim() : ''
+  }
+}
+if (runtimeCloudBaseUrlInput) {
+  runtimeCloudBaseUrlInput.addEventListener('change', () => updateRuntimeSettings(cloudSettingsPayload()))
+}
+if (runtimeCloudApiKeyInput) {
+  runtimeCloudApiKeyInput.addEventListener('change', () => updateRuntimeSettings(cloudSettingsPayload()))
+}
+if (runtimeCloudModelInput) {
+  runtimeCloudModelInput.addEventListener('change', () => updateRuntimeSettings(cloudSettingsPayload()))
+}
+if (runtimeCloudResponseLengthInput) {
+  runtimeCloudResponseLengthInput.addEventListener('change', () => {
+    if (runtimeCloudResponseLengthInput.value === 'custom') {
+      if (runtimeCloudResponseTokensInput) {
+        runtimeCloudResponseTokensInput.classList.remove('is-hidden')
+        runtimeCloudResponseTokensInput.focus()
+      }
+      return
+    }
+    if (runtimeCloudResponseTokensInput) runtimeCloudResponseTokensInput.classList.add('is-hidden')
+    updateRuntimeSettings({ cloudMaxOutputTokens: Number(runtimeCloudResponseLengthInput.value) || 0 })
+  })
+}
+if (runtimeCloudResponseTokensInput) {
+  runtimeCloudResponseTokensInput.addEventListener('change', () => {
+    const hardMax = Number(runtimeServiceState && runtimeServiceState.hardMaxOutputTokens) || 32768
+    const value = Math.max(0, Math.min(hardMax, Math.round(Number(runtimeCloudResponseTokensInput.value) || 0)))
+    runtimeCloudResponseTokensInput.value = String(value)
+    updateRuntimeSettings({ cloudMaxOutputTokens: value })
+  })
+}
+if (runtimeCloudContextWindowInput) {
+  runtimeCloudContextWindowInput.addEventListener('change', () => {
+    if (runtimeCloudContextWindowInput.value === 'custom') {
+      if (runtimeCloudContextWindowTokensInput) {
+        runtimeCloudContextWindowTokensInput.classList.remove('is-hidden')
+        runtimeCloudContextWindowTokensInput.focus()
+      }
+      return
+    }
+    if (runtimeCloudContextWindowTokensInput) runtimeCloudContextWindowTokensInput.classList.add('is-hidden')
+    updateRuntimeSettings({ cloudContextWindow: Number(runtimeCloudContextWindowInput.value) || 131072 })
+  })
+}
+if (runtimeCloudContextWindowTokensInput) {
+  runtimeCloudContextWindowTokensInput.addEventListener('change', () => {
+    const value = Math.max(16384, Math.min(524288, Math.round(Number(runtimeCloudContextWindowTokensInput.value) || 131072)))
+    runtimeCloudContextWindowTokensInput.value = String(value)
+    updateRuntimeSettings({ cloudContextWindow: value })
+  })
+}
+if (runtimeCloudHistoryLimitInput) {
+  runtimeCloudHistoryLimitInput.addEventListener('change', () => {
+    const value = Math.max(1, Math.min(1024, Math.round(Number(runtimeCloudHistoryLimitInput.value) || 256)))
+    runtimeCloudHistoryLimitInput.value = String(value)
+    updateRuntimeSettings({ cloudHistoryLimit: value })
+  })
+}
 if (runtimeResponseLengthInput) {
   runtimeResponseLengthInput.addEventListener('change', () => {
     if (runtimeResponseLengthInput.value === 'custom') {
@@ -277,6 +339,7 @@ if (runtimeReleaseModelButton) {
 
 // ---- Session ----
 runtimeSessionNewButton.addEventListener('click', () => {
+  if (homeChatInFlight) return
   createRuntimeSession()
 })
 if (runtimeDiagRunButton) {
@@ -300,6 +363,8 @@ modelLocalButton.addEventListener('click', () => setModelView('local'))
 modelLocalBack.addEventListener('click', () => setModelView('home'))
 modelMarketButton.addEventListener('click', () => setModelView('market'))
 modelMarketBack.addEventListener('click', () => setModelView('home'))
+modelCloudButton.addEventListener('click', () => setModelView('cloud'))
+modelCloudBack.addEventListener('click', () => setModelView('home'))
 modelRuntimeButton.addEventListener('click', () => {
   navigateTo('settings')
   openRuntimeSettings()

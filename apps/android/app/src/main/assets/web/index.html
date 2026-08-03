@@ -29,7 +29,7 @@
         </button>
       </nav>
 
-      <div class="version">v1.0.2</div>
+      <div class="version">v1.1.0</div>
     </aside>
 
     <main class="main">
@@ -70,10 +70,6 @@
               <span class="chat-context-state" id="homeChatState">Ready</span>
             </header>
             <div class="chat-feed" id="homeChatFeed"></div>
-            <div class="chat-suggestions">
-              <button class="suggestion-chip pressable" type="button" data-home-action="diagnostics" data-i18n="home.quickDiagnostics">运行诊断</button>
-              <button class="suggestion-chip pressable" type="button" data-home-action="copy-config" data-i18n="home.quickConnection">复制连接配置</button>
-            </div>
             <div class="chat-attachment-preview" id="homeImagePreview" aria-hidden="true">
               <img id="homeImagePreviewImg" alt="">
               <span id="homeImagePreviewName"></span>
@@ -102,6 +98,11 @@
 
         <section class="settings-page settings-home-page active" id="settingsList" aria-hidden="false">
           <div class="settings-grid">
+            <button class="settings-tile pressable" id="onboardingSettingsButton" type="button">
+              <span class="settings-tile-title" data-i18n="onboarding.settingsTitle">新手引导</span>
+              <span class="settings-tile-sub" data-i18n="onboarding.settingsSub">一步一步完成首次设置</span>
+              <span class="settings-tile-state status-pill" data-i18n="onboarding.open">开始</span>
+            </button>
             <div class="settings-tile settings-tile-control">
               <span class="settings-tile-title" data-i18n="settings.language">语言</span>
               <span class="settings-tile-sub" data-i18n="settings.languageSub">显示语言</span>
@@ -478,7 +479,7 @@
                 <span class="settings-section-title" data-i18n="about.versionLabel">软件版本</span>
                 <span class="settings-section-sub" data-i18n="about.versionSub">应用与 API 契约版本</span>
               </span>
-              <span class="status-pill" id="aboutVersion">1.0.2</span>
+              <span class="status-pill" id="aboutVersion">1.1.0</span>
             </div>
             <a class="settings-section about-link" href="https://github.com/lhxll07/Lociant" target="_blank" rel="noopener noreferrer" data-about-link>
               <span class="settings-section-main">
@@ -554,6 +555,11 @@
               <span class="settings-tile-sub" data-i18n="models.runtimeSub">默认模型与 API</span>
               <span class="settings-tile-state status-pill" id="modelRuntimeState">--</span>
             </button>
+            <button class="settings-tile pressable" id="modelCloudButton" type="button">
+              <span class="settings-tile-title" data-i18n="models.cloudTitle">云端模型</span>
+              <span class="settings-tile-sub" data-i18n="models.cloudSub">OpenAI 兼容云端 API</span>
+              <span class="settings-tile-state status-pill" id="modelCloudState">--</span>
+            </button>
           </div>
         </div>
 
@@ -570,6 +576,92 @@
             </div>
           </div>
           <div class="surface-list model-list" id="modelList"></div>
+        </div>
+
+        <div class="model-view" id="modelCloudView" aria-hidden="true">
+          <div class="detail-head">
+            <button class="back-chip pressable" id="modelCloudBack" type="button" data-i18n="common.back">返回</button>
+            <div>
+              <h2 data-i18n="models.cloudTitle">云端模型</h2>
+              <p data-i18n="models.cloudSub">OpenAI 兼容云端 API</p>
+            </div>
+          </div>
+          <div class="surface-list">
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudTitle">Cloud model</span>
+                <span class="settings-section-sub" data-i18n="settings.cloudSub">Use an OpenAI-compatible cloud API</span>
+              </span>
+              <label class="settings-checkbox"><input class="switch-input" type="checkbox" id="runtimeCloudEnabledInput"></label>
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudBaseUrl">API base URL</span>
+                <span class="settings-section-sub" data-i18n="settings.cloudBaseUrlSub">https://api.openai.com/v1</span>
+              </span>
+              <input class="settings-text-input" type="text" id="runtimeCloudBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1">
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudApiKey">API key</span>
+                <span class="settings-section-sub" data-i18n="settings.cloudApiKeySub">Stored locally on this phone</span>
+              </span>
+              <input class="settings-text-input" type="password" id="runtimeCloudApiKeyInput" autocomplete="off" spellcheck="false" placeholder="sk-...">
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudModel">Model name</span>
+                <span class="settings-section-sub" data-i18n="settings.cloudModelSub">e.g. gpt-4o-mini, qwen-max</span>
+              </span>
+              <input class="settings-text-input" type="text" id="runtimeCloudModelInput" autocomplete="off" spellcheck="false" placeholder="gpt-4o-mini">
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudResponseLength">Cloud response length</span>
+                <span class="settings-section-sub" id="runtimeCloudResponseLengthText" data-i18n="settings.cloudResponseLengthSub">0 = follow the provider default</span>
+              </span>
+              <div class="model-experience-control">
+                <select class="settings-select-input" id="runtimeCloudResponseLengthInput">
+                  <option value="0" data-i18n="settings.cloudLengthUnlimited">Unlimited (provider default)</option>
+                  <option value="1024">1024</option>
+                  <option value="4096">4096</option>
+                  <option value="8192">8192</option>
+                  <option value="custom" data-i18n="settings.custom">Custom</option>
+                </select>
+                <input class="settings-number-input" id="runtimeCloudResponseTokensInput" type="number" min="0" max="32768" step="256" inputmode="numeric" aria-label="cloud response tokens">
+              </div>
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudContextWindow">Cloud context window</span>
+                <span class="settings-section-sub" data-i18n="settings.cloudContextWindowSub">History trimming budget for cloud models</span>
+              </span>
+              <div class="model-experience-control">
+                <select class="settings-select-input" id="runtimeCloudContextWindowInput">
+                  <option value="16384">16k</option>
+                  <option value="32768">32k</option>
+                  <option value="65536">64k</option>
+                  <option value="131072">128k</option>
+                  <option value="262144">256k</option>
+                  <option value="custom" data-i18n="settings.custom">Custom</option>
+                </select>
+                <input class="settings-number-input" id="runtimeCloudContextWindowTokensInput" type="number" min="16384" max="524288" step="16384" inputmode="numeric" aria-label="cloud context window tokens">
+              </div>
+            </div>
+            <div class="settings-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="settings.cloudHistoryLimit">Cloud history messages</span>
+                <span class="settings-section-sub" data-i18n="settings.cloudHistoryLimitSub">Conversation turns kept in cloud context</span>
+              </span>
+              <input class="settings-number-input" type="number" id="runtimeCloudHistoryLimitInput" min="1" max="1024" step="8" inputmode="numeric" aria-label="cloud history messages">
+            </div>
+            <div class="settings-section settings-action-section">
+              <span class="settings-section-main">
+                <span class="settings-section-title" data-i18n="models.cloudHintTitle">设为默认模型</span>
+                <span class="settings-section-sub" id="modelCloudHintText" data-i18n="models.cloudHint">保存后在本地模型列表中选择它作为默认</span>
+              </span>
+            </div>
+          </div>
         </div>
 
         <div class="model-view" id="modelMarketPanel" aria-hidden="true">
@@ -596,6 +688,125 @@
         <span class="model-progress-text" id="modelProgressText"></span>
         <span class="model-progress-percent" id="modelProgressPercent"></span>
         <div class="model-progress-bar"><div class="model-progress-fill" id="modelProgressFill"></div></div>
+      </div>
+
+      <div class="onboarding-backdrop" id="onboardingModal" aria-hidden="true" hidden>
+        <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+          <header class="onboarding-head">
+            <div>
+              <span class="onboarding-kicker" data-i18n="onboarding.kicker">Getting started</span>
+              <span class="onboarding-step-count" id="onboardingStepCount">1 / 7</span>
+            </div>
+            <button class="onboarding-close pressable" id="onboardingCloseButton" type="button" data-i18n-aria-label="onboarding.close" aria-label="关闭">×</button>
+          </header>
+          <div class="onboarding-progress" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+
+          <div class="onboarding-step active" data-onboarding-step="0" aria-hidden="false">
+            <div class="onboarding-mark">01</div>
+            <h2 id="onboardingTitle" data-i18n="onboarding.welcomeTitle">先把手机准备好</h2>
+            <p data-i18n="onboarding.welcomeBody">Lociant 可以让云端模型调用手机上的应用、屏幕和系统能力。跟着这几步走，第一次使用也不会迷路。</p>
+            <div class="onboarding-note" data-i18n="onboarding.welcomeNote">推荐先用云端模型，配置简单，手机只负责执行动作。</div>
+          </div>
+
+          <div class="onboarding-step" data-onboarding-step="1" aria-hidden="true">
+            <div class="onboarding-mark">02</div>
+            <h2 data-i18n="onboarding.cloudTitle">先接入云端模型</h2>
+            <p data-i18n="onboarding.cloudBody">推荐 DeepSeek。注册并复制 API Key 后填到下面，密钥只保存在这台手机上。</p>
+            <div class="onboarding-provider">
+              <div>
+                <strong>DeepSeek</strong>
+                <span data-i18n="onboarding.deepseekHint">适合第一次使用，按量计费，配置清楚</span>
+              </div>
+              <button class="tonal-button pressable" id="onboardingDeepSeekButton" type="button" data-i18n="onboarding.usePreset">使用预设</button>
+            </div>
+            <label class="onboarding-field">
+              <span data-i18n="onboarding.apiKeyLabel">DeepSeek API Key</span>
+              <input id="onboardingApiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="sk-...">
+            </label>
+            <p class="onboarding-status" id="onboardingCloudStatus" role="status"></p>
+            <button class="text-button pressable onboarding-cloud-skip" id="onboardingCloudSkipButton" type="button" data-i18n="onboarding.skipCloud">暂时跳过，使用本地模型</button>
+          </div>
+
+          <div class="onboarding-step" data-onboarding-step="2" aria-hidden="true">
+            <div class="onboarding-mark">03</div>
+            <h2 data-i18n="onboarding.runtimeTitle">开启运行时</h2>
+            <p data-i18n="onboarding.runtimeBody">运行时是手机里的小服务。云端模型负责理解你的话，它负责真正点击、输入、读取页面。</p>
+            <div class="onboarding-status-card">
+              <span class="onboarding-status-dot" id="onboardingRuntimeDot"></span>
+              <div>
+                <strong id="onboardingRuntimeStatus">未启动</strong>
+                <span data-i18n="onboarding.runtimeHint">保持运行时开启，Agent 才能操作手机。</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="onboarding-step" data-onboarding-step="3" aria-hidden="true">
+            <div class="onboarding-mark">04</div>
+            <h2 data-i18n="onboarding.permissionsTitle">给它必要的权限</h2>
+            <p data-i18n="onboarding.permissionsBody">无障碍权限是必需的，用来点击、输入和读取当前页面。悬浮窗、通知和摄像头按需要开启。</p>
+            <div class="onboarding-permission-list">
+              <div class="onboarding-permission-row">
+                <div><strong data-i18n="onboarding.accessibility">无障碍服务</strong><span data-i18n="onboarding.accessibilityHint">必需：操作和读取应用</span></div>
+                <span class="status-pill" id="onboardingAccessibilityStatus">需要授权</span>
+              </div>
+              <div class="onboarding-permission-row">
+                <div><strong data-i18n="onboarding.overlay">悬浮窗</strong><span data-i18n="onboarding.overlayHint">可选：显示运行状态</span></div>
+                <span class="status-pill" id="onboardingOverlayStatus">可选</span>
+              </div>
+            </div>
+            <div class="onboarding-inline-actions">
+              <button class="tonal-button pressable" id="onboardingAccessibilityButton" type="button" data-i18n="onboarding.grantAccessibility">去开启无障碍</button>
+              <button class="text-button pressable" id="onboardingAppPermissionButton" type="button" data-i18n="onboarding.openAppPermissions">打开应用权限</button>
+            </div>
+          </div>
+
+          <div class="onboarding-step" data-onboarding-step="4" aria-hidden="true">
+            <div class="onboarding-mark">05</div>
+            <h2 data-i18n="onboarding.mcpTitle">把手机接给电脑上的 Agent</h2>
+            <p data-i18n="onboarding.mcpBody">MCP 是一条标准连接，让 Codex、Claude 或其他客户端发现并调用手机工具。手机负责执行，电脑负责对话和编排。</p>
+            <div class="onboarding-connection">
+              <div class="onboarding-connection-main">
+                <span data-i18n="onboarding.mcpEndpointLabel">MCP 地址</span>
+                <code id="onboardingMcpUrl">--</code>
+              </div>
+              <button class="tonal-button pressable" id="onboardingMcpCopyButton" type="button" data-i18n="onboarding.copyMcpConfig">复制 MCP 配置</button>
+            </div>
+            <div class="onboarding-note" data-i18n="onboarding.mcpHint">在设置 → 运行时 → 服务中，也可以复制完整 MCP 配置和 API 令牌。电脑和手机需要在同一个局域网。</div>
+          </div>
+
+          <div class="onboarding-step" data-onboarding-step="5" aria-hidden="true">
+            <div class="onboarding-mark">06</div>
+            <h2 data-i18n="onboarding.localTitle">本地模型，实验性功能</h2>
+            <p data-i18n="onboarding.localBody">本地模型不需要把请求发到云端，但安装包更大，对内存和芯片要求也更高。新手建议先用 DeepSeek，之后再慢慢试。</p>
+            <div class="onboarding-note" data-i18n="onboarding.localNote">旧手机也可以试试，只是速度和可用模型会因设备而异。</div>
+            <div class="onboarding-inline-actions">
+              <button class="tonal-button pressable" id="onboardingLocalButton" type="button" data-i18n="onboarding.viewLocalModels">查看本地模型</button>
+              <button class="text-button pressable" id="onboardingMarketButton" type="button" data-i18n="onboarding.viewModelMarket">打开模型市场</button>
+            </div>
+          </div>
+
+          <div class="onboarding-step" data-onboarding-step="6" aria-hidden="true">
+            <div class="onboarding-mark">07</div>
+            <h2 data-i18n="onboarding.doneTitle">可以开始了</h2>
+            <p data-i18n="onboarding.doneBody">回到主页，直接说出你想做的事。先从简单任务开始，成功后再交给它更复杂的工作。</p>
+            <div class="onboarding-examples">
+              <span data-i18n="onboarding.exampleWechat">“打开微信，帮我整理未读消息”</span>
+              <span data-i18n="onboarding.exampleBilibili">“看看 B 站有什么新动态”</span>
+              <span data-i18n="onboarding.exampleApp">“打开这个新 App，帮我试试登录流程”</span>
+            </div>
+            <div class="onboarding-note" data-i18n="onboarding.rerunHint">以后想重新看？进入“设置 → 新手引导”即可再次运行。</div>
+          </div>
+
+          <footer class="onboarding-footer">
+            <button class="text-button pressable" id="onboardingBackButton" type="button" data-i18n="onboarding.previous">上一步</button>
+            <div class="onboarding-footer-actions">
+              <button class="text-button pressable" id="onboardingSkipButton" type="button" data-i18n="onboarding.skip">以后再看</button>
+              <button class="filled-button pressable" id="onboardingPrimaryButton" type="button" data-i18n="onboarding.start">开始设置</button>
+            </div>
+          </footer>
+        </section>
       </div>
 
       <div class="toast" id="toast"></div>

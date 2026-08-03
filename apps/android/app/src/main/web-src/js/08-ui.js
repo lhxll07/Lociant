@@ -3,6 +3,8 @@
 // ---- Sidebar ----
 let sidebarBusy = false
 let nativeKeyboardInset = 0
+let homeChatInFlight = false
+let homeChatFailure = null
 
 function clearPress(target) {
   if (target) target.classList.remove('is-pressed')
@@ -54,11 +56,6 @@ function navigateTo(page) {
   syncTopStatus()
 }
 
-function openRuntimeServerFromHome() {
-  navigateTo('settings')
-  openRuntimeServerSettings()
-}
-
 function syncKeyboardOffset() {
   const chatFocused = document.activeElement === homeChatInput
   if (!document.documentElement || !chatFocused) {
@@ -88,19 +85,6 @@ window.__lociantKeyboardInset = function(insetPx) {
 function showHomeConversationLoading(text) {
   clearHomeMessages()
   appendChatBubble('assistant', text || t('home.thinking'))
-}
-
-function handleHomeAction(action) {
-  if (action === 'diagnostics') {
-    navigateTo('settings')
-    openRuntimeAdvancedSettings()
-    runRuntimeDiagnostics()
-    return
-  }
-  if (action === 'copy-config') {
-    openRuntimeServerFromHome()
-    return
-  }
 }
 
 function setHomeImageAttachment(file, dataUrl) {
@@ -137,20 +121,44 @@ function homeChatMessages(prompt, image) {
   return [{ role: 'user', content }]
 }
 
-function homeChatRequestBody(modelId, sessionId, prompt, image) {
-  return {
+let homeToolManifest = null
+async function loadHomeToolManifest() {
+  // Cache only a successful non-empty manifest. A failed or empty first fetch
+  // (for example before the runtime is started) must not permanently disable
+  // tool passing for later chats.
+  if (Array.isArray(homeToolManifest) && homeToolManifest.length) return homeToolManifest
+  try {
+    const data = await apiGet('/api/v1/tools')
+    const next = (data && Array.isArray(data.data)) ? data.data : []
+    if (next.length) homeToolManifest = next
+    return next
+  } catch (error) {
+    return homeToolManifest || []
+  }
+}
+
+async function homeChatRequestBody(modelId, sessionId, prompt, image) {
+  const body = {
     model: modelId,
     stream: true,
     stream_options: { include_usage: true },
     sessionId,
     messages: homeChatMessages(prompt, image)
   }
+  const tools = await loadHomeToolManifest()
+  if (Array.isArray(tools) && tools.length) {
+    body.tools = tools
+    body.execute_tools = true
+  }
+  return body
 }
 
 function submitHomeChat(text) {
+  if (homeChatInFlight) return
   const prompt = String(text || '').trim()
   const image = homeAttachedImage
   if (!prompt && !image) return
+  homeChatFailure = null
   appendChatBubble('user', image ? ((prompt || t('home.imageAttached')) + ' · ' + t('home.imageAttached')) : prompt)
   if (homeChatInput) homeChatInput.value = ''
   clearHomeImageAttachment()
@@ -159,6 +167,7 @@ function submitHomeChat(text) {
   const modelId = (runtimeServiceState && runtimeServiceState.modelId) || ''
   const sessionId = homeCurrentSessionId()
   upsertHomeSessionPreview(sessionId, prompt || t('home.imageAttached'), 'user')
+  homeChatInFlight = true
   Promise.resolve(homeChatRequestBody(modelId, sessionId, prompt, image))
     .then(body => streamOpenAiHomeChat(body, pending))
     .then(result => {
@@ -169,9 +178,16 @@ function submitHomeChat(text) {
       upsertHomeSessionPreview(sessionId, reply || prompt || t('home.imageAttached'), 'assistant')
       refreshRuntimeServiceState()
     }).catch(error => {
-      if (pending) renderChatMarkdown(chatTextTarget(pending), (error && error.message) || t('toast.modelImportFailed'))
-      else appendChatBubble('assistant', (error && error.message) || t('toast.modelImportFailed'))
+      const message = (error && error.message) || t('toast.modelImportFailed')
+      // Remember interrupted turns so returning to the app restores them
+      // instead of silently dropping the conversation.
+      homeChatFailure = { sessionId: sessionId, message: message, prompt: prompt || t('home.imageAttached') }
+      if (!document.hidden) {
+        if (pending) renderChatMarkdown(chatTextTarget(pending), message)
+        else appendChatBubble('assistant', message)
+      }
     }).finally(() => {
+      homeChatInFlight = false
       if (homeChatSendButton) homeChatSendButton.disabled = false
     })
 }
@@ -202,37 +218,116 @@ async function streamOpenAiHomeChat(body, target) {
   const writer = target ? createChatTextStream(chatTextTarget(target)) : null
   let buffer = ''
   let text = ''
+  let reasoningDone = false
+  let reasoningText = ''
+  let reasoningNode = null
+  let thinkingNode = null
   const toolAccumulator = createToolCallAccumulator()
   const toolCalls = []
-  while (true) {
-    const read = await reader.read()
-    if (read.done) break
-    buffer += decoder.decode(read.value, { stream: true })
-    const events = buffer.split('\n\n')
-    buffer = events.pop() || ''
-    for (const event of events) {
-      const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue
-        const data = line.slice(5).trim()
-        if (!data || data === '[DONE]') continue
-        const json = JSON.parse(data)
-        const delta = json.choices && json.choices[0] && json.choices[0].delta
-        if (delta && typeof delta.content === 'string') {
-          text += delta.content
-          if (writer) writer.push(delta.content)
+  let toolSeq = 0
+  const toolSeqByKey = new Map()
+  // Live run status: the server emits lociant phase/ping events so the UI can
+  // show progress instead of looking hung while a tool runs or the model thinks.
+  let lastProgressAt = Date.now()
+  let streamFinished = false
+  const watchdog = window.setInterval(() => {
+    if (streamFinished) return
+    const idleMs = Date.now() - lastProgressAt
+    if (idleMs > 45000) {
+      updateRunStatus(target, runStatusText('home.runStatusStall', [Math.round(idleMs / 1000)]))
+    }
+  }, 1000)
+  function ensureReasoningUi() {
+    if (reasoningNode || !target) return
+    const scope = chatTextTarget(target)
+    if (!scope) return
+    reasoningNode = el('div', 'chat-reasoning')
+    thinkingNode = el('span', 'chat-thinking', t('home.thinking'))
+    const body = el('span', 'chat-reasoning-text')
+    reasoningNode.appendChild(thinkingNode)
+    reasoningNode.appendChild(body)
+    scope.insertBefore(reasoningNode, scope.firstChild)
+  }
+  function finishReasoningUi() {
+    if (reasoningDone || !thinkingNode) return
+    reasoningDone = true
+    thinkingNode.textContent = t('home.thought')
+    thinkingNode.classList.add('done')
+  }
+  try {
+    while (true) {
+      const read = await reader.read()
+      if (read.done) break
+      buffer += decoder.decode(read.value, { stream: true })
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+      for (const event of events) {
+        const lines = event.split('\n').map(line => line.trim()).filter(Boolean)
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          const data = line.slice(5).trim()
+          if (!data || data === '[DONE]') continue
+          const json = JSON.parse(data)
+          if (json && json.error) throw new Error((json.error.message) || 'API request failed')
+          if (json && json.lociant) {
+            const info = json.lociant
+            if (info.type === 'ping') {
+              continue
+            }
+            if (info.type === 'phase') {
+              lastProgressAt = Date.now()
+              if (info.phase === 'tool_running') {
+                updateRunStatus(target, runStatusText('home.runStatusTool', [info.tool || '', info.round || '']))
+              } else if (info.phase === 'round') {
+                updateRunStatus(target, runStatusText('home.runStatusRound', [info.round || '']))
+              } else if (info.phase === 'retry') {
+                updateRunStatus(target, runStatusText('home.runStatusRetry'))
+              } else if (info.phase === 'tool_done') {
+                updateRunStatus(target, '')
+              }
+              continue
+            }
+          }
+          const delta = json.choices && json.choices[0] && json.choices[0].delta
+          const reasoning = delta && typeof delta.reasoning_content === 'string' ? delta.reasoning_content : ''
+          if (reasoning) {
+            lastProgressAt = Date.now()
+            reasoningText += reasoning
+            ensureReasoningUi()
+            if (reasoningNode) reasoningNode.querySelector('.chat-reasoning-text').textContent = reasoningText
+          }
+          if (delta && typeof delta.content === 'string') {
+            lastProgressAt = Date.now()
+            if (reasoningText) finishReasoningUi()
+            text += delta.content
+            if (writer) writer.push(delta.content)
+          }
+          const calls = delta ? normalizeToolCalls(delta.tool_calls) : []
+          if (calls.length) lastProgressAt = Date.now()
+          calls.forEach(call => {
+            const merged = toolAccumulator.push(call)
+            const key = merged._key
+            if (!toolSeqByKey.has(key)) toolSeqByKey.set(key, toolSeq++)
+            appendToolBubble(merged, target, toolSeqByKey.get(key))
+          })
         }
-        const calls = delta ? normalizeToolCalls(delta.tool_calls) : []
-        calls.forEach(call => {
-          const merged = toolAccumulator.push(call)
-          appendToolBubble(merged, target)
-        })
       }
     }
+  } finally {
+    streamFinished = true
+    window.clearInterval(watchdog)
+    updateRunStatus(target, '')
   }
+  if (reasoningText && !reasoningDone) finishReasoningUi()
   if (writer) writer.finish(text)
   toolCalls.push.apply(toolCalls, toolAccumulator.values())
-  if (!text && target && !toolCalls.length) renderChatMarkdown(chatTextTarget(target), t('home.emptyReply'))
+  if (!text && target && !toolCalls.length) {
+    renderChatMarkdown(chatTextTarget(target), t('home.emptyReply'))
+  } else if (!text && target && toolCalls.length) {
+    // Tools ran but the model produced no final text; show a completion note
+    // instead of looking like the session died silently.
+    renderChatMarkdown(chatTextTarget(target), t('home.toolRunDone'))
+  }
   return { text, toolCalls }
 }
 
@@ -254,7 +349,8 @@ function createToolCallAccumulator() {
   const calls = []
   return {
     push(part) {
-      const key = (part && part.id) || String((part && part.index) || calls.length)
+      const partIndex = (part && part.index !== undefined && part.index !== null) ? part.index : calls.length
+      const key = (part && part.id) || String(partIndex)
       let current = calls.find(call => call._key === key)
       if (!current) {
         current = { _key: key, id: part && part.id, index: part && part.index, type: part && part.type, name: '', arguments: '' }
@@ -350,6 +446,11 @@ function runtimeStateSignature(state) {
 
 function refreshRuntimeServiceState() {
   const state = runtimeState()
+  if (homeChatInFlight && state && Array.isArray(state.sessions)) {
+    // While a chat is streaming, the in-flight turn is not persisted yet;
+    // keep the live session previews so the current session stays in the list.
+    delete state.sessions
+  }
   const signature = runtimeStateSignature(state)
   if (signature !== runtimePollSignature) {
     runtimePollSignature = signature
@@ -358,12 +459,17 @@ function refreshRuntimeServiceState() {
   if (!runtimePollTimer) {
     runtimePollTimer = window.setInterval(() => {
       const next = runtimeState()
+      if (homeChatInFlight && next && Array.isArray(next.sessions)) {
+        // Do not let the two-second runtime poll replace the live preview while
+        // the server is still processing the current turn.
+        delete next.sessions
+      }
       const nextSignature = runtimeStateSignature(next)
       if (nextSignature !== runtimePollSignature) {
         runtimePollSignature = nextSignature
         updateRuntimeServiceState(next)
       }
-    }, 4000)
+    }, 2000)
   }
 }
 

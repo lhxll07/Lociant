@@ -11,6 +11,7 @@
 - **感知环境**：读取光线、距离、加速度、陀螺仪等传感器，让 Agent 知道手机是在口袋、桌面上还是被拿起，环境是亮是暗、手机在不在动。
 - **摄像头与视觉**：拍照、连续画面分析，识别视野里的物体。
 - **接入任何 Agent**：通过 MCP 给 Claude、Codex、OpenCode 等使用，也支持 OpenAI 兼容 API；可以在 CPU 和 GPU（OpenCL / Vulkan）推理后端之间切换。
+- **云端大脑（可选）**：配置一个 OpenAI 兼容的云端模型后，手机可以直接用它思考和规划，再调用自己的工具——本地优先，云端按需开启。
 
 例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息、在输入框里帮你填好一段文字，或者先"感觉"一下手机现在是在口袋里还是桌上，再决定要不要亮屏操作。
 
@@ -20,13 +21,15 @@
 
 当前发布包适用于 Android 8.0 及以上、`arm64-v8a` 设备：
 
-[下载 Lociant v1.0.2 APK](https://github.com/lhxll07/Lociant/releases/download/v1.0.2/lociant-1.0.2-arm64-v8a-release.apk)
+[下载 Lociant v1.1.0 APK](https://github.com/lhxll07/Lociant/releases/download/v1.1.0/lociant-1.1.0-arm64-v8a-release.apk)
 
 安装时如果系统提示允许安装未知来源应用，请按系统提示允许即可。
 
 ### 2. 打开权限
 
-第一次打开 Lociant，进入“设置”，按需要开启权限：
+第一次打开 Lociant，会自动进入新手引导；以后也可以从“设置 → 新手引导”再次运行。按引导配置云端模型、运行时和权限即可。
+
+需要手动检查时，进入“设置”，按需要开启权限：
 
 1. 开启“无障碍”：让 Lociant 读取屏幕并执行点击、滑动等操作。
 2. 允许通知：保持后台运行时显示服务状态。

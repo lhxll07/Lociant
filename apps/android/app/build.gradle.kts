@@ -22,8 +22,8 @@ android {
         applicationId = "io.lociant.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10002
-        versionName = "1.0.2"
+        versionCode = 10100
+        versionName = "1.1.0"
     }
 
     compileOptions {
@@ -31,8 +31,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     packaging {
@@ -63,7 +65,7 @@ tasks.named("preBuild") {
 }
 
 dependencies {
-    val ktorVersion = "3.1.3"
+    val ktorVersion = "3.4.3"
 
     implementation(project(":core"))
     implementation(project(":data"))

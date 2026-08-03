@@ -115,6 +115,7 @@ function updateRuntimeServiceState(state) {
   }
   updateHomeState()
   if (typeof updateModelMarketHint === 'function') updateModelMarketHint()
+  if (typeof updateModelCloudState === 'function') updateModelCloudState()
   if (state.inferenceBackendFallback && !window.__lociantBackendFallbackNotified) {
     window.__lociantBackendFallbackNotified = true
     showToast(t('toast.backendFallback'))
@@ -150,6 +151,38 @@ function updateModelExperienceState() {
     opencl: t('settings.backendOpencl'),
     vulkan: t('settings.backendVulkan')
   })[backend] || t('settings.backendModel')
+
+  const cloudEnabled = !!state.cloudEnabled
+  if (runtimeCloudEnabledInput) runtimeCloudEnabledInput.checked = cloudEnabled
+  if (runtimeCloudBaseUrlInput && document.activeElement !== runtimeCloudBaseUrlInput) runtimeCloudBaseUrlInput.value = String(state.cloudBaseUrl || '')
+  if (runtimeCloudApiKeyInput && document.activeElement !== runtimeCloudApiKeyInput) runtimeCloudApiKeyInput.value = String(state.cloudApiKey || '')
+  if (runtimeCloudModelInput && document.activeElement !== runtimeCloudModelInput) runtimeCloudModelInput.value = String(state.cloudModel || '')
+  const cloudTokens = Number(state.cloudMaxOutputTokens) || 0
+  if (runtimeCloudResponseLengthInput && document.activeElement !== runtimeCloudResponseLengthInput) {
+    const cloudPreset = [0, 1024, 4096, 8192].includes(cloudTokens) ? String(cloudTokens) : 'custom'
+    runtimeCloudResponseLengthInput.value = cloudPreset
+    if (runtimeCloudResponseTokensInput) {
+      runtimeCloudResponseTokensInput.value = String(cloudTokens)
+      runtimeCloudResponseTokensInput.classList.toggle('is-hidden', cloudPreset !== 'custom')
+    }
+  }
+  if (runtimeCloudResponseLengthText) {
+    runtimeCloudResponseLengthText.textContent = cloudTokens > 0
+      ? (cloudTokens + ' tokens')
+      : t('settings.cloudLengthUnlimited')
+  }
+  const cloudContext = Number(state.cloudContextWindow) || 131072
+  if (runtimeCloudContextWindowInput && document.activeElement !== runtimeCloudContextWindowInput) {
+    const ctxPreset = [16384, 32768, 65536, 131072, 262144].includes(cloudContext) ? String(cloudContext) : 'custom'
+    runtimeCloudContextWindowInput.value = ctxPreset
+    if (runtimeCloudContextWindowTokensInput) {
+      runtimeCloudContextWindowTokensInput.value = String(cloudContext)
+      runtimeCloudContextWindowTokensInput.classList.toggle('is-hidden', ctxPreset !== 'custom')
+    }
+  }
+  if (runtimeCloudHistoryLimitInput && document.activeElement !== runtimeCloudHistoryLimitInput) {
+    runtimeCloudHistoryLimitInput.value = String(Number(state.cloudHistoryLimit) || 256)
+  }
 
   const tokens = Number(state.maxOutputTokens) || 512
   const responseMode = responsePresetForTokens(tokens)

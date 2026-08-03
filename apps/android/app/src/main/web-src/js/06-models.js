@@ -2,7 +2,7 @@
 
 function setModelView(view) {
   modelView = view || 'home'
-  const views = { home: modelHomeView, local: modelLocalView, market: modelMarketPanel }
+  const views = { home: modelHomeView, local: modelLocalView, market: modelMarketPanel, cloud: modelCloudView }
   Object.keys(views).forEach(key => {
     const node = views[key]
     if (!node) return
@@ -16,14 +16,29 @@ function setModelView(view) {
     renderModelMarket(marketModels)
     if (!marketModels.length) loadModelMarket()
   }
+  if (modelView === 'cloud') {
+    updateModelCloudState()
+  }
+}
+
+function updateModelCloudState() {
+  if (!modelCloudState || !modelCloudHintText) return
+  const state = runtimeServiceState || {}
+  const enabled = !!state.cloudEnabled && !!state.cloudModel
+  modelCloudState.textContent = enabled ? String(state.cloudModel) : '--'
+  modelCloudState.classList.toggle('running', enabled)
+  modelCloudHintText.textContent = enabled
+    ? t('models.cloudHintEnabled')
+    : t('models.cloudHint')
 }
 
 function loadModels(refresh) {
   const path = refresh ? '/api/v1/models?refresh=true' : '/api/v1/models'
-  retryApi(() => apiGet(path), () => ({ models: [] })).then(data => {
+  return retryApi(() => apiGet(path), () => ({ models: [] })).then(data => {
     runtimeModels = data && Array.isArray(data.models) ? data.models : []
     renderModels(runtimeModels)
     updateModelHomeState()
+    return runtimeModels
   })
 }
 
@@ -319,7 +334,13 @@ function renderRuntimeModelChoices(models) {
   if (!runtimeModelList) return
   runtimeModelList.innerHTML = ''
   const readyModels = (Array.isArray(models) ? models : []).filter(model => model && model.ready && isRuntimeModel(model))
-  const currentModelId = (runtimeServiceState && runtimeServiceState.modelId) || (readyModels[0] && readyModels[0].id) || '--'
+  const state = runtimeServiceState || {}
+  const cloudId = String(state.cloudModel || '').trim()
+  const cloudIdLower = cloudId.toLowerCase()
+  if (state.cloudEnabled && cloudId && !readyModels.some(m => m && String(m.id || '').toLowerCase() === cloudIdLower)) {
+    readyModels.push({ id: cloudId, name: cloudId, runtime: 'cloud', type: 'chat', ready: true, installed: true, cloud: true })
+  }
+  const currentModelId = state.modelId || (readyModels[0] && readyModels[0].id) || '--'
   runtimeModelState.textContent = currentModelId
   runtimeModelNote.textContent = readyModels.length ? t('settings.defaultModelNote') : t('empty.models')
   if (!readyModels.length) {

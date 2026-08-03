@@ -153,38 +153,59 @@ class SessionStore(context: Context) {
             .takeLast(limit.coerceAtLeast(1))
             .mapNotNull { message ->
                 val text = message.text.trim()
-                if (text.isBlank()) null else ModelChatMessage(message.role, listOf(ModelChatPart.Text(text)))
+                if (text.isBlank()) null else ModelChatMessage(
+                    role = message.role,
+                    parts = listOf(ModelChatPart.Text(text)),
+                    reasoning = runCatching { JSONObject(message.contentJson).optString("reasoning") }.getOrDefault(""),
+                )
             }
     }
 
-    fun appendModelTurn(sessionId: String, modelId: String, requestMessages: List<ModelChatMessage>, resultText: String, ok: Boolean) {
+    /**
+     * Persists the user's request messages immediately when a chat starts, so
+     * the conversation survives process death / background kills mid-flow.
+     */
+    fun appendUserMessages(sessionId: String, modelId: String, messages: List<ModelChatMessage>) {
         val now = System.currentTimeMillis()
         upsertModelSession(sessionId, modelId, now)
-        requestMessages.forEach { message ->
-            val text = message.text()
-            val imageCount = message.parts.count { it is ModelChatPart.Image }
-            if (text.isBlank() && imageCount == 0) return@forEach
-            val content = JSONObject()
-                .put("source", "api")
-                .put("imageCount", imageCount)
-            dao.insertMessage(
-                MessageEntity(
-                    sessionId = sessionId,
-                    role = message.role.ifBlank { "user" },
-                    text = text.ifBlank { "[image]" },
-                    contentJson = content.toString(),
-                    status = "ok",
-                    createdAt = now,
-                )
+        // OpenAI clients may send the complete visible history in every
+        // request. Persist only the newest user message; older turns already
+        // live in Room and system prompts are request context, not chat turns.
+        val message = messages.lastOrNull { it.role.equals("user", ignoreCase = true) } ?: return
+        val text = message.text()
+        val imageCount = message.parts.count { it is ModelChatPart.Image }
+        if (text.isBlank() && imageCount == 0) return
+        dao.insertMessage(
+            MessageEntity(
+                sessionId = sessionId,
+                role = "user",
+                text = text.ifBlank { "[image]" },
+                contentJson = JSONObject().put("source", "api").put("imageCount", imageCount).toString(),
+                status = "ok",
+                createdAt = now,
             )
-        }
+        )
+    }
+
+    fun appendModelTurn(
+        sessionId: String,
+        modelId: String,
+        resultText: String,
+        ok: Boolean,
+        reasoning: String = "",
+    ) {
+        val now = System.currentTimeMillis()
+        upsertModelSession(sessionId, modelId, now)
+        // The request's user message is written before inference starts. The
+        // request context also contains older assistant/tool messages; writing
+        // those here would duplicate the conversation after every agent round.
         if (resultText.isNotBlank() || !ok) {
             dao.insertMessage(
                 MessageEntity(
                     sessionId = sessionId,
                     role = "assistant",
                     text = resultText,
-                    contentJson = JSONObject().put("ok", ok).toString(),
+                    contentJson = JSONObject().put("ok", ok).put("reasoning", reasoning).toString(),
                     status = if (ok) "ok" else "error",
                     createdAt = System.currentTimeMillis(),
                 )

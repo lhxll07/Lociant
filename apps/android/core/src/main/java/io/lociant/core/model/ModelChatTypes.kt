@@ -23,6 +23,7 @@ data class ModelChatMessage(
     val name: String = "",
     val toolCallId: String = "",
     val toolCalls: List<ModelToolCall> = emptyList(),
+    val reasoning: String = "",
 ) {
     fun text(): String {
         return parts.filterIsInstance<ModelChatPart.Text>().joinToString("\n") { it.text }.trim()
@@ -68,9 +69,12 @@ data class ModelChatResult(
     val ok: Boolean,
     val modelId: String,
     val text: String = "",
+    val reasoning: String = "",
     val message: String = "",
     val toolCalls: List<ModelToolCall> = emptyList(),
     val elapsedMs: Long = 0,
+    /** True when a failed round is worth retrying (timeout / 5xx / rate limit). */
+    val retryable: Boolean = false,
     val promptTokens: Int = 0,
     val generatedTokens: Int = 0,
     val cachedTokens: Int = 0,
