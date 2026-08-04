@@ -18,6 +18,9 @@ class MnnRuntime(context: Context) : AutoCloseable {
     @Volatile private var cpuThreads = DEFAULT_CPU_THREADS
     @Volatile private var inferenceBackend = DEFAULT_INFERENCE_BACKEND
 
+    /** Changes whenever a native prompt cache must no longer be reused. */
+    fun cacheConfigurationKey(): String = "$cpuThreads:$inferenceBackend"
+
     @Synchronized
     fun configureCpuThreads(value: Int): Boolean {
         val next = value.coerceIn(MIN_CPU_THREADS, MAX_CPU_THREADS)
@@ -127,6 +130,7 @@ class MnnRuntime(context: Context) : AutoCloseable {
             cachedTokens = tokens?.optInt("cached", 0) ?: 0,
             cacheEnabled = cache?.optBoolean("enabled", false) ?: false,
             cacheHit = cacheHit,
+            cancelled = json.optBoolean("cancelled", false),
             firstTokenMs = tokens?.optDouble("firstTokenMs", 0.0)?.toLong() ?: 0L,
             prefillUs = json.optLong("prefillUs", 0),
             decodeUs = json.optLong("decodeUs", 0),

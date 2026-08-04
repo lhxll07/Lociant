@@ -10,6 +10,7 @@ import io.lociant.core.model.ModelChatResult
 import io.lociant.core.model.ModelToolCall
 import io.lociant.core.model.ToolLoopGuard
 import io.lociant.core.model.ToolTemplateContract
+import io.lociant.core.model.AutomaticSessionCache
 import io.lociant.core.config.RuntimeDefaults
 import io.lociant.data.session.SessionStore
 import io.ktor.http.ContentType
@@ -42,13 +43,17 @@ class ChatController(
     @Volatile var lastError: String? = null
 
     private val requestQueue = ChatRequestQueue()
+    private val automaticSessionCache = AutomaticSessionCache()
     private val backgroundExecutor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "lociant-chat-bg").apply { isDaemon = true }
     }
 
     val isLoading: Boolean get() = modelLoading.get()
     fun isModelLoaded(modelId: String) = chatCapability.isLoaded(modelId)
-    fun resetLoadedModel() = chatCapability.resetLoadedModel()
+    fun resetLoadedModel() {
+        automaticSessionCache.invalidate()
+        chatCapability.resetLoadedModel()
+    }
 
     // ---- Token clamping ----
 
@@ -99,7 +104,16 @@ class ChatController(
     // ---- Chat execution (non-streaming) ----
 
     private fun executeChat(request: ModelChatRequest): ModelChatResult {
-        return chatCapability.complete(request)
+        val result = runCatching { chatCapability.complete(request) }.getOrElse { error ->
+            ModelChatResult(
+                ok = false,
+                modelId = request.modelId,
+                message = error.message ?: "chat failed",
+            )
+        }
+        return result.also {
+            automaticSessionCache.commit(request, it)
+        }
     }
 
     // ---- Chat execution (streaming) ----
@@ -110,7 +124,18 @@ class ChatController(
         onReasoning: ((text: String, done: Boolean) -> Unit)? = null,
         onToolCall: ((ModelToolCall) -> Unit)? = null,
     ): ModelChatResult {
-        return chatCapability.stream(request, onChunk, onReasoning, onToolCall)
+        val result = runCatching {
+            chatCapability.stream(request, onChunk, onReasoning, onToolCall)
+        }.getOrElse { error ->
+            ModelChatResult(
+                ok = false,
+                modelId = request.modelId,
+                message = error.message ?: "chat failed",
+            )
+        }
+        return result.also {
+            automaticSessionCache.commit(request, it)
+        }
     }
 
     // ---- Request assembly ----
@@ -135,6 +160,7 @@ class ChatController(
 
     fun sessionRequest(request: ModelChatRequest): ModelChatRequest {
         val explicitSession = request.sessionId.isNotEmpty()
+        if (explicitSession) automaticSessionCache.invalidate()
         val sessionId = if (explicitSession) sessionStore.requireExistingSession(request.sessionId) else ""
         val history = if (explicitSession && request.messages.size <= 1) {
             sessionStore.modelHistory(sessionId, historyLimitFor(request.modelId))
@@ -147,10 +173,18 @@ class ChatController(
         val canReuseNativeSessionCache = explicitSession &&
             request.messages.size <= 1 &&
             request.messages.lastOrNull()?.role == "user"
-        return request.copy(
+        val contextRequest = request.copy(
             sessionId = sessionId, persistSession = explicitSession,
             useSessionCache = canReuseNativeSessionCache,
             messages = contextMessages,
+        )
+        if (explicitSession || chatCapability.isCloudModel(request.modelId)) {
+            if (!explicitSession) automaticSessionCache.invalidate()
+            return contextRequest
+        }
+        return automaticSessionCache.prepare(
+            contextRequest,
+            chatCapability.automaticCacheConfigurationKey(),
         )
     }
 
@@ -201,7 +235,14 @@ class ChatController(
 
     fun cancelCurrent() = chatCapability.cancel()
 
-    fun resetSessionCache() = chatCapability.resetSessionCache()
+    fun resetSessionCache() {
+        automaticSessionCache.invalidate()
+        chatCapability.resetSessionCache()
+    }
+
+    /** Keeps the internal automatic-cache generation out of the public API. */
+    fun visibleSessionId(request: ModelChatRequest): String =
+        request.sessionId.takeIf { request.persistSession }.orEmpty()
 
     fun releaseModel() {
         cancelCurrent()

@@ -105,6 +105,8 @@ The same value may be supplied as `sessionId` in the request body. A body value 
 
 The session must already exist through `POST /api/v1/sessions`. Invalid IDs return `400`; unknown IDs return `404`. Omitting a session runs a stateless request and does not create a database row.
 
+For local models, stateless requests with a complete message history also get an automatic in-memory prompt-cache continuation. No client-side cache switch or session ID is required. The client must still resend the full `messages` list on every turn; the cache only avoids re-evaluating the unchanged prefix and never replaces the history itself. The first request after starting the runtime, changing models, or selecting another explicit session is a cold request. Later requests report the reused prefix through `usage.prompt_tokens_details.cached_tokens`.
+
 ## Asynchronous Requests
 
 `"async": true` returns `202` and a request ID. Inspect it through:

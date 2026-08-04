@@ -21,7 +21,7 @@
 
 当前发布包适用于 Android 8.0 及以上、`arm64-v8a` 设备：
 
-[下载 Lociant v1.1.0 APK](https://github.com/lhxll07/Lociant/releases/download/v1.1.0/lociant-1.1.0-arm64-v8a-release.apk)
+[下载 Lociant v1.1.1 APK](https://github.com/lhxll07/Lociant/releases/download/v1.1.1/lociant-1.1.1-arm64-v8a-release.apk)
 
 安装时如果系统提示允许安装未知来源应用，请按系统提示允许即可。
 
@@ -48,6 +48,8 @@
 ### 4. 启动运行时
 
 回到首页，点击启动运行时。看到状态变为“运行中”后，先在 Lociant 内发一条简单消息确认模型正常，再开始调用手机能力。
+
+连续对话不需要额外打开缓存选项。对本地模型，Lociant 会自动复用上一轮提示词的 KV 缓存来减少等待，但客户端仍应像普通 OpenAI 接口一样，在下一轮请求中发送完整的 `messages` 历史。刚启动运行时、切换模型或切换会话后的第一轮会重新计算，后续轮次才会逐步命中缓存。
 
 默认服务地址是：
 

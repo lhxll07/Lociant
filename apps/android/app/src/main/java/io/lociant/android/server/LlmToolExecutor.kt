@@ -59,7 +59,7 @@ class LlmToolExecutor(
         return JSONObject()
             .put("ok", result.ok)
             .put("modelId", result.modelId)
-            .put("sessionId", request.sessionId)
+            .put("sessionId", chatController.visibleSessionId(request))
             .put("text", result.text)
             .put("message", result.message)
             .put("input", inputSummary(currentRequest))

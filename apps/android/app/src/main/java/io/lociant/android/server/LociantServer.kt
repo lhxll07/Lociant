@@ -378,7 +378,7 @@ class LociantServer(
             }
             chatController.saveModelTurn(turnRequest, result)
             val status = if (result.ok) HttpStatusCode.OK else HttpStatusCode.BadRequest
-            status to responseJson(result, request.sessionId)
+            status to responseJson(result, chatController.visibleSessionId(request))
         } catch (error: Throwable) {
             HttpStatusCode.BadRequest to ModelApiMapper.error("invalid_request", error.message ?: "invalid request")
         }
@@ -417,7 +417,8 @@ class LociantServer(
             chatController.submitSync(sessionRequest, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
         }
         chatController.saveModelTurn(followUp.copy(sessionId = sessionRequest.sessionId, modelId = sessionRequest.modelId, persistSession = sessionRequest.persistSession), result)
-        return (if (result.ok) HttpStatusCode.OK else HttpStatusCode.BadRequest) to responseJson(result, sessionRequest.sessionId)
+        return (if (result.ok) HttpStatusCode.OK else HttpStatusCode.BadRequest) to
+            responseJson(result, chatController.visibleSessionId(sessionRequest))
     }
 
     private fun forcedToolCall(request: ModelChatRequest): ModelToolCall? {

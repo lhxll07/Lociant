@@ -8,7 +8,7 @@ package io.lociant.core.api
  * an OpenAI extension or a Lociant management operation.
  */
 object ApiContract {
-    const val VERSION = "1.0.1"
+    const val VERSION = "1.1.1"
 
     object OpenAi {
         const val MODELS = "/v1/models"

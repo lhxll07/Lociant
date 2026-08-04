@@ -84,7 +84,7 @@ It cannot bind a server port directly. The HTTP API exposes runtime state but ca
 | `LocalStore` / `AtomicFile` | runtime and window settings | memory changes only after durable commit |
 | `ModelManager` | model filesystem index | readers use an immutable cached snapshot |
 | `ChatRequestQueue` | queued/running inference | one bounded queue owns cancellation and timeout |
-| Native prompt cache | active model session | selecting another session resets the cache |
+| Native prompt cache | active local-model prefix and KV state | full stateless histories are matched automatically; selecting another session or model resets it |
 | `ToolRegistry` | executable capabilities | one policy check precedes every handler call |
 
 The Room schema contains no Scene abstraction. API request telemetry is stored as events, not as a synthetic chat session.
@@ -109,6 +109,7 @@ Exposure levels (`read`, `sensor`, `action`) filter the manifest and execution. 
 - `LocalStore` does not reparse JSON from disk per read.
 - Server start uses a single daemon executor and fails explicitly on port conflict.
 - Chat uses one bounded inference queue rather than spawning a thread per request.
+- Local-model follow-up requests reuse the unchanged prompt prefix automatically; cache metadata is derived from the native evaluated-token count, not from a guessed session flag.
 - Large image payloads are stripped from MCP structured results after being emitted as MCP image content.
 
 Performance changes must report a before/after measurement for cold start, idle memory, first-token latency, decode throughput, API P95 or APK size. Structural cleanup alone is not a performance result.

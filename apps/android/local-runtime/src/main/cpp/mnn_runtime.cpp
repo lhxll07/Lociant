@@ -409,7 +409,34 @@ std::string run_text_generation(
     if (on_chunk && !cancel_requested.load() && !stream_state.ended()) {
         on_chunk("", true);
     }
-    return sanitize_output_text(response_text.str());
+    const auto text = sanitize_output_text(response_text.str());
+    if (!cancel_requested.load()) {
+        // The text sent to the client is deliberately post-processed: think
+        // blocks and stop markers are hidden. Prompt-cache matching must use
+        // the tokens that actually entered the KV cache instead. This function
+        // pre-fills through response(..., max_new_tokens=0), then decodes one
+        // token at a time so Android can stream and cancel promptly; MNN's
+        // built-in cache updater therefore runs before those assistant tokens
+        // exist. Rebuild the assistant turn from native history and sync it
+        // afterward, mirroring MNN's own updater. Using the display text here
+        // can make the next request report a large cache hit while its token
+        // positions no longer describe the conversation it receives.
+        const auto* context = llm->getContext();
+        std::string generated_for_cache;
+        if (context && kv_before_decode < context->history_tokens.size()) {
+            for (size_t index = kv_before_decode; index < context->history_tokens.size(); ++index) {
+                const int token = context->history_tokens[index];
+                if (llm->is_stop(token)) continue;
+                generated_for_cache += llm->tokenizer_decode(token);
+            }
+        }
+        if (!generated_for_cache.empty()) {
+            auto cached_messages = messages;
+            cached_messages.emplace_back("assistant", generated_for_cache);
+            llm->syncPromptCache(cached_messages);
+        }
+    }
+    return text;
 }
 
 std::string run_image_generation(
@@ -582,6 +609,12 @@ std::string MnnRuntimeNative::chat_text(
     const auto text = run_text_generation(llm_, chat_messages, tokens, cancel_requested_, nullptr, &first_token_ms);
     LOCIANT_LOGI("chat_text stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
     const auto* context = llm_->getContext();
+    const int evaluated_prompt_tokens = context ? context->prompt_len : 0;
+    const int full_prompt_tokens = context && cache_capable
+        ? static_cast<int>(llm_->tokenizer_encode(llm_->apply_chat_template(chat_messages)).size())
+        : 0;
+    const int prompt_tokens = full_prompt_tokens > 0 ? full_prompt_tokens : evaluated_prompt_tokens;
+    const int cached_tokens = std::max(0, prompt_tokens - evaluated_prompt_tokens);
 
     std::ostringstream os;
     os << "{"
@@ -589,17 +622,11 @@ std::string MnnRuntimeNative::chat_text(
        << "\"message\":\"chat completed\","
        << "\"cancelled\":" << bool_json(cancel_requested_.load()) << ","
        << "\"cache\":{\"enabled\":" << bool_json(cache_capable)
-       << ",\"hit\":" << bool_json(cache_capable && !config_changed && !session_changed)
+       << ",\"hit\":" << bool_json(cache_capable && cached_tokens > 0)
        << ",\"sessionId\":\"" << escape_json(session_id) << "\"},"
        << "\"elapsedMs\":" << (now_ms() - start) << ","
        << "\"text\":\"" << escape_json(text) << "\"";
     if (context) {
-        const int evaluated_prompt_tokens = context->prompt_len;
-        const int full_prompt_tokens = cache_capable
-            ? static_cast<int>(llm_->tokenizer_encode(llm_->apply_chat_template(chat_messages)).size())
-            : 0;
-        const int prompt_tokens = full_prompt_tokens > 0 ? full_prompt_tokens : evaluated_prompt_tokens;
-        const int cached_tokens = std::max(0, prompt_tokens - evaluated_prompt_tokens);
         const double visible_first_token_ms = std::max(first_token_ms, context->prefill_us / 1000.0);
         os << ",\"tokens\":{\"prompt\":" << prompt_tokens
            << ",\"generated\":" << context->gen_seq_len
@@ -667,22 +694,22 @@ std::string MnnRuntimeNative::chat_text_stream(
     LOCIANT_LOGI("chat_text_stream stepped exit elapsed=%.2f cancelled=%d", now_ms() - start, cancel_requested_.load() ? 1 : 0);
 
     const auto* context = llm_->getContext();
+    const int evaluated_prompt_tokens = context ? context->prompt_len : 0;
+    const int full_prompt_tokens = context && cache_capable
+        ? static_cast<int>(llm_->tokenizer_encode(llm_->apply_chat_template(chat_messages)).size())
+        : 0;
+    const int prompt_tokens = full_prompt_tokens > 0 ? full_prompt_tokens : evaluated_prompt_tokens;
+    const int cached_tokens = std::max(0, prompt_tokens - evaluated_prompt_tokens);
     std::ostringstream os;
     os << "{"
        << "\"ok\":true,"
        << "\"message\":\"chat stream completed\","
        << "\"cancelled\":" << bool_json(cancel_requested_.load()) << ","
        << "\"cache\":{\"enabled\":" << bool_json(cache_capable)
-       << ",\"hit\":" << bool_json(cache_capable && !config_changed && !session_changed)
+       << ",\"hit\":" << bool_json(cache_capable && cached_tokens > 0)
        << ",\"sessionId\":\"" << escape_json(session_id) << "\"},"
        << "\"elapsedMs\":" << (now_ms() - start);
     if (context) {
-        const int evaluated_prompt_tokens = context->prompt_len;
-        const int full_prompt_tokens = cache_capable
-            ? static_cast<int>(llm_->tokenizer_encode(llm_->apply_chat_template(chat_messages)).size())
-            : 0;
-        const int prompt_tokens = full_prompt_tokens > 0 ? full_prompt_tokens : evaluated_prompt_tokens;
-        const int cached_tokens = std::max(0, prompt_tokens - evaluated_prompt_tokens);
         const double visible_first_token_ms = std::max(first_token_ms, context->prefill_us / 1000.0);
         os << ",\"tokens\":{\"prompt\":" << prompt_tokens
            << ",\"generated\":" << context->gen_seq_len

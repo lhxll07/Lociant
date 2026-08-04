@@ -73,6 +73,8 @@ class ChatCapability(
         return changed
     }
 
+    fun automaticCacheConfigurationKey(): String = mnnRuntime.cacheConfigurationKey()
+
     fun preload(modelIdRaw: String): ModelChatResult {
         val modelId = normalize(modelIdRaw)
         if (isCloudModel(modelId)) {
@@ -276,6 +278,7 @@ class ChatCapability(
             cachedTokens = cachedTokens,
             cacheEnabled = cacheEnabled,
             cacheHit = cacheHit,
+            cancelled = cancelled,
             firstTokenMs = firstTokenMs,
             prefillUs = prefillUs,
             decodeUs = decodeUs,
