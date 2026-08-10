@@ -1,0 +1,25 @@
+[package]
+name = "lociant-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+lociant-agent = { path = "../agent" }
+lociant-core = { path = "../core" }
+lociant-store = { path = "../store" }
+lociant-tools = { path = "../tools" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+hex = "0.4"
+tokio.workspace = true
+tokio-stream.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

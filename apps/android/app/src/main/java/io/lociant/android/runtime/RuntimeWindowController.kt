@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -127,14 +128,7 @@ class RuntimeWindowController private constructor(
 
     private fun setError(message: String): JSONObject {
         error = message
-        eventExecutor.execute {
-            runCatching {
-                LociantRuntime.sessionStore(context).recordRuntimeEvent(
-                    type = "runtime.window.error",
-                    payload = JSONObject().put("message", message),
-                )
-            }
-        }
+        Log.w("RuntimeWindow", "window error: $message")
         view?.let { render(it) }
         return state()
     }

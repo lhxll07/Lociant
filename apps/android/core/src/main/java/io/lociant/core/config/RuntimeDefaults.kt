@@ -69,10 +69,12 @@ object RuntimeDefaults {
     }
 
     object Agent {
-        /** Enough room for phone tasks that require several verify-and-correct steps. */
-        const val MAX_ROUNDS = 16
+        /** Default model↔tool rounds per task (home chat and execute_tools loops). */
+        const val ROUNDS_DEFAULT = 32
+        const val ROUNDS_MIN = 8
+        const val ROUNDS_MAX = 64
         /** A separate budget protects against several tool calls in one model turn. */
-        const val MAX_TOOL_CALLS = 32
+        const val MAX_TOOL_CALLS = 64
         /** Retry only one completed transient provider request. */
         const val MAX_TRANSIENT_RETRIES = 1
         const val TOOL_TIMEOUT_MS = 60_000L

@@ -1,16 +1,20 @@
 package io.lociant.android.server
 
+import io.lociant.core.model.DEFAULT_MODEL_ID
 import io.lociant.core.model.ModelChatMessage
 import io.lociant.core.model.ModelChatPart
 import io.lociant.core.model.ModelChatRequest
 import io.lociant.core.model.ModelChatResult
 import io.lociant.core.model.ModelToolCall
 import io.lociant.core.model.ModelToolChoice
-import io.lociant.core.model.DEFAULT_MODEL_ID
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+/**
+ * OpenAI request parsing for the Rust IPC chat bridge. The response mapping
+ * moved to the Rust backend; this is the only remaining surface.
+ */
 object ModelApiMapper {
     fun parseOpenAiChat(raw: String): ModelChatRequest {
         val json = JSONObject(raw)
@@ -27,70 +31,6 @@ object ModelApiMapper {
         )
     }
 
-    fun openAiStreamIncludesUsage(raw: String): Boolean =
-        runCatching { JSONObject(raw).optJSONObject("stream_options")?.optBoolean("include_usage", false) == true }
-            .getOrDefault(false)
-
-    fun openAiResponse(result: ModelChatResult): JSONObject {
-        if (result.toolCalls.isNotEmpty()) {
-            return openAiToolCallResponse(result.modelId, result.toolCalls)
-                .put("usage", openAiUsage(result))
-                .put("lociant", runtimeMetrics(result))
-        }
-        return JSONObject()
-            .put("id", "chatcmpl_lociant_${System.currentTimeMillis()}")
-            .put("object", "chat.completion")
-            .put("created", System.currentTimeMillis() / 1000)
-            .put("model", result.modelId)
-            .put(
-                "choices",
-                JSONArray().put(
-                    JSONObject()
-                        .put("index", 0)
-                        .put("message", JSONObject()
-                            .put("role", "assistant")
-                            .put("content", result.text))
-                        .put("finish_reason", if (result.ok) "stop" else "error")
-                )
-            )
-            .put("usage", openAiUsage(result))
-            .put("lociant", runtimeMetrics(result))
-    }
-
-    fun error(code: String, message: String): JSONObject {
-        return JSONObject()
-            .put(
-                "error",
-                JSONObject()
-                    .put("message", message)
-                    .put("type", "invalid_request_error")
-                    .put("code", code)
-            )
-    }
-
-    fun openAiToolCallResponse(modelId: String, toolCall: ModelToolCall): JSONObject =
-        openAiToolCallResponse(modelId, listOf(toolCall))
-
-    fun openAiToolCallResponse(modelId: String, toolCalls: List<ModelToolCall>): JSONObject {
-        return openAiBase(modelId)
-            .put(
-                "choices",
-                JSONArray().put(
-                    JSONObject()
-                        .put("index", 0)
-                        .put("message", JSONObject()
-                            .put("role", "assistant")
-                            .put("content", JSONObject.NULL)
-                            .put("tool_calls", JSONArray(toolCalls.map { openAiToolCallJson(it) })))
-                        .put("finish_reason", "tool_calls")
-                )
-            )
-            .put("usage", JSONObject()
-                .put("prompt_tokens", 0)
-                .put("completion_tokens", 0)
-                .put("total_tokens", 0))
-    }
-
     private fun parseOpenAiMessages(array: JSONArray): List<ModelChatMessage> {
         return List(array.length()) { index -> array.optJSONObject(index) }
             .filterNotNull()
@@ -105,41 +45,6 @@ object ModelApiMapper {
                 )
             }
     }
-
-    fun toolAssistantMessage(toolCall: ModelToolCall, reasoning: String = ""): ModelChatMessage {
-        return toolAssistantMessage(listOf(toolCall), reasoning)
-    }
-
-    /**
-     * Keeps one assistant tool-call message for a model turn. OpenAI-compatible
-     * providers require all calls from the same turn to be grouped before the
-     * matching tool results.
-     */
-    fun toolAssistantMessage(toolCalls: List<ModelToolCall>, reasoning: String = ""): ModelChatMessage {
-        return ModelChatMessage("assistant", emptyList(), toolCalls = toolCalls, reasoning = reasoning)
-    }
-
-    fun toolResultMessage(toolCall: ModelToolCall, result: JSONObject): ModelChatMessage {
-        return ModelChatMessage(
-            role = "tool",
-            parts = listOf(ModelChatPart.Text(truncatedToolResult(result))),
-            toolCallId = toolCall.id,
-            name = toolCall.name,
-        )
-    }
-
-    /**
-     * Bounds tool results fed back to the model. Full accessibility trees from
-     * a few rounds can otherwise overflow the model's context window and
-     * interrupt the session.
-     */
-    private fun truncatedToolResult(result: JSONObject): String {
-        val raw = result.toString()
-        if (raw.length <= TOOL_RESULT_MAX_CHARS) return raw
-        return raw.take(TOOL_RESULT_MAX_CHARS) + "\n...(tool result truncated by Lociant)"
-    }
-
-    private const val TOOL_RESULT_MAX_CHARS = 8000
 
     private fun parseOpenAiContent(content: Any?): List<ModelChatPart> {
         return when (content) {
@@ -207,15 +112,7 @@ object ModelApiMapper {
             .filter { it.name.isNotBlank() }
     }
 
-    fun openAiToolCallJson(toolCall: ModelToolCall): JSONObject {
-        return JSONObject()
-            .put("id", toolCall.id)
-            .put("type", "function")
-            .put("function", JSONObject()
-                .put("name", toolCall.name)
-                .put("arguments", toolCall.arguments.ifBlank { "{}" }))
-    }
-
+    /** Usage/telemetry formatting for the live `llm` tool result. */
     fun openAiUsage(result: ModelChatResult): JSONObject {
         return JSONObject()
             .put("prompt_tokens", result.promptTokens)
@@ -237,13 +134,5 @@ object ModelApiMapper {
             .put("cache", JSONObject()
                 .put("enabled", result.cacheEnabled)
                 .put("hit", result.cacheHit))
-    }
-
-    private fun openAiBase(modelId: String): JSONObject {
-        return JSONObject()
-            .put("id", "chatcmpl_lociant_${System.currentTimeMillis()}")
-            .put("object", "chat.completion")
-            .put("created", System.currentTimeMillis() / 1000)
-            .put("model", modelId)
     }
 }

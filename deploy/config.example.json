@@ -1,0 +1,7 @@
+{
+  "authToken": "change-me",
+  "cloudEnabled": false,
+  "cloudBaseUrl": "https://api.openai.com/v1",
+  "cloudApiKey": "",
+  "cloudModel": ""
+}

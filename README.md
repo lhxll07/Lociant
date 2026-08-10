@@ -1,6 +1,6 @@
 # Lociant
 
-让安卓手机成为一个真正能干活的本地 Agent：它可以在手机上运行模型，读取屏幕、打开 App、查看信息、操作界面，也可以通过 MCP 或 OpenAI 兼容接口被电脑上的 Agent 调用。
+让一台设备（安卓手机，或未来的 RK3588/Linux 桌面）成为一个真正能干活的本地 Agent：本地运行模型、读取屏幕、操作界面、感知环境，也可以通过 MCP 或 OpenAI 兼容接口被电脑上的 Agent 调用。
 
 它适合把旧手机重新利用起来：手机负责模型和实际操作，电脑只负责对话、规划和编排。数据默认留在本地，能力由你在手机里逐项授权。
 
@@ -14,6 +14,13 @@
 - **云端大脑（可选）**：配置一个 OpenAI 兼容的云端模型后，手机可以直接用它思考和规划，再调用自己的工具——本地优先，云端按需开启。
 
 例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息、在输入框里帮你填好一段文字，或者先"感觉"一下手机现在是在口袋里还是桌上，再决定要不要亮屏操作。
+
+## Linux 桌面（开发中）
+
+同一套 Flutter UI + Rust 后端也可以跑在 Linux 桌面：UI 通过 HTTP 连接本机
+Rust 服务（`/v1`、`/api/v1`、`/mcp`），Android 上 Kotlin 只保留设备层
+（无障碍、传感器、悬浮窗、本地 MNN 推理），通过本地 IPC 给 Rust 提供工具。
+详见 [架构](docs/architecture.md)。
 
 ## 一步一步开始
 
@@ -85,11 +92,12 @@ Lociant 面向局域网使用，当前接口使用 HTTP。请设置 API 令牌�
 
 ## 开发者
 
-Lociant 使用 Kotlin、MNN、NCNN 和 Ktor 构建。开发、构建和完整接口说明见：
+UI 是 Flutter，服务端是 Rust（`apps/rust-backend`），Android 是设备层。
+开发、构建和完整接口说明见：
 
+- [架构](docs/architecture.md)
 - [Android 开发说明](apps/android/README.md)
-- [Agent 与 MCP 接入](docs/agent-integration.md)
-- [OpenAI 兼容 API](docs/openai-compatible.md)
+- [Agent 与 MCP 接入（含 OpenAI 兼容 API）](docs/agent-integration.md)
 - [控制 API](docs/control-api.md)
 
 ## 许可证

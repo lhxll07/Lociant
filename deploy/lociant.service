@@ -1,0 +1,20 @@
+[Unit]
+Description=Lociant Rust backend (headless agent node)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lhx
+Group=lhx
+Environment=LOCIANT_DATA_DIR=/home/lhx/lociant/data
+Environment=LOCIANT_HOST=0.0.0.0
+Environment=LOCIANT_CONFIG=/etc/lociant/config.json
+ExecStart=/usr/local/bin/lociant-server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

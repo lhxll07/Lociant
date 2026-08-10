@@ -26,10 +26,8 @@ import java.util.concurrent.Executors
 class LociantRuntimeService : Service(), LifecycleOwner {
     private val tag = "LociantRuntimeService"
     private val lifecycleRegistry = LifecycleRegistry(this)
-    private val eventExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "lociant-runtime-events").apply { isDaemon = true }
-    }
     private var visionController: VisionAnalysisController? = null
+    private var deviceAdapter: DeviceAdapterServer? = null
     @Volatile private var serviceMode = MODE_SERVICE
     @Volatile private var visionEnabled = false
 
@@ -56,11 +54,13 @@ class LociantRuntimeService : Service(), LifecycleOwner {
 
     override fun onDestroy() {
         runtimeWindow().hide()
+        deviceAdapter?.stop()
+        deviceAdapter = null
+        RustServerProcess.stop()
         visionController?.let { VisionRuntime.detach(it) }
         visionController?.close()
         visionController = null
         runCatching { LociantRuntime.server(this).stopForService() }
-        eventExecutor.shutdown()
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         super.onDestroy()
     }
@@ -76,7 +76,12 @@ class LociantRuntimeService : Service(), LifecycleOwner {
                 includeCamera = visionEnabled && DeviceInteraction.snapshot(this).optBoolean("visionInteractive", false)
             )
             recordLifecycle("runtime.start", payload)
-            LociantRuntime.server(this).startForService(payload)
+            val token = DeviceAdapterServer.newToken()
+            deviceAdapter = DeviceAdapterServer(
+                server = LociantRuntime.server(this),
+                token = token,
+            ).also { it.start() }
+            RustServerProcess.start(this, deviceToken = token)
             if (payload.optBoolean("floatingWindow", false)) runtimeWindow().show()
             updateNotification()
         }.onFailure { error ->
@@ -107,6 +112,9 @@ class LociantRuntimeService : Service(), LifecycleOwner {
         recordLifecycle("runtime.stop", JSONObject().put("mode", serviceMode))
         runtimeWindow().hide()
         visionEnabled = false
+        deviceAdapter?.stop()
+        deviceAdapter = null
+        RustServerProcess.stop()
         runCatching { LociantRuntime.server(this).stopForService() }
         stopForegroundCompat()
         stopSelf()
@@ -130,16 +138,7 @@ class LociantRuntimeService : Service(), LifecycleOwner {
     }
 
     private fun recordRuntimeEvent(type: String, level: String = "info", payload: JSONObject = JSONObject()) {
-        val eventPayload = JSONObject(payload.toString())
-        eventExecutor.execute {
-            runCatching {
-                LociantRuntime.sessionStore(this).recordRuntimeEvent(
-                    type = type,
-                    level = level,
-                    payload = eventPayload,
-                )
-            }
-        }
+        Log.i(tag, "$type [$level] ${payload.toString()}")
     }
 
     private fun statusText(): String {

@@ -26,6 +26,11 @@ DEFAULT_PROXY_PORT = 11435
 DEFAULT_TOOL = "runtime_status"
 MCP_PROTOCOL_VERSION = "2025-06-18"
 
+# MCP Streamable HTTP is session-scoped: initialize returns Mcp-Session-Id and
+# every later request must echo it back. The script tracks it globally because
+# the whole run is a single linear session.
+MCP_SESSION_ID: str | None = None
+
 
 @dataclass
 class HttpResult:
@@ -169,13 +174,23 @@ def call_tool(base_url: str, headers: dict[str, str], timeout: int, tool: str) -
 
 
 def mcp_call(base_url: str, headers: dict[str, str], timeout: int, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    global MCP_SESSION_ID
+    session_headers = {"Mcp-Session-Id": MCP_SESSION_ID} if MCP_SESSION_ID else {}
     result = request(
         "POST",
         api_url(base_url, "/mcp"),
         payload={"jsonrpc": "2.0", "id": method, "method": method, "params": params or {}},
-        headers={"MCP-Protocol-Version": MCP_PROTOCOL_VERSION, **headers},
+        headers={
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Accept": "application/json, text/event-stream",
+            **session_headers,
+            **headers,
+        },
         timeout=timeout,
     )
+    for key, value in result.headers.items():
+        if key.lower() == "mcp-session-id" and value:
+            MCP_SESSION_ID = value
     data = expect_json(f"mcp {method}", result)
     if "error" in data:
         fail(f"MCP {method} returned error: {data}")
@@ -288,7 +303,17 @@ def run_quick_checks(args: argparse.Namespace, *, print_done: bool) -> tuple[lis
         fail(f"tool {args.tool!r} not listed: {names}")
     call_tool(base_url, headers, args.timeout, args.tool)
 
-    init = mcp_call(base_url, headers, args.timeout, "initialize", {"protocolVersion": MCP_PROTOCOL_VERSION})
+    init = mcp_call(
+        base_url,
+        headers,
+        args.timeout,
+        "initialize",
+        {
+            "protocolVersion": MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {"name": "lociant_test", "version": "1.0"},
+        },
+    )
     info = (init.get("result") or {}).get("serverInfo") if isinstance(init.get("result"), dict) else {}
     ok("mcp initialize", f"name={(info or {}).get('name')} version={(info or {}).get('version')}")
 
@@ -361,7 +386,14 @@ def run_full(args: argparse.Namespace) -> int:
             fail(f"stream returned HTTP {status}: {events[:5]}")
         first_content = next((ms for ms, line in events if '"content"' in line), None)
         if first_content is None or not any(line == "data: [DONE]" for _, line in events):
-            fail(f"stream did not produce content and DONE: {events[-8:]}")
+            had_reasoning = any('"reasoning_content"' in line for _, line in events)
+            hint = (
+                "; the model spent its whole token budget on reasoning_content "
+                "(retry with a larger --max-tokens)"
+                if had_reasoning
+                else ""
+            )
+            fail(f"stream did not produce content and DONE{hint}: {events[-8:]}")
         ok("openai stream", f"{elapsed}ms first_content={first_content}ms events={len(events)} content_type={stream_headers.get('Content-Type')}")
 
     print("[DONE] full probe passed.")

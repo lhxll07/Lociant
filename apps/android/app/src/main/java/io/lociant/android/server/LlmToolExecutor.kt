@@ -44,22 +44,15 @@ class LlmToolExecutor(
                     .put("message", "Select or install a VLM model before calling llm_chat with images."))
         }
         val request = chatController.sessionRequest(currentRequest)
-        val turnRequest = currentRequest.copy(
-            sessionId = request.sessionId,
-            modelId = request.modelId,
-            persistSession = request.persistSession,
-        )
-        chatController.persistUserTurn(turnRequest)
         val timeoutMs = optionalPositiveInt(args, "timeoutMs")
             ?.toLong()
             ?.coerceIn(1_000L, RuntimeDefaults.Queue.CHAT_TIMEOUT_MS)
             ?: RuntimeDefaults.Queue.CHAT_TIMEOUT_MS
         val result = chatController.submitSync(request, timeoutMs)
-        chatController.saveModelTurn(turnRequest, result)
         return JSONObject()
             .put("ok", result.ok)
             .put("modelId", result.modelId)
-            .put("sessionId", chatController.visibleSessionId(request))
+            .put("sessionId", sessionId)
             .put("text", result.text)
             .put("message", result.message)
             .put("input", inputSummary(currentRequest))

@@ -6,55 +6,54 @@ This directory contains the complete Android runtime. Version 1.0 intentionally 
 
 | Module | Package owner | Responsibility |
 |---|---|---|
-| `:app` | `io.lociant.android` | Activity, WebView, foreground service, server lifecycle and routes |
+| `:app` | `io.lociant.android` | Flutter UI host, foreground service, device-layer composition root |
 | `:core` | `io.lociant.core` | Stable API paths, session ID rules, model contracts and tool policy |
-| `:data` | `io.lociant.data` | Room sessions/messages/events and AtomicFile JSON storage |
+| `:data` | `io.lociant.data` | AtomicFile JSON storage (device settings) |
 | `:local-runtime` | `io.lociant.runtime` | MNN/NCNN integration, model installation/catalog and vision pipeline |
 | `:phone-tools` | `io.lociant.tools` | Android device capabilities, accessibility and tool providers |
-| `:mcp` | `io.lociant.mcp` | MCP JSON-RPC adapter over the shared tool registry |
 
-Dependencies flow toward `:core`. `:phone-tools` does not depend on `:data`; persistence is owned by the application composition root.
+The HTTP server and MCP adapter moved to the Rust backend (`apps/rust-backend`);
+the Android app is now the device layer: foreground service, phone tools, local
+MNN inference and vision, exposed to Rust over the device IPC
+(`DeviceAdapterServer`). Dependencies flow toward `:core`; `:phone-tools` does
+not depend on `:data`; persistence is owned by the application composition root.
 
 ## Runtime Ownership
 
-`LociantRuntimeService` is the only owner of HTTP server start and stop. `MainActivity` may request service lifecycle through explicit Android intents, but it never starts `LociantServer` directly.
+`LociantRuntimeService` owns the foreground service lifecycle and spawns the
+Rust server subprocess (`RustServerProcess`). `MainActivity` may request the
+service lifecycle through explicit Android intents.
 
 `LociantRuntime` is the process-level composition root. It creates one immutable set of long-lived dependencies:
 
 ```text
-LocalStore + SessionStore + ModelManager + MnnRuntime
+LocalStore + ModelManager + MnnRuntime
                          |
                   ChatCapability
                          |
                     LociantServer
 ```
 
-The WebView interface is named `LociantBridge`. Every exported method represents one concrete operation. Do not restore a generic `command: String` method or route arbitrary JSON through the bridge.
+The Flutter UI talks to the Rust backend over HTTP (OpenAI `/v1`, control
+`/api/v1`, MCP `/mcp`); the method channel only carries Android-only device
+operations (permissions, floating window, vision, lifecycle) and
+`deviceState`. Data-plane behavior belongs in HTTP/MCP, not in the channel.
+See [architecture.md](../../docs/architecture.md) and
+[control-api.md](../../docs/control-api.md).
 
 ## HTTP Contracts
 
-Canonical paths live in `io.lociant.core.api.ApiContract`. Route code must use these constants for fixed public paths.
-
-- `/v1/*` is reserved for supported OpenAI endpoints.
-- `/mcp` is reserved for MCP Streamable HTTP POST.
-- `/api/v1/*` contains Lociant-owned resources.
-- `/health` is the only public endpoint.
-
-Control errors use `application/problem+json`. Invalid JSON must produce `400`; missing resources must produce `404`. Never convert malformed input to an empty object or invent a resource ID.
-
-The server fails startup if its configured port is occupied. It must not choose and persist a random replacement port.
+The HTTP contract is implemented by the Rust backend (port 11434): `/v1`
+OpenAI endpoints, `/api/v1` control plane, `/mcp` MCP, `/health` public.
+Control errors use `application/problem+json`.
 
 ## Persistence
 
-Room schema version 1 contains only:
-
-- `sessions`: explicit chat resources
-- `messages`: persisted conversation turns
-- `events`: runtime and request telemetry
-
-The database is `lociant.db`. There are no legacy migrations and no Scene fields. Session reads and deletes validate the ID and require an existing row.
-
-`LocalStore` loads `store/local-store.json` once. Reads return defensive copies from memory. Writes clone the root, commit through `AtomicFile`, and publish the new in-memory root only after the disk commit succeeds.
+Sessions, messages and settings live in the Rust backend's SQLite; this
+module only keeps `LocalStore` (AtomicFile JSON) for device settings.
+`LocalStore` loads `store/local-store.json` once. Reads return defensive
+copies from memory. Writes clone the root, commit through `AtomicFile`, and
+publish the new in-memory root only after the disk commit succeeds.
 
 ## Models And Native Runtime
 
@@ -81,26 +80,36 @@ Policy is enforced before the handler runs:
 
 Do not infer `openWorldHint` from network reachability. It describes interaction with the world outside the server, not whether a remote client may call the tool.
 
-## Web UI
+## Flutter UI
 
-Editable source is under `app/src/main/web-src`. `build.py` combines it into `app/src/main/assets/web`; Gradle runs that build before Android compilation.
-
-The UI may call explicit Bridge methods for operations that require an Activity or Android service lifecycle. Data-plane and remote-client behavior belongs in HTTP/MCP, not in a hidden parallel JavaScript API.
+The UI is a Flutter module under `apps/flutter/`, embedded into this Android
+app via add-to-app. The same Dart codebase is intended to run on other hosts
+(for example the RK3588/Armbian backend) by swapping the `PlatformService`
+implementation. The Android host exposes `LociantPlatformChannel` (method +
+event channels) for operations that require an Activity or Android service
+lifecycle; everything data-plane goes over HTTP/MCP.
 
 ## Build And Test
 
-```bash
-bash gradlew testDebugUnitTest \
-  :data:compileDebugAndroidTestKotlin \
-  :app:assembleDebug \
-  :app:lintDebug
-```
-
-Run connected Room tests when a device or emulator is available:
+Building the APK now requires the Rust Android toolchain because the app
+bundles the Rust backend server (`apps/rust-backend`):
 
 ```bash
-bash gradlew :data:connectedDebugAndroidTest
+rustup target add aarch64-linux-android
+cargo install cargo-ndk   # or: yay -S cargo-ndk
 ```
+
+The Gradle task `rustServerBinary` runs `cargo ndk build` automatically and
+stages the binary into `jniLibs` before `preBuild`; `useLegacyPackaging`
+extracts it to `nativeLibraryDir` so the app process can exec it (the default
+no-extract layout is dlopen-only and the app domain cannot exec app data
+files on this device).
+
+```bash
+bash gradlew testDebugUnitTest :app:assembleDebug :app:lintDebug
+```
+
+`testDebugUnitTest` requires JDK 21 (Robolectric needs it for SDK 36).
 
 After installation, start Runtime from the UI and probe it:
 

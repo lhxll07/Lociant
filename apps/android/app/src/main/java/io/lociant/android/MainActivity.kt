@@ -1,11 +1,8 @@
 package io.lociant.android
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,241 +11,52 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
-import android.view.View
-import android.view.ViewGroup
-import android.view.WindowManager
-import android.widget.FrameLayout
-import android.webkit.ConsoleMessage
-import android.webkit.PermissionRequest
-import android.webkit.WebSettings
-import android.webkit.WebChromeClient
-import android.webkit.ValueCallback
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
-import androidx.webkit.WebViewAssetLoader
+import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugins.GeneratedPluginRegistrant
+import io.lociant.android.runtime.LociantRuntime
+import io.lociant.android.runtime.LociantRuntimeService
 import io.lociant.core.config.RuntimeDefaults
 import io.lociant.runtime.model.ModelInstaller
 import io.lociant.runtime.model.ModelManager
-import io.lociant.tools.runtime.DeviceInteraction
-import io.lociant.android.runtime.LociantRuntime
-import io.lociant.tools.runtime.VisionRuntime
 import io.lociant.tools.LociantAccessibilityService
-import io.lociant.android.server.LociantServer
-import io.lociant.android.runtime.LociantRuntimeService
-import io.lociant.data.session.SessionStore
-import io.lociant.data.storage.LocalStore
+import io.lociant.tools.runtime.DeviceInteraction
+import io.lociant.tools.runtime.VisionRuntime
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-class MainActivity : ComponentActivity(), LociantBridge.Host {
-    private lateinit var root: FrameLayout
-    private lateinit var webView: WebView
+class MainActivity : FlutterFragmentActivity() {
+    private var platformChannel: LociantPlatformChannel? = null
     private lateinit var modelManager: ModelManager
     private lateinit var modelInstaller: ModelInstaller
-    private lateinit var lociantServer: LociantServer
-    private lateinit var localStore: LocalStore
-    private lateinit var sessionStore: SessionStore
+    private lateinit var lociantServer: io.lociant.android.server.LociantServer
+    private lateinit var localStore: io.lociant.data.storage.LocalStore
     private val modelInstallExecutor = Executors.newSingleThreadExecutor()
 
-    private var pendingWebPermissionRequest: PermissionRequest? = null
     private var startVisionAfterCameraPermission = false
     private var pendingVisionPayload = JSONObject()
     private var startRuntimeAfterNotificationPermission = false
     private var pendingRuntimePayload = JSONObject()
-    private var pendingVisionPermissionRefresh = false
-    private var pendingPermissionRefresh = false
     private var windowSettings = JSONObject()
-    private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
-    private var lastKeyboardInset = -1
 
     private val requestCameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val webPermissionRequest = pendingWebPermissionRequest
-        if (webPermissionRequest != null) {
-            pendingWebPermissionRequest = null
-            if (granted) webPermissionRequest.grant(webPermissionRequest.resources)
-            else webPermissionRequest.deny()
-        }
         if (startVisionAfterCameraPermission) {
             startVisionAfterCameraPermission = false
             if (granted) {
                 lociantServer.callToolResult("vision_start", pendingVisionPayload)
             }
             pendingVisionPayload = JSONObject()
-            pendingVisionPermissionRefresh = true
         }
         refreshRuntimeStateIfNeeded()
     }
 
-
     private val installModelPackage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) notifyModelInstallResult(false, "cancelled", null) else handleModelPackage(uri)
-    }
-
-    private val pickWebFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        pendingFileChooser?.onReceiveValue(uri?.let { arrayOf(it) } ?: emptyArray())
-        pendingFileChooser = null
-    }
-
-    @SuppressLint("SetJavaScriptEnabled")
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        DeviceInteraction.setActivityForeground(true)
-        @Suppress("DEPRECATION")
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        enterImmersiveMode()
-
-        localStore = LociantRuntime.localStore(this)
-        sessionStore = LociantRuntime.sessionStore(this)
-        modelManager = LociantRuntime.modelManager(this)
-        modelInstaller = ModelInstaller(this, modelManager)
-        lociantServer = LociantRuntime.server(this)
-        windowSettings = loadWindowSettings()
-
-        val assetLoader = WebViewAssetLoader.Builder()
-            .setHttpAllowed(true)
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
-            .build()
-
-        webView = WebView(this).apply {
-            webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                    return assetLoader.shouldInterceptRequest(request.url)
-                }
-            }
-            webChromeClient = object : WebChromeClient() {
-                override fun onPermissionRequest(request: PermissionRequest) {
-                    val needsCamera = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-                    if (!needsCamera) {
-                        request.deny()
-                        return
-                    }
-
-                    runOnUiThread {
-                        if (hasPermission(Manifest.permission.CAMERA)) {
-                            request.grant(request.resources)
-                        } else {
-                            pendingWebPermissionRequest = request
-                            requestCameraPermission.launch(Manifest.permission.CAMERA)
-                        }
-                    }
-                }
-
-                override fun onPermissionRequestCanceled(request: PermissionRequest) {
-                    if (pendingWebPermissionRequest == request) pendingWebPermissionRequest = null
-                }
-
-                override fun onConsoleMessage(message: ConsoleMessage): Boolean {
-                    Log.d("Lociant", "web console [${message.lineNumber()}] ${message.message()}")
-                    return super.onConsoleMessage(message)
-                }
-
-                override fun onShowFileChooser(
-                    webView: WebView,
-                    filePathCallback: ValueCallback<Array<Uri>>,
-                    fileChooserParams: FileChooserParams,
-                ): Boolean {
-                    pendingFileChooser?.onReceiveValue(emptyArray())
-                    pendingFileChooser = filePathCallback
-                    val types = fileChooserParams.acceptTypes
-                        .filter { it.isNotBlank() }
-                        .ifEmpty { listOf("image/*") }
-                        .toTypedArray()
-                    runOnUiThread {
-                        runCatching { pickWebFile.launch(types) }
-                            .onFailure {
-                                pendingFileChooser?.onReceiveValue(emptyArray())
-                                pendingFileChooser = null
-                            }
-                    }
-                    return true
-                }
-            }
-            setBackgroundColor(Color.TRANSPARENT)
-
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            settings.defaultTextEncodingName = "utf-8"
-            settings.allowFileAccess = true
-            settings.allowContentAccess = true
-            settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-
-            addJavascriptInterface(
-                LociantBridge(host = this@MainActivity),
-                "LociantBridge",
-            )
-            if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-                WebView.setWebContentsDebuggingEnabled(true)
-            }
-            loadUrl("${"https://appassets.androidplatform.net"}/assets/web/index.html")
-        }
-
-        root = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-            addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        }
-        installKeyboardInsetBridge()
-
-        setContentView(root)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        DeviceInteraction.setActivityForeground(true)
-        enterImmersiveMode()
-        if (::webView.isInitialized) refreshRuntimeStateIfNeeded()
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (shouldShowRuntimeWindow()) runCatching {
-            LociantRuntimeService.showFloatingWindow(this)
-        }
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            enterImmersiveMode()
-            ViewCompat.requestApplyInsets(root)
-        }
-    }
-
-    private fun installKeyboardInsetBridge() {
-        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val navigation = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val keyboardInset = (ime - navigation).coerceAtLeast(0)
-            if (keyboardInset != lastKeyboardInset) {
-                lastKeyboardInset = keyboardInset
-                dispatchKeyboardInset(keyboardInset)
-            }
-            insets
-        }
-        root.post { ViewCompat.requestApplyInsets(root) }
-    }
-
-    private fun dispatchKeyboardInset(insetPx: Int) {
-        if (!::webView.isInitialized) return
-        val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
-        val insetCssPx = (insetPx / density).toInt()
-        runOnUiThread {
-            webView.evaluateJavascript(
-                "window.__lociantKeyboardInset && window.__lociantKeyboardInset($insetCssPx);",
-                null,
-            )
-        }
     }
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -259,26 +67,57 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
             startRuntimeAfterNotificationPermission = false
         }
         pendingRuntimePayload = JSONObject()
-        pendingPermissionRefresh = true
         refreshRuntimeStateIfNeeded()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        DeviceInteraction.setActivityForeground(true)
+        localStore = LociantRuntime.localStore(this)
+        modelManager = LociantRuntime.modelManager(this)
+        modelInstaller = ModelInstaller(this, modelManager)
+        lociantServer = LociantRuntime.server(this)
+        windowSettings = loadWindowSettings()
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        GeneratedPluginRegistrant.registerWith(flutterEngine)
+        platformChannel = LociantPlatformChannel(this, flutterEngine)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        DeviceInteraction.setActivityForeground(true)
+        refreshRuntimeStateIfNeeded()
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (shouldShowRuntimeWindow()) runCatching {
+            LociantRuntimeService.showFloatingWindow(this)
+        }
     }
 
     override fun onDestroy() {
         DeviceInteraction.setActivityForeground(false)
         modelInstallExecutor.shutdown()
-        webView.destroy()
         super.onDestroy()
     }
 
-    override fun openModelPackagePicker() {
+    // ---- Platform channel host operations (mirror the old LociantBridge) ----
+
+    fun installModelPackage(): String {
         runOnUiThread { installModelPackage.launch(PACKAGE_MIME_TYPES) }
+        return ok("picker_opened")
     }
 
-    override fun requestCameraPermission() {
+    fun requestCameraPermission(): String {
         runOnUiThread { requestCameraPermission.launch(Manifest.permission.CAMERA) }
+        return ok("permission_requested")
     }
 
-    override fun requestNotificationPermission() {
+    fun requestNotificationPermission(): String {
         runOnUiThread {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -286,35 +125,39 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
                 refreshRuntimeStateIfNeeded()
             }
         }
+        return ok("permission_requested")
     }
 
-    override fun requestOverlayPermission() {
+    fun requestOverlayPermission(): String {
         runOnUiThread { launchOverlayPermissionSettings() }
+        return ok("permission_requested")
     }
 
-    override fun requestBatteryOptimizationExemption() {
+    fun requestBatteryOptimizationExemption(): String {
         runOnUiThread { launchBatteryOptimizationExemption() }
+        return ok("permission_requested")
     }
 
-    override fun requestAccessibilityPermission() {
+    fun requestAccessibilityPermission(): String {
         runOnUiThread { launchAccessibilitySettings() }
+        return ok("permission_requested")
     }
 
-    override fun openAppSettings() {
-        runOnUiThread {
-            openAppSettingsScreen()
-        }
+    fun openAppSettings(): String {
+        runOnUiThread { openAppSettingsScreen() }
+        return ok("settings_opened")
     }
 
-    override fun openExternalUrl(url: String) {
-        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return
-        if (!uri.scheme.equals("https", ignoreCase = true)) return
+    fun openExternalUrl(url: String): String {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return ok("external_url_rejected")
+        if (!uri.scheme.equals("https", ignoreCase = true)) return ok("external_url_rejected")
         runOnUiThread {
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
         }
+        return ok("external_url_opened")
     }
 
-    override fun openPermissionSettings(kind: String) {
+    fun openPermissionSettings(kind: String): String {
         runOnUiThread {
             when (kind) {
                 "overlay" -> launchOverlayPermissionSettings()
@@ -323,43 +166,17 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
                 else -> openAppSettingsScreen()
             }
         }
+        return ok("settings_opened")
     }
 
-    private fun handleModelPackage(uri: Uri) {
-        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        notifyModelInstallResult(true, "installing", null, "installing", null)
-        modelInstallExecutor.execute {
-            runCatching {
-                modelInstaller.installFromUri(uri) { progress, message ->
-                    notifyModelInstallResult(true, message, null, "installing", progress)
-                }
-            }
-                .onSuccess { model -> notifyModelInstallResult(true, "installed", model.toJson()) }
-                .onFailure { error -> notifyModelInstallResult(false, error.message ?: "install failed", null) }
-        }
-    }
-
-    private fun enterImmersiveMode() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
-
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
-        }
-    }
-
-    override fun runtimeState(): String = runtimeSummaryWithWindow().toString()
-
-    override fun startRuntime(payloadJson: String?): String = runCatching {
+    fun startRuntime(payloadJson: String?): String = runCatching {
         startRuntimeService(parseObject(payloadJson))
         runtimeSummaryWithWindow().put("starting", true)
     }.getOrElse { error ->
         runtimeSummaryWithWindow().put("lastError", error.message ?: "Runtime service start failed")
     }.toString()
 
-    override fun stopRuntime(): String {
+    fun stopRuntime(): String {
         LociantRuntimeService.stopRuntime(this)
         return runtimeSummaryWithWindow(LociantRuntimeService.hideFloatingWindow(this))
             .put("running", false)
@@ -367,37 +184,27 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
             .toString()
     }
 
-    override fun updateRuntimeSettings(payloadJson: String?): String =
-        lociantServer.updateRuntimeSettings(parseObject(payloadJson)).withRuntimeState().toString()
+    /**
+     * Android-only runtime state for the merged UI snapshot. The Flutter UI
+     * reads core server state (sessions/settings/models) from the Rust server
+     * over HTTP and overlays these device fields (permissions, floating
+     * window, vision) from here.
+     */
+    fun deviceState(): String = JSONObject().withRuntimeState().toString()
 
-    override fun releaseRuntimeModel(): String = lociantServer.releaseModel().withRuntimeState().toString()
+    fun startVision(payloadJson: String?): String = startVisionFromShell(parseObject(payloadJson)).toString()
 
-    override fun createSession(): String {
-        lociantServer.createSession()
-        return runtimeSummaryWithWindow().toString()
-    }
-
-    override fun selectSession(sessionId: String): String = lociantServer.selectSession(sessionId).withRuntimeState().toString()
-
-    override fun deleteSession(sessionId: String): String = lociantServer.deleteSession(sessionId).withRuntimeState().toString()
-
-    override fun sessionDetails(sessionId: String): String = runtimeSummaryWithWindow()
-        .put("session", lociantServer.sessionDetails(sessionId))
-        .toString()
-
-    override fun startVision(payloadJson: String?): String = startVisionFromShell(parseObject(payloadJson)).toString()
-
-    override fun stopVision(): String = runtimeSummaryWithWindow()
+    fun stopVision(): String = runtimeSummaryWithWindow()
         .put("vision", lociantServer.callToolResult("vision_stop"))
         .toString()
 
-    override fun showRuntimeWindow(): String = runtimeSummaryWithWindow(runUiCommand { showRuntimeWindowState() }).toString()
+    fun showRuntimeWindow(): String = runtimeSummaryWithWindow(runUiCommand { showRuntimeWindowState() }).toString()
 
-    override fun hideRuntimeWindow(): String = runtimeSummaryWithWindow(
+    fun hideRuntimeWindow(): String = runtimeSummaryWithWindow(
         runUiCommand { LociantRuntimeService.hideFloatingWindow(this) },
     ).toString()
 
-    override fun updateRuntimeWindow(payloadJson: String?): String {
+    fun updateRuntimeWindow(payloadJson: String?): String {
         updateWindowSettings(parseObject(payloadJson))
         val windowState = if (shouldShowRuntimeWindow()) {
             runUiCommand { showRuntimeWindowState() }
@@ -406,6 +213,8 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
         }
         return runtimeSummaryWithWindow(windowState).toString()
     }
+
+    // ---- Private helpers ----
 
     private fun startRuntimeService(payload: JSONObject = JSONObject()) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
@@ -431,13 +240,26 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
         if (!hasPermission(Manifest.permission.CAMERA)) {
             startVisionAfterCameraPermission = true
             pendingVisionPayload = JSONObject(payload.toString())
-            pendingVisionPermissionRefresh = true
             requestCameraPermission.launch(Manifest.permission.CAMERA)
             return runtimeSummaryWithWindow()
                 .put("vision", VisionRuntime.status().put("message", "Camera permission requested."))
         }
         val vision = lociantServer.callToolResult("vision_start", payload)
         return runtimeSummaryWithWindow().put("vision", vision)
+    }
+
+    private fun handleModelPackage(uri: Uri) {
+        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        notifyModelInstallResult(true, "installing", null, "installing", null)
+        modelInstallExecutor.execute {
+            runCatching {
+                modelInstaller.installFromUri(uri) { progress, message ->
+                    notifyModelInstallResult(true, message, null, "installing", progress)
+                }
+            }
+                .onSuccess { model -> notifyModelInstallResult(true, "installed", model.toJson()) }
+                .onFailure { error -> notifyModelInstallResult(false, error.message ?: "install failed", null) }
+        }
     }
 
     private fun hasPermission(permission: String): Boolean {
@@ -447,7 +269,7 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
     private fun parseObject(raw: String?): JSONObject {
         if (raw.isNullOrBlank()) return JSONObject()
         return runCatching { JSONObject(raw) }
-            .getOrElse { throw IllegalArgumentException("Bridge payload must be a JSON object", it) }
+            .getOrElse { throw IllegalArgumentException("Platform payload must be a JSON object", it) }
     }
 
     private fun JSONObject.withRuntimeState(window: JSONObject = LociantRuntimeService.floatingWindowState(this@MainActivity)): JSONObject {
@@ -471,10 +293,6 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
 
     private fun runtimeSummaryWithWindow(window: JSONObject = LociantRuntimeService.floatingWindowState(this)): JSONObject =
         lociantServer.state().withRuntimeState(window)
-
-    private fun JSONObject.toRuntimeUiState(): JSONObject {
-        return runtimeSummaryWithWindow()
-    }
 
     private fun updateWindowSettings(payload: JSONObject) {
         windowSettings = JSONObject(windowSettings.toString())
@@ -585,20 +403,8 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
     }
 
     private fun refreshRuntimeStateIfNeeded() {
-        if (!pendingVisionPermissionRefresh && !startRuntimeAfterNotificationPermission && !pendingPermissionRefresh) {
-            webView.post {
-                runCatching {
-                    emitJs("onRuntimeMessage", lociantServer.uiState().withRuntimeState())
-                }
-            }
-        } else {
-            pendingVisionPermissionRefresh = false
-            pendingPermissionRefresh = false
-            webView.post {
-                runCatching {
-                    emitJs("onRuntimeMessage", lociantServer.uiState().withRuntimeState())
-                }
-            }
+        runCatching {
+            platformChannel?.emitRuntimeMessage(lociantServer.uiState().withRuntimeState())
         }
     }
 
@@ -609,7 +415,7 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
         state: String = if (ok) "done" else "error",
         progress: Double? = if (state == "done") 1.0 else null,
     ) {
-        emitJs("onModelInstallResult", JSONObject()
+        platformChannel?.emitModelInstallResult(JSONObject()
             .put("ok", ok)
             .put("state", state)
             .put("message", message)
@@ -617,9 +423,8 @@ class MainActivity : ComponentActivity(), LociantBridge.Host {
             .put("model", model ?: JSONObject.NULL))
     }
 
-    private fun emitJs(event: String, payload: JSONObject) {
-        val script = "window.LociantEvents && window.LociantEvents.$event(JSON.parse(${JSONObject.quote(payload.toString())}));"
-        webView.post { webView.evaluateJavascript(script, null) }
+    private fun ok(state: String): String {
+        return JSONObject().put("ok", true).put("state", state).toString()
     }
 
     companion object {

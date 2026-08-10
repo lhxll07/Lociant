@@ -5,57 +5,16 @@ import io.lociant.core.config.RuntimeDefaults
 import io.lociant.core.model.*
 import java.io.File
 
+/**
+ * Local MNN chat/vlm execution. Cloud routing moved to the Rust backend;
+ * this class only runs local models (invoked through the device IPC chat
+ * bridge and the `llm_chat` tool).
+ */
 class ChatCapability(
     private val modelManager: ModelManager,
     private val mnnRuntime: MnnRuntime,
 ) {
-    @Volatile private var cloudClient: CloudChatClient? = null
-    @Volatile private var cloudModelId = ""
-    @Volatile private var cloudMaxOutputTokens: Int? = null
-    @Volatile private var cloudContextWindow: Int? = null
-
-    /**
-     * Cloud models get their own output/context policy. [maxOutputTokens] is an
-     * optional explicit cap (null/0 = follow the provider default), and
-     * [contextWindow] is the token budget used for history trimming.
-     */
-    fun configureCloud(
-        baseUrl: String,
-        apiKey: String,
-        model: String,
-        enabled: Boolean,
-        maxOutputTokens: Int? = null,
-        contextWindow: Int? = null,
-    ) {
-        cloudMaxOutputTokens = maxOutputTokens?.takeIf { it > 0 }
-        cloudContextWindow = contextWindow
-        val exact = model.trim()
-        val nextId = if (enabled && baseUrl.isNotBlank() && exact.isNotBlank()) {
-            ModelManager.normalizeId(exact)
-        } else ""
-        val next = if (nextId.isNotBlank()) CloudChatClient(baseUrl.trim(), apiKey.trim(), exact) else null
-        if (cloudModelId != nextId || cloudClient?.model != next?.model) {
-            cloudClient = next
-            cloudModelId = nextId
-            resetLoadedModel()
-        } else {
-            cloudClient = next
-            cloudModelId = nextId
-        }
-    }
-
-    fun cloudModel(): String? = cloudClient?.model
-
-    fun cloudModelId(): String = cloudModelId
-
-    /** Explicit cloud output cap, or null when the provider default is used. */
-    fun cloudOutputTokenLimit(): Int? = cloudMaxOutputTokens
-
-    fun isCloudModel(modelId: String): Boolean =
-        cloudClient != null && ModelManager.normalizeId(modelId) == cloudModelId
-
-    fun isLoaded(modelId: String): Boolean =
-        isCloudModel(modelId) || loadedModelId == normalize(modelId)
+    fun isLoaded(modelId: String): Boolean = loadedModelId == normalize(modelId)
 
     fun resetLoadedModel() {
         loadedModelId = null
@@ -73,13 +32,8 @@ class ChatCapability(
         return changed
     }
 
-    fun automaticCacheConfigurationKey(): String = mnnRuntime.cacheConfigurationKey()
-
     fun preload(modelIdRaw: String): ModelChatResult {
         val modelId = normalize(modelIdRaw)
-        if (isCloudModel(modelId)) {
-            return ModelChatResult(ok = true, modelId = modelId, message = "cloud model ready")
-        }
         if (isLoaded(modelId)) return ModelChatResult(ok = true, modelId = modelId, message = "already loaded")
         val dir = resolveModel(modelId)
             ?: return ModelChatResult(ok = false, modelId = modelId, message = "MNN chat model not installed")
@@ -88,32 +42,19 @@ class ChatCapability(
         return ModelChatResult(ok = result.ok, modelId = modelId, message = result.message)
     }
 
-    fun maxTokens(modelIdRaw: String, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int {
-        if (isCloudModel(modelIdRaw)) {
-            return (cloudMaxOutputTokens ?: HARD_MAX_OUTPUT_TOKENS).coerceAtLeast(MIN_OUTPUT_TOKENS)
-        }
-        return minOf(serverCap, HARD_MAX_OUTPUT_TOKENS).coerceAtLeast(MIN_OUTPUT_TOKENS)
-    }
+    fun maxTokens(modelIdRaw: String, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int =
+        minOf(serverCap, HARD_MAX_OUTPUT_TOKENS).coerceAtLeast(MIN_OUTPUT_TOKENS)
 
-    fun contextWindowTokens(modelIdRaw: String): Int {
-        if (isCloudModel(modelIdRaw)) {
-            return (cloudContextWindow ?: RuntimeDefaults.Cloud.CONTEXT_WINDOW_DEFAULT)
-                .coerceIn(RuntimeDefaults.Tokens.CONTEXT_MIN, RuntimeDefaults.Cloud.CONTEXT_WINDOW_MAX)
-        }
-        return modelManager.contextWindowTokens(normalize(modelIdRaw))
+    fun contextWindowTokens(modelIdRaw: String): Int =
+        modelManager.contextWindowTokens(normalize(modelIdRaw))
             ?.coerceIn(RuntimeDefaults.Tokens.CONTEXT_MIN, RuntimeDefaults.Tokens.CONTEXT_MAX)
             ?: RuntimeDefaults.Tokens.CONTEXT_DEFAULT
-    }
 
     fun clampTokens(modelIdRaw: String, requested: Int, serverCap: Int = HARD_MAX_OUTPUT_TOKENS): Int {
         return requested.coerceIn(MIN_OUTPUT_TOKENS, maxTokens(modelIdRaw, serverCap))
     }
 
     fun complete(request: ModelChatRequest): ModelChatResult {
-        val cloud = cloudClient
-        if (cloud != null && isCloudModel(request.modelId)) {
-            return cloud.complete(request)
-        }
         return run(request) { modelDir, modelId, maxTokens, images ->
             if (images.isEmpty()) {
                 mnnRuntime.chatText(
@@ -141,10 +82,6 @@ class ChatCapability(
         onReasoning: ((text: String, done: Boolean) -> Unit)? = null,
         onToolCall: ((ModelToolCall) -> Unit)? = null,
     ): ModelChatResult {
-        val cloud = cloudClient
-        if (cloud != null && isCloudModel(request.modelId)) {
-            return cloud.stream(request, onChunk, onReasoning, onToolCall)
-        }
         val responseText = StringBuilder()
         return run(request) { modelDir, modelId, maxTokens, images ->
             val toolStreamBuffer = StringBuilder()
@@ -178,7 +115,6 @@ class ChatCapability(
 
     fun cancel() {
         mnnRuntime.cancel()
-        cloudClient?.cancel()
     }
 
     /**
@@ -216,16 +152,6 @@ class ChatCapability(
             head.startsWith("```") ||
             text.contains("tool_calls") ||
             text.contains("function")
-    }
-
-    fun resetSessionCache() {
-        mnnRuntime.resetSessionCache()
-    }
-
-    fun releaseModel() {
-        mnnRuntime.cancel()
-        mnnRuntime.close()
-        loadedModelId = null
     }
 
     private fun run(
