@@ -13,14 +13,40 @@ android {
         applicationId = "io.lociant.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10101
-        versionName = "1.1.1"
+        versionCode = 20000
+        versionName = "2.0.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            // Keystore lives outside the repo (~/keys/lociant-release.jks).
+            // Password comes from LOCIANT_KEYSTORE_PASSWORD so it never
+            // lands in git; point LOCIANT_KEYSTORE elsewhere to override.
+            val releasePassword: String = System.getenv("LOCIANT_KEYSTORE_PASSWORD")
+                ?: error("LOCIANT_KEYSTORE_PASSWORD is not set")
+            storeFile = file(
+                System.getenv("LOCIANT_KEYSTORE")
+                    ?: "${System.getProperty("user.home")}/keys/lociant-release.jks",
+            )
+            storePassword = releasePassword
+            keyAlias = "lociant"
+            keyPassword = releasePassword
+        }
     }
 
     buildTypes {
         debug {
             // 本地联调只需要 arm64-v8a；Flutter 调试引擎的 libflutter.so 占了
             // APK 的大头，限制 ABI 后 debug 包从 ~1.4GB 降到 ~0.5GB，安装快很多。
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
+        }
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            // 与 debug 一致：仅 arm64-v8a（Rust server 只交叉编译该 ABI，
+            // 且能显著减小 APK 体积）。
             ndk {
                 abiFilters += "arm64-v8a"
             }
