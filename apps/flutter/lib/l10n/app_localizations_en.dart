@@ -58,6 +58,46 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get babyTitle => 'Baby Monitor';
+
+  @override
+  String get babySubtitle => 'SlumberGuard: status & events';
+
+  @override
+  String get babyNotEnabled =>
+      'Baby monitor not enabled on this node\n(set babyCamera in config to enable)';
+
+  @override
+  String get babyState => 'State';
+
+  @override
+  String get babyMotion => 'Motion';
+
+  @override
+  String get babyEvents => 'Recent events';
+
+  @override
+  String get babyNoEvents => 'No events yet';
+
+  @override
+  String get babyStateIdle => 'Idle';
+
+  @override
+  String get babyStateCandidate => 'Observing';
+
+  @override
+  String get babyStateSoothing1 => 'Soothing 1';
+
+  @override
+  String get babyStateSoothing2 => 'Soothing 2';
+
+  @override
+  String get babyStateNotify => 'Notify parent';
+
+  @override
+  String get babyStateCooldown => 'Cooling down';
+
+  @override
   String get statusIdle => 'Idle';
 
   @override

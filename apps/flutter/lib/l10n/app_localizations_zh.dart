@@ -56,6 +56,45 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get babyTitle => '婴儿监控';
+
+  @override
+  String get babySubtitle => '眠安智护：状态与事件';
+
+  @override
+  String get babyNotEnabled => '当前节点未启用婴儿监控\n（在配置中设置 babyCamera 后启用）';
+
+  @override
+  String get babyState => '状态';
+
+  @override
+  String get babyMotion => '运动强度';
+
+  @override
+  String get babyEvents => '最近事件';
+
+  @override
+  String get babyNoEvents => '暂无事件';
+
+  @override
+  String get babyStateIdle => '待机';
+
+  @override
+  String get babyStateCandidate => '观察中';
+
+  @override
+  String get babyStateSoothing1 => '一级安抚';
+
+  @override
+  String get babyStateSoothing2 => '二级安抚';
+
+  @override
+  String get babyStateNotify => '提醒家长';
+
+  @override
+  String get babyStateCooldown => '冷却中';
+
+  @override
   String get statusIdle => '待机';
 
   @override

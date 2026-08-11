@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../l10n/app_localizations.dart';
+import 'baby_monitor_screen.dart';
 
 /// Top-level "Nodes" page: this device plus every discovered Lociant peer
 /// on the LAN. Peer models (with a `peer:` prefix) show up in the Models
@@ -89,6 +90,23 @@ class _NodesScreenState extends State<NodesScreen> {
                             child: ListView(
                               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                               children: [
+                                Card(
+                                  child: ListTile(
+                                    leading: const Icon(Icons.child_care),
+                                    title: Text(
+                                      l10n.babyTitle,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                    subtitle: Text(l10n.babySubtitle),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const BabyMonitorScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
                                 for (final node in _nodes!)
                                   _NodeCard(node: node),
                                 const SizedBox(height: 8),
