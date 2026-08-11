@@ -182,6 +182,48 @@ abstract class AppLocalizations {
   /// **'Peer models appear in Models with a peer: prefix and can be selected directly.'**
   String get nodesPeersHint;
 
+  /// No description provided for @nodesGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your devices'**
+  String get nodesGuideTitle;
+
+  /// No description provided for @nodesGuideBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Give your phone, desktop and board the same node token; on the same LAN they discover each other automatically and share models and tools.'**
+  String get nodesGuideBody;
+
+  /// No description provided for @nodesGuideStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the same node token under Settings → Server on every device'**
+  String get nodesGuideStep1;
+
+  /// No description provided for @nodesGuideStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay on the same LAN and wait a moment, or tap + in the corner to add manually'**
+  String get nodesGuideStep2;
+
+  /// No description provided for @nodesGuideStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'Open a node card to share models (peer: prefix), view baby monitoring or chat directly'**
+  String get nodesGuideStep3;
+
+  /// No description provided for @nodesGuideOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get nodesGuideOpenSettings;
+
+  /// No description provided for @nodesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Interconnect guide'**
+  String get nodesHelp;
+
   /// No description provided for @nodesError.
   ///
   /// In en, this message translates to:
@@ -488,17 +530,41 @@ abstract class AppLocalizations {
   /// **'Turn any device into a local agent that runs models, reads the screen, controls the UI and senses its environment — callable from Claude, Codex and other agents over MCP.'**
   String get onboardingWelcomeBody;
 
-  /// No description provided for @onboardingServerTitle.
+  /// No description provided for @onboardingCloudTitle.
   ///
   /// In en, this message translates to:
-  /// **'Local service'**
-  String get onboardingServerTitle;
+  /// **'Start with a cloud model'**
+  String get onboardingCloudTitle;
 
-  /// No description provided for @onboardingServerBody.
+  /// No description provided for @onboardingCloudBody.
   ///
   /// In en, this message translates to:
-  /// **'The desktop app starts its bundled Rust service (127.0.0.1:11434) automatically. To connect a board or phone on your LAN, change the server address in Settings.'**
-  String get onboardingServerBody;
+  /// **'Go to Settings → Cloud model, enter the API base URL, key and model name (e.g. DeepSeek) and you can chat right away. To work offline, install a local model from the Models page later.'**
+  String get onboardingCloudBody;
+
+  /// No description provided for @onboardingPermissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the agent hands'**
+  String get onboardingPermissionTitle;
+
+  /// No description provided for @onboardingPermissionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable permissions in Settings: accessibility lets it read the screen, tap and swipe; notifications keep it alive in the background; camera is for photos and vision; set battery to unrestricted so it isn\'t paused when the screen locks.'**
+  String get onboardingPermissionBody;
+
+  /// No description provided for @onboardingNodesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your devices'**
+  String get onboardingNodesTitle;
+
+  /// No description provided for @onboardingNodesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Phones, desktops and boards on the same LAN with the same node token discover each other automatically. Use the Nodes page to view devices and share models and tools — e.g. let your phone use the RKLLM model running on the board.'**
+  String get onboardingNodesBody;
 
   /// No description provided for @onboardingReadyTitle.
   ///
@@ -509,8 +575,20 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingReadyBody.
   ///
   /// In en, this message translates to:
-  /// **'Before you start: on Android, grant accessibility and other permissions in Settings; on headless Linux, run lociant-server --init first.'**
+  /// **'Start the runtime on the home page, send a message to confirm the model works, then let it do things. Later you can also connect the device from MCP-capable clients like Claude and OpenCode.'**
   String get onboardingReadyBody;
+
+  /// No description provided for @settingsOnboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Onboarding'**
+  String get settingsOnboardingTitle;
+
+  /// No description provided for @settingsOnboardingSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay the setup walkthrough and node interconnection guide'**
+  String get settingsOnboardingSub;
 
   /// No description provided for @commonBack.
   ///
@@ -1123,6 +1201,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Accessibility'**
   String get settingsPermissionAccessibility;
+
+  /// No description provided for @settingsDesktopPermissionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Desktop has no device permissions. To use screen, sensor or camera tools, connect an Android phone or board node.'**
+  String get settingsDesktopPermissionsHint;
 
   /// No description provided for @settingsGrant.
   ///

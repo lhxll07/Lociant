@@ -17,11 +17,15 @@ class NodesScreen extends StatefulWidget {
 class _NodesScreenState extends State<NodesScreen> {
   List<Map<String, dynamic>>? _nodes;
   String? _error;
+  bool _loadedOnce = false;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_loadedOnce) {
+      _loadedOnce = true;
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -80,17 +84,25 @@ class _NodesScreenState extends State<NodesScreen> {
                   tooltip: l10n.nodesAdd,
                   onPressed: () => _showAddNodeDialog(l10n),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.help_outline),
+                  tooltip: l10n.nodesHelp,
+                  onPressed: () => _showGuideDialog(l10n),
+                ),
               ],
             ),
           ),
           Expanded(
             child: _error != null
-                ? _Message(text: l10n.nodesError(_error!), onRetry: _load)
-                : _nodes == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : _nodes!.isEmpty
-                        ? _Message(text: l10n.nodesEmpty, onRetry: _load)
-                        : RefreshIndicator(
+                    ? _Message(text: l10n.nodesError(_error!), onRetry: _load)
+                    : _nodes == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : _nodes!.isEmpty
+                            ? _NodesGuide(
+                                onOpenSettings: () => homeShellKey.currentState?.switchTo(3),
+                                onRefresh: _load,
+                              )
+                            : RefreshIndicator(
                             onRefresh: _load,
                             child: ListView(
                               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -143,6 +155,29 @@ class _NodesScreenState extends State<NodesScreen> {
                               ],
                             ),
                           ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGuideDialog(AppLocalizations l10n) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.nodesHelp),
+        content: const SingleChildScrollView(child: _GuideHeader()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              homeShellKey.currentState?.switchTo(3);
+            },
+            child: Text(l10n.nodesGuideOpenSettings),
           ),
         ],
       ),
@@ -409,6 +444,120 @@ class _Message extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Beginner guide shown when no peers are visible: what interconnection is
+/// for and the three steps to make devices find each other.
+class _NodesGuide extends StatelessWidget {
+  const _NodesGuide({required this.onOpenSettings, required this.onRefresh});
+
+  final VoidCallback onOpenSettings;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _GuideHeader(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: onOpenSettings,
+                        icon: const Icon(Icons.settings_outlined, size: 18),
+                        label: Text(l10n.nodesGuideOpenSettings),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: Text(l10n.nodesRefresh),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Title, explanation and numbered steps shared by the empty-state guide and
+/// the help dialog.
+class _GuideHeader extends StatelessWidget {
+  const _GuideHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final steps = [
+      l10n.nodesGuideStep1,
+      l10n.nodesGuideStep2,
+      l10n.nodesGuideStep3,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.hub_outlined, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              l10n.nodesGuideTitle,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.nodesGuideBody,
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < steps.length; i++) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 11,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                child: Text(
+                  '${i + 1}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(steps[i], style: theme.textTheme.bodyMedium),
+                ),
+              ),
+            ],
+          ),
+          if (i < steps.length - 1) const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 }

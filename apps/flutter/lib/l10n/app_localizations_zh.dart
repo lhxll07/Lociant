@@ -51,6 +51,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesPeersHint => '其他节点的模型会自动以 peer: 前缀出现在模型页，可以直接选用。';
 
   @override
+  String get nodesGuideTitle => '让设备们互联';
+
+  @override
+  String get nodesGuideBody => '手机、电脑、开发板配置相同的节点令牌，在同一局域网内会自动互相发现，互借模型和工具。';
+
+  @override
+  String get nodesGuideStep1 => '在每台设备的“设置 → 服务器”里填同一个节点令牌';
+
+  @override
+  String get nodesGuideStep2 => '保持同一局域网，稍等片刻自动出现；也可以点右上角 + 手动添加';
+
+  @override
+  String get nodesGuideStep3 => '点开节点卡片：互借模型（peer: 前缀）、查看婴儿监控、直接对话';
+
+  @override
+  String get nodesGuideOpenSettings => '去设置';
+
+  @override
+  String get nodesHelp => '节点互联说明';
+
+  @override
   String nodesError(Object error) {
     return '加载节点失败：$error';
   }
@@ -214,18 +235,38 @@ class AppLocalizationsZh extends AppLocalizations {
       '让一台设备成为真正能干活的本地 Agent：本地运行模型、读取屏幕、操作界面、感知环境，也能通过 MCP 被 Claude、Codex 等 Agent 调用。';
 
   @override
-  String get onboardingServerTitle => '本地服务';
+  String get onboardingCloudTitle => '先配一个云端模型';
 
   @override
-  String get onboardingServerBody =>
-      '桌面版会自动启动内置的 Rust 服务（127.0.0.1:11434），无需手动配置。要连接局域网内的开发板或手机时，在设置里修改服务器地址即可。';
+  String get onboardingCloudBody =>
+      '在“设置 → 云端模型”填入服务地址、API Key 和模型名（例如 DeepSeek），马上就能对话。想断网使用，再到“模型”页安装本地模型。';
+
+  @override
+  String get onboardingPermissionTitle => '给 Agent 一双手';
+
+  @override
+  String get onboardingPermissionBody =>
+      '在“设置”里开启权限：无障碍让它可以看屏幕、点击和滑动；通知保持后台运行；相机用于拍照和视觉分析；电池设为“不限制”，避免锁屏后服务被暂停。';
+
+  @override
+  String get onboardingNodesTitle => '把设备们连起来';
+
+  @override
+  String get onboardingNodesBody =>
+      '手机、电脑、开发板在同一局域网并配置相同的节点令牌后，会自动互相发现。在“节点”页查看设备、互借模型和工具——比如手机直接用板子上的 RKLLM 模型。';
 
   @override
   String get onboardingReadyTitle => '准备就绪';
 
   @override
   String get onboardingReadyBody =>
-      '开始前建议先完成设置：安卓设备在设置中开启无障碍等权限；无头 Linux 设备先运行 lociant-server --init 完成初始化。';
+      '回到首页启动运行时，先发一条消息确认模型正常，再让它干活。之后还可以用 Claude、OpenCode 等支持 MCP 的客户端，直接调用这台设备的能力。';
+
+  @override
+  String get settingsOnboardingTitle => '新手引导';
+
+  @override
+  String get settingsOnboardingSub => '重新查看使用步骤与节点互联说明';
 
   @override
   String get commonBack => '返回';
@@ -538,6 +579,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsPermissionAccessibility => '无障碍';
+
+  @override
+  String get settingsDesktopPermissionsHint =>
+      '桌面端没有设备权限。要使用屏幕操作、传感器、相机等工具，请连接安卓手机或开发板节点。';
 
   @override
   String get settingsGrant => '授权';

@@ -4,8 +4,9 @@ import '../l10n/app_localizations.dart';
 
 /// First-run wizard shown until the user finishes (or skips) it.
 ///
-/// Three short pages: welcome, service explanation, ready. Completion is
-/// stored by the app shell, so the wizard never shows again.
+/// Scenario-driven pages: welcome, cloud model, permissions, node
+/// interconnect, ready. Completion is stored by the app shell, so the
+/// wizard never shows again.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onDone});
 
@@ -18,6 +19,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _page = 0;
+  List<_PageData> _pages = const [];
 
   @override
   void dispose() {
@@ -26,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
-    if (_page < 2) {
+    if (_page < _pages.length - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
@@ -36,16 +38,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  void _back() {
+    if (_page > 0) {
+      _controller.previousPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
-    final pages = [
+    _pages = [
       _PageData(Icons.smart_toy_outlined, l10n.onboardingWelcomeTitle, l10n.onboardingWelcomeBody),
-      _PageData(Icons.dns_outlined, l10n.onboardingServerTitle, l10n.onboardingServerBody),
+      _PageData(Icons.cloud_outlined, l10n.onboardingCloudTitle, l10n.onboardingCloudBody),
+      _PageData(Icons.touch_app_outlined, l10n.onboardingPermissionTitle, l10n.onboardingPermissionBody),
+      _PageData(Icons.hub_outlined, l10n.onboardingNodesTitle, l10n.onboardingNodesBody),
       _PageData(Icons.check_circle_outline, l10n.onboardingReadyTitle, l10n.onboardingReadyBody),
     ];
-    final isLast = _page == pages.length - 1;
+    final isLast = _page == _pages.length - 1;
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -63,10 +76,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Expanded(
               child: PageView.builder(
                 controller: _controller,
-                itemCount: pages.length,
+                itemCount: _pages.length,
                 onPageChanged: (index) => setState(() => _page = index),
                 itemBuilder: (context, index) {
-                  final data = pages[index];
+                  final data = _pages[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Column(
@@ -97,9 +110,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const SizedBox(width: 96),
+                SizedBox(
+                  width: 96,
+                  child: _page > 0
+                      ? TextButton(
+                          onPressed: _back,
+                          child: Text(l10n.commonBack),
+                        )
+                      : null,
+                ),
                 Row(
-                  children: List.generate(pages.length, (index) {
+                  children: List.generate(_pages.length, (index) {
                     final active = index == _page;
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 200),

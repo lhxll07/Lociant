@@ -53,6 +53,31 @@ class AppLocalizationsEn extends AppLocalizations {
       'Peer models appear in Models with a peer: prefix and can be selected directly.';
 
   @override
+  String get nodesGuideTitle => 'Connect your devices';
+
+  @override
+  String get nodesGuideBody =>
+      'Give your phone, desktop and board the same node token; on the same LAN they discover each other automatically and share models and tools.';
+
+  @override
+  String get nodesGuideStep1 =>
+      'Enter the same node token under Settings → Server on every device';
+
+  @override
+  String get nodesGuideStep2 =>
+      'Stay on the same LAN and wait a moment, or tap + in the corner to add manually';
+
+  @override
+  String get nodesGuideStep3 =>
+      'Open a node card to share models (peer: prefix), view baby monitoring or chat directly';
+
+  @override
+  String get nodesGuideOpenSettings => 'Open settings';
+
+  @override
+  String get nodesHelp => 'Interconnect guide';
+
+  @override
   String nodesError(Object error) {
     return 'Failed to load nodes: $error';
   }
@@ -218,18 +243,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'Turn any device into a local agent that runs models, reads the screen, controls the UI and senses its environment — callable from Claude, Codex and other agents over MCP.';
 
   @override
-  String get onboardingServerTitle => 'Local service';
+  String get onboardingCloudTitle => 'Start with a cloud model';
 
   @override
-  String get onboardingServerBody =>
-      'The desktop app starts its bundled Rust service (127.0.0.1:11434) automatically. To connect a board or phone on your LAN, change the server address in Settings.';
+  String get onboardingCloudBody =>
+      'Go to Settings → Cloud model, enter the API base URL, key and model name (e.g. DeepSeek) and you can chat right away. To work offline, install a local model from the Models page later.';
+
+  @override
+  String get onboardingPermissionTitle => 'Give the agent hands';
+
+  @override
+  String get onboardingPermissionBody =>
+      'Enable permissions in Settings: accessibility lets it read the screen, tap and swipe; notifications keep it alive in the background; camera is for photos and vision; set battery to unrestricted so it isn\'t paused when the screen locks.';
+
+  @override
+  String get onboardingNodesTitle => 'Connect your devices';
+
+  @override
+  String get onboardingNodesBody =>
+      'Phones, desktops and boards on the same LAN with the same node token discover each other automatically. Use the Nodes page to view devices and share models and tools — e.g. let your phone use the RKLLM model running on the board.';
 
   @override
   String get onboardingReadyTitle => 'Ready';
 
   @override
   String get onboardingReadyBody =>
-      'Before you start: on Android, grant accessibility and other permissions in Settings; on headless Linux, run lociant-server --init first.';
+      'Start the runtime on the home page, send a message to confirm the model works, then let it do things. Later you can also connect the device from MCP-capable clients like Claude and OpenCode.';
+
+  @override
+  String get settingsOnboardingTitle => 'Onboarding';
+
+  @override
+  String get settingsOnboardingSub =>
+      'Replay the setup walkthrough and node interconnection guide';
 
   @override
   String get commonBack => 'Back';
@@ -543,6 +589,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPermissionAccessibility => 'Accessibility';
+
+  @override
+  String get settingsDesktopPermissionsHint =>
+      'Desktop has no device permissions. To use screen, sensor or camera tools, connect an Android phone or board node.';
 
   @override
   String get settingsGrant => 'Grant';

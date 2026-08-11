@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../app.dart';
 import '../l10n/app_localizations.dart';
+import 'onboarding_screen.dart';
 import '../theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -115,6 +116,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _tile(l10n.settingsModelTitle, l10n.settingsModelSub, Icons.tune_outlined, 'model'),
         _tile(l10n.settingsAgentTitle, l10n.settingsAgentSub, Icons.psychology_outlined, 'agent'),
         _tile(l10n.settingsAdvancedTitle, l10n.settingsAdvancedSub, Icons.insights_outlined, 'advanced'),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.travel_explore_outlined),
+            title: Text(l10n.settingsOnboardingTitle),
+            subtitle: Text(l10n.settingsOnboardingSub),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => OnboardingScreen(
+                  onDone: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -172,57 +188,66 @@ class _RuntimePanel extends StatelessWidget {
                 onChanged: (v) => runtime.updateSettings({'autoStart': v}),
               ),
             ),
-            _SectionTitle(l10n.settingsPermissionsTitle),
-            _PermissionTile(
-              icon: Icons.photo_camera_outlined,
-              label: l10n.settingsPermissionCamera,
-              granted: state?.cameraPermissionGranted ?? false,
-              onGrant: () => runtime.requestCamera(),
-            ),
-            _PermissionTile(
-              icon: Icons.notifications_outlined,
-              label: l10n.settingsPermissionNotification,
-              granted: state?.notificationPermissionGranted ?? false,
-              onGrant: () => runtime.requestNotification(),
-            ),
-            _PermissionTile(
-              icon: Icons.layers_outlined,
-              label: l10n.settingsPermissionOverlay,
-              granted: state?.windowAllowed ?? false,
-              onGrant: () => runtime.requestOverlay(),
-            ),
-            _PermissionTile(
-              icon: Icons.battery_charging_full_outlined,
-              label: l10n.settingsPermissionBattery,
-              granted: state?.batteryOptimizationIgnored ?? false,
-              onGrant: () => runtime.requestBattery(),
-            ),
-            _PermissionTile(
-              icon: Icons.accessibility_new_outlined,
-              label: l10n.settingsPermissionAccessibility,
-              granted: state?.accessibilityPermissionGranted ?? false,
-              onGrant: () => runtime.requestAccessibility(),
-            ),
-            _SectionTitle(l10n.settingsWindowVision),
-            Card(
-              child: SwitchListTile(
-                title: Text(l10n.settingsWindowAuto),
-                value: state?.windowAutoShow ?? false,
-                onChanged: (v) => runtime.updateWindow({'autoShow': v}),
+            if (isAndroid) ...[
+              _SectionTitle(l10n.settingsPermissionsTitle),
+              _PermissionTile(
+                icon: Icons.photo_camera_outlined,
+                label: l10n.settingsPermissionCamera,
+                granted: state?.cameraPermissionGranted ?? false,
+                onGrant: () => runtime.requestCamera(),
               ),
-            ),
-            Card(
-              child: ListTile(
-                title: Text(l10n.settingsVisionTitle),
-                subtitle: Text((state?.vision['message'] ?? '').toString()),
-                trailing: FilledButton.tonal(
-                  onPressed: () => (state?.vision['running'] == true)
-                      ? runtime.stopVision()
-                      : runtime.startVision(),
-                  child: Text(state?.vision['running'] == true ? l10n.commonStop : l10n.commonStart),
+              _PermissionTile(
+                icon: Icons.notifications_outlined,
+                label: l10n.settingsPermissionNotification,
+                granted: state?.notificationPermissionGranted ?? false,
+                onGrant: () => runtime.requestNotification(),
+              ),
+              _PermissionTile(
+                icon: Icons.layers_outlined,
+                label: l10n.settingsPermissionOverlay,
+                granted: state?.windowAllowed ?? false,
+                onGrant: () => runtime.requestOverlay(),
+              ),
+              _PermissionTile(
+                icon: Icons.battery_charging_full_outlined,
+                label: l10n.settingsPermissionBattery,
+                granted: state?.batteryOptimizationIgnored ?? false,
+                onGrant: () => runtime.requestBattery(),
+              ),
+              _PermissionTile(
+                icon: Icons.accessibility_new_outlined,
+                label: l10n.settingsPermissionAccessibility,
+                granted: state?.accessibilityPermissionGranted ?? false,
+                onGrant: () => runtime.requestAccessibility(),
+              ),
+              _SectionTitle(l10n.settingsWindowVision),
+              Card(
+                child: SwitchListTile(
+                  title: Text(l10n.settingsWindowAuto),
+                  value: state?.windowAutoShow ?? false,
+                  onChanged: (v) => runtime.updateWindow({'autoShow': v}),
                 ),
               ),
-            ),
+              Card(
+                child: ListTile(
+                  title: Text(l10n.settingsVisionTitle),
+                  subtitle: Text((state?.vision['message'] ?? '').toString()),
+                  trailing: FilledButton.tonal(
+                    onPressed: () => (state?.vision['running'] == true)
+                        ? runtime.stopVision()
+                        : runtime.startVision(),
+                    child: Text(state?.vision['running'] == true ? l10n.commonStop : l10n.commonStart),
+                  ),
+                ),
+              ),
+            ] else
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: Text(l10n.settingsPermissionsTitle),
+                  subtitle: Text(l10n.settingsDesktopPermissionsHint),
+                ),
+              ),
             Card(
               child: ListTile(
                 title: Text(l10n.settingsToolExposure),
