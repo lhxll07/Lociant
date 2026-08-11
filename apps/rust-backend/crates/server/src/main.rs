@@ -186,6 +186,10 @@ async fn main() -> anyhow::Result<()> {
         None => None,
     };
     let peers_for_start = peers.clone();
+    let manual_peers = settings
+        .get("manualPeers")
+        .cloned()
+        .unwrap_or(Value::Array(Vec::new()));
 
     let baby = settings
         .get("babyCamera")
@@ -220,6 +224,19 @@ async fn main() -> anyhow::Result<()> {
     };
 
     if let Some(peers) = peers_for_start {
+        // Restore manually added peers persisted in settings.
+        if let Some(list) = manual_peers.as_array() {
+            for item in list {
+                let Some(host) = item.get("host").and_then(Value::as_str) else {
+                    continue;
+                };
+                let Some(port) = item.get("port").and_then(Value::as_u64) else {
+                    continue;
+                };
+                let name = item.get("name").and_then(Value::as_str).map(str::to_owned);
+                peers.add_manual_peer(host.to_owned(), port as u16, name);
+            }
+        }
         peers.start();
     }
 

@@ -108,6 +108,7 @@ pub async fn add_peer(
         .and_then(Value::as_str)
         .map(str::to_owned);
     peers.add_manual_peer(host, port, name);
+    persist_manual_peers(&state);
     Json(json!({ "ok": true }))
 }
 
@@ -119,10 +120,31 @@ pub async fn remove_peer(
 ) -> Json<Value> {
     if let Some(peers) = &state.peers {
         peers.remove_peer(&node_id);
+        persist_manual_peers(&state);
         Json(json!({ "ok": true }))
     } else {
         Json(json!({ "error": "peer networking not enabled" }))
     }
+}
+
+/// Persists manually added peers into settings so they survive restarts.
+fn persist_manual_peers(state: &AppState) {
+    let Some(peers) = &state.peers else {
+        return;
+    };
+    let list: Vec<Value> = peers
+        .nodes()
+        .iter()
+        .filter(|node| node.platform == "manual")
+        .map(|node| {
+            json!({
+                "host": node.host.to_string(),
+                "port": node.port,
+                "name": node.name,
+            })
+        })
+        .collect();
+    state.merge_settings(&json!({ "manualPeers": list }));
 }
 
 /// `GET /api/v1/peers/{node_id}/baby/state` — 查看某节点的眠安智护监控。
