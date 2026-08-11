@@ -50,7 +50,6 @@ pub async fn list_peer_models(
 }
 
 /// `/api/v1/nodes` — this node plus every discovered peer, for the UI.
-#[cfg(not(target_os = "android"))]
 pub async fn list_nodes(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
     let settings = state.settings_snapshot();
     let mut nodes = vec![json!({
@@ -62,17 +61,20 @@ pub async fn list_nodes(State(state): State<AppState>, _: RequireAuth) -> Json<V
         "self": true,
         "online": true,
     })];
-    if let Some(peers) = &state.peers {
-        for node in peers.nodes() {
-            nodes.push(json!({
-                "id": node.id,
-                "name": node.name,
-                "platform": node.platform,
-                "host": node.host.to_string(),
-                "port": node.port,
-                "self": false,
-                "online": node.last_seen.elapsed() < std::time::Duration::from_secs(60),
-            }));
+    #[cfg(not(target_os = "android"))]
+    {
+        if let Some(peers) = &state.peers {
+            for node in peers.nodes() {
+                nodes.push(json!({
+                    "id": node.id,
+                    "name": node.name,
+                    "platform": node.platform,
+                    "host": node.host.to_string(),
+                    "port": node.port,
+                    "self": false,
+                    "online": node.last_seen.elapsed() < std::time::Duration::from_secs(60),
+                }));
+            }
         }
     }
     Json(json!({ "nodes": nodes }))

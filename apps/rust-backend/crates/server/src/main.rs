@@ -271,7 +271,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/models", get(models::openai_models))
         .route("/v1/chat/completions", post(chat::chat_completions));
 
-    #[cfg(not(target_os = "android"))]
     let app = app.route("/api/v1/nodes", get(peer::list_nodes));
 
     let app = app.with_state(state);
