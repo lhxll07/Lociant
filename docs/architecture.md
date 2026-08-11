@@ -72,8 +72,9 @@ agent loop runs in-process (`call_local`); HTTP/MCP callers use
 - Android: `LociantRuntimeService` (foreground service) spawns the Rust
   server as a subprocess (`RustServerProcess`) on port 11434 and stops it with
   the service. The old Ktor HTTP server is retired.
-- Linux desktop: the server runs as a local process; bundling it as a sidecar
-  inside the Flutter app is the remaining packaging step.
+- Linux desktop: `flutter build linux` bundles `lociant-server` under `bin/`;
+  the Flutter app spawns it as a sidecar on startup and stops it on exit
+  (`DesktopServerProcess`), so the desktop app is self-contained.
 
 ## Headless / Board Deployment
 
@@ -90,8 +91,7 @@ Environment knobs:
 - `LOCIANT_MODELS_DIR` — model files location.
 
 Deployment assets live in `deploy/`: `lociant.service` (systemd unit),
-`rkllm-server.service` (local NPU inference server), `config.example.json`
-and `install.sh`. Cross-compile for the board:
+`config.example.json` and `install.sh`. Cross-compile for the board:
 
 ```bash
 rustup target add aarch64-unknown-linux-gnu
@@ -101,15 +101,16 @@ cargo build --release --target aarch64-unknown-linux-gnu
 bash deploy/install.sh   # on the board, with sudo
 ```
 
-Local inference runs the official `rkllm_server` demo (Flask +
-`librkllmrt.so`, port 8080) as a systemd service; Lociant points
-`cloudBaseUrl` at it with `localModel: true`, so the model follows the same
-"local models skip tool definitions" token rule. Verified on the board with
-Qwen3.5-0.8B. W4A16/G128 quantization is verified by the load log
-(`model_dtype: W4A16_G128`, `max_context_limit: 8192`); converting with
-`optimization_level=1` silently falls back to W8A8, so export with
-`optimization_level=0`. The `.rkllm` file size alone does not distinguish
-the two (both are ~1.3 GB).
+Local NPU inference is built into the Rust backend (`crates/rkllm`): it loads
+`librkllmrt.so` at runtime via `libloading` and runs the `.rkllm` model
+in-process, so a board needs one binary, one systemd service and one model
+file — no Python/venv, no extra port. Configure `rkllmModelPath` (plus
+optional `rkllmLibPath`) in the headless config or pick the `rkllm` backend
+in `lociant-server --init`. Verified on the board with Qwen3.5-0.8B. W4A16/G128
+quantization is verified by the load log (`model_dtype: W4A16_G128`,
+`max_context_limit: 8192`); converting with `optimization_level=1` silently
+falls back to W8A8, so export with `optimization_level=0`. The `.rkllm` file
+size alone does not distinguish the two (both are ~1.3 GB).
 
 ## Status
 
@@ -120,9 +121,15 @@ the two (both are ~1.3 GB).
 - [x] Android host: Rust server in the foreground service, Kotlin as the
   device layer over IPC, Ktor server retired.
 - [x] Headless board deployment: aarch64 Linux cross-build, systemd service,
-  `LOCIANT_CONFIG` bootstrap, LAN bind + auth. Verified on an RK3588/Armbian
+  `LOCIANT_CONFIG` bootstrap, LAN bind + auth. Verified on an RK3576/Armbian
   board.
-- [ ] Desktop local inference (llama.cpp CPU first, RKLLM later).
+- [x] Board local inference: RKLLM runtime integrated in-process
+  (`crates/rkllm`, libloading, W4A16 verified).
+- [x] Peer networking: mDNS discovery (`_lociant._tcp.local.`), shared peer
+  token, remote tools over `/api/v1/peer/*` (provider enforces its own
+  exposure), peer model forwarding (`peer:<node>:<model>`) via the OpenAI
+  plane, `/api/v1/nodes` for the UI.
+- [ ] Desktop local inference (llama.cpp, x86_64 machines without RKLLM).
 - [ ] Desktop device adapter (filesystem/process/camera tools).
 - [ ] Bundle the Rust server as a sidecar in the Flutter desktop app.
 
