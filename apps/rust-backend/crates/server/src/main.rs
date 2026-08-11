@@ -191,7 +191,15 @@ async fn main() -> anyhow::Result<()> {
         .get("babyCamera")
         .and_then(Value::as_str)
         .filter(|device| !device.is_empty())
-        .map(|device| crate::baby::BabyService::start(device));
+        .map(|device| {
+            let mic = settings
+                .get("babyMic")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .unwrap_or("default")
+                .to_owned();
+            crate::baby::BabyService::start(device, &mic)
+        });
 
     let state = AppState {
         store,

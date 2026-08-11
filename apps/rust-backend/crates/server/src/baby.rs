@@ -4,30 +4,21 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use slumberguard_core::{AudioCandidate, BabyStateEngine, EngineConfig};
+use slumberguard_core::{BabyStateEngine, EngineConfig};
 use slumberguard_runtime::{MonitorConfig, MonitorRuntime};
-use slumberguard_source::linux::{FfmpegMotionSource, NoopSemanticJudge};
-use slumberguard_source::AudioSource;
-
-/// 音频候选占位：MVP 先由视觉驱动状态机，麦克风能量检测后续接入。
-pub struct SilentAudio;
-
-impl AudioSource for SilentAudio {
-    fn read_audio(&mut self) -> anyhow::Result<AudioCandidate> {
-        Ok(AudioCandidate::Silent)
-    }
-}
+use slumberguard_source::linux::{FfmpegMotionSource, MicEnergySource, NoopSemanticJudge};
 
 pub struct BabyService {
-    runtime: Arc<Mutex<MonitorRuntime<FfmpegMotionSource, SilentAudio, NoopSemanticJudge>>>,
+    runtime: Arc<Mutex<MonitorRuntime<FfmpegMotionSource, MicEnergySource, NoopSemanticJudge>>>,
 }
 
 impl BabyService {
-    pub fn start(camera_device: &str) -> Arc<Self> {
+    pub fn start(camera_device: &str, mic_device: &str) -> Arc<Self> {
         let visual = FfmpegMotionSource::new(camera_device);
+        let audio = MicEnergySource::new(mic_device);
         let runtime = MonitorRuntime::new(
             visual,
-            SilentAudio,
+            audio,
             NoopSemanticJudge,
             BabyStateEngine::new(EngineConfig::default()),
             MonitorConfig::default(),
