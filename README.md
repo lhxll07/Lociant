@@ -29,12 +29,13 @@ systemd 服务，并通过 RKLLM 使用 NPU 本地推理。Android 上 Kotlin �
 
 当前发布包适用于 Android 8.0 及以上、`arm64-v8a` 设备：
 
-[下载 Lociant v1.1.1 APK](https://github.com/lhxll07/Lociant/releases/download/v1.1.1/lociant-1.1.1-arm64-v8a-release.apk)
+[下载 Lociant v2.0.0 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-arm64-v8a-release.apk)
+
+Linux 桌面版（x86_64，含内置 Rust 后端 sidecar）：
+
+[下载 Lociant v2.0.0 Linux](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-x86_64.tar.gz)
 
 安装时如果系统提示允许安装未知来源应用，请按系统提示允许即可。
-
-> 注：v1.1.1 是旧架构（Kotlin 后端 + Web UI）。最新开发版为 Flutter UI +
-> Rust 后端，尚未发布，需自行构建。
 
 ### 2. 打开权限
 
