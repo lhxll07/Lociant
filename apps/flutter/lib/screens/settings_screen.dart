@@ -245,6 +245,7 @@ class _ServerPanelState extends State<_ServerPanel> {
   late TextEditingController _port;
   late TextEditingController _tokens;
   late TextEditingController _token;
+  late TextEditingController _peerToken;
 
   @override
   void initState() {
@@ -253,6 +254,7 @@ class _ServerPanelState extends State<_ServerPanel> {
     _port = TextEditingController(text: '${state?.port ?? 11434}');
     _tokens = TextEditingController(text: '${state?.maxOutputTokens ?? 512}');
     _token = TextEditingController(text: state?.authToken ?? '');
+    _peerToken = TextEditingController();
   }
 
   @override
@@ -260,6 +262,7 @@ class _ServerPanelState extends State<_ServerPanel> {
     _port.dispose();
     _tokens.dispose();
     _token.dispose();
+    _peerToken.dispose();
     super.dispose();
   }
 
@@ -301,6 +304,35 @@ class _ServerPanelState extends State<_ServerPanel> {
                             runtime.updateSettings({'authToken': ''});
                           },
                           child: Text(l10n.settingsClear),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.settingsPeerToken),
+                    TextField(
+                      controller: _peerToken,
+                      decoration: const InputDecoration(isDense: true),
+                      onChanged: (_) {},
+                    ),
+                    Text(
+                      l10n.settingsPeerTokenHint,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () => runtime
+                              .updateSettings({'peerToken': _peerToken.text.trim()}),
+                          child: Text(l10n.settingsPeerTokenSave),
                         ),
                       ],
                     ),

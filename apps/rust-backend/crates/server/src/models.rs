@@ -44,18 +44,15 @@ pub async fn list_models(
 /// model, and models forwarded from discovered peers (`peer:<id>:<model>`).
 pub fn collect_models(state: &AppState) -> Vec<Value> {
     let mut models = collect_local_models(state);
-    #[cfg(not(target_os = "android"))]
-    {
-        if let Some(peers) = &state.peers {
-            for model in peers.peer_models() {
-                let id = model
-                    .get("id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_owned();
-                if !models.iter().any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str())) {
-                    models.push(model);
-                }
+    if let Some(peers) = &state.peers {
+        for model in peers.peer_models() {
+            let id = model
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            if !models.iter().any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str())) {
+                models.push(model);
             }
         }
     }

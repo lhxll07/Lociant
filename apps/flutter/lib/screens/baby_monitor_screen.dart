@@ -7,7 +7,10 @@ import '../l10n/app_localizations.dart';
 
 /// 眠安智护监控页：展示当前后端（如板子）的婴儿监控状态与事件。
 class BabyMonitorScreen extends StatefulWidget {
-  const BabyMonitorScreen({super.key});
+  const BabyMonitorScreen({super.key, this.nodeId});
+
+  /// 指定查看某个 peer 节点的监控；null 表示当前连接的服务器。
+  final String? nodeId;
 
   @override
   State<BabyMonitorScreen> createState() => _BabyMonitorScreenState();
@@ -34,7 +37,10 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
   Future<void> _load() async {
     final api = AppScope.of(context).runtime.api;
     try {
-      final response = await api.get('/api/v1/baby/state');
+      final path = widget.nodeId == null
+          ? '/api/v1/baby/state'
+          : '/api/v1/peers/${widget.nodeId}/baby/state';
+      final response = await api.get(path);
       if (!mounted) return;
       setState(() {
         _data = response is Map<String, dynamic> ? response : null;

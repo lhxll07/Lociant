@@ -126,7 +126,6 @@ pub async fn chat_completions(
         .unwrap_or("rkllm")
         .to_owned();
     let backend: Arc<dyn ChatBackend> = {
-        #[cfg(not(target_os = "android"))]
         if let Some((node_id, model_id)) =
             request.model.strip_prefix("peer:").and_then(|rest| rest.split_once(':'))
         {
@@ -155,7 +154,6 @@ pub async fn chat_completions(
             select_local_backend(
                 &state,
                 &request,
-                &settings,
                 &rkllm_model,
                 cloud_ready,
                 &cloud_model,
@@ -165,19 +163,6 @@ pub async fn chat_completions(
                 &mut local_model,
             )?
         }
-        #[cfg(target_os = "android")]
-        select_local_backend(
-            &state,
-            &request,
-            &settings,
-            &rkllm_model,
-            cloud_ready,
-            &cloud_model,
-            &cloud_base,
-            &cloud_api_key,
-            enable_thinking,
-            &mut local_model,
-        )?
     };
 
     let session_id = request.session_id.trim().to_owned();
@@ -330,7 +315,6 @@ pub async fn chat_completions(
 fn select_local_backend(
     state: &AppState,
     request: &ChatRequest,
-    settings: &Value,
     rkllm_model: &str,
     cloud_ready: bool,
     cloud_model: &str,

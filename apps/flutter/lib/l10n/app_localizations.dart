@@ -266,6 +266,42 @@ abstract class AppLocalizations {
   /// **'Cooling down'**
   String get babyStateCooldown;
 
+  /// No description provided for @nodesAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add node'**
+  String get nodesAdd;
+
+  /// No description provided for @nodesAddFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add node'**
+  String get nodesAddFailed;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// No description provided for @settingsPeerToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Peer token (LAN networking)'**
+  String get settingsPeerToken;
+
+  /// No description provided for @settingsPeerTokenSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsPeerTokenSave;
+
+  /// No description provided for @settingsPeerTokenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Nodes sharing this token appear automatically on the Nodes page; restart the service after changing it.'**
+  String get settingsPeerTokenHint;
+
   /// No description provided for @statusIdle.
   ///
   /// In en, this message translates to:

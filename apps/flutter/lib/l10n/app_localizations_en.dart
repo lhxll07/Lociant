@@ -98,6 +98,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get babyStateCooldown => 'Cooling down';
 
   @override
+  String get nodesAdd => 'Add node';
+
+  @override
+  String get nodesAddFailed => 'Failed to add node';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get settingsPeerToken => 'Peer token (LAN networking)';
+
+  @override
+  String get settingsPeerTokenSave => 'Save';
+
+  @override
+  String get settingsPeerTokenHint =>
+      'Nodes sharing this token appear automatically on the Nodes page; restart the service after changing it.';
+
+  @override
   String get statusIdle => 'Idle';
 
   @override

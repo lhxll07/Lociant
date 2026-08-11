@@ -131,7 +131,8 @@ tasks.register<Exec>("rustServerBinary") {
     description = "Cross-compiles the Rust server for arm64-v8a"
     workingDir = rustBackendDir
     environment("ANDROID_NDK_HOME", rustNdkRoot)
-    commandLine("cargo", "ndk", "-t", "arm64-v8a", "build", "--release")
+    // -P 26: bionic getifaddrs 需要 API 24+（mdns/if-addrs 依赖）
+    commandLine("cargo", "ndk", "-t", "arm64-v8a", "-P", "26", "build", "--release")
 }
 
 tasks.register<Copy>("rustServerJniLib") {

@@ -75,6 +75,11 @@ class _NodesScreenState extends State<NodesScreen> {
                   tooltip: l10n.nodesRefresh,
                   onPressed: _load,
                 ),
+                IconButton(
+                  icon: const Icon(Icons.add_link),
+                  tooltip: l10n.nodesAdd,
+                  onPressed: () => _showAddNodeDialog(l10n),
+                ),
               ],
             ),
           ),
@@ -108,7 +113,18 @@ class _NodesScreenState extends State<NodesScreen> {
                                 ),
                                 const SizedBox(height: 10),
                                 for (final node in _nodes!)
-                                  _NodeCard(node: node),
+                                  _NodeCard(
+                                    node: node,
+                                    onMonitor: node['self'] == true
+                                        ? null
+                                        : () => Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => BabyMonitorScreen(
+                                                nodeId: node['id'] as String,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
                                 const SizedBox(height: 8),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -126,12 +142,71 @@ class _NodesScreenState extends State<NodesScreen> {
       ),
     );
   }
+
+  Future<void> _showAddNodeDialog(AppLocalizations l10n) async {
+    final api = AppScope.of(context).runtime.api;
+    final host = TextEditingController();
+    final port = TextEditingController(text: '11434');
+    final name = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.nodesAdd),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: host,
+              decoration: const InputDecoration(labelText: 'IP'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: port,
+              decoration: const InputDecoration(labelText: 'Port'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Name (optional)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop('add'),
+            child: Text(l10n.nodesAdd),
+          ),
+        ],
+      ),
+    );
+    if (result == 'add' && host.text.trim().isNotEmpty) {
+      try {
+        await api.post('/api/v1/peers', {
+          'host': host.text.trim(),
+          'port': int.tryParse(port.text) ?? 11434,
+          if (name.text.trim().isNotEmpty) 'name': name.text.trim(),
+        });
+        _load();
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${l10n.nodesAddFailed}: $error')),
+          );
+        }
+      }
+    }
+  }
 }
 
 class _NodeCard extends StatelessWidget {
-  const _NodeCard({required this.node});
+  const _NodeCard({required this.node, required this.onMonitor});
 
   final Map<String, dynamic> node;
+  final VoidCallback? onMonitor;
 
   @override
   Widget build(BuildContext context) {
@@ -197,11 +272,22 @@ class _NodeCard extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              online ? l10n.nodesOnline : l10n.nodesOffline,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: online ? Colors.green : theme.colorScheme.outline,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  online ? l10n.nodesOnline : l10n.nodesOffline,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: online ? Colors.green : theme.colorScheme.outline,
+                  ),
+                ),
+                if (onMonitor != null)
+                  TextButton.icon(
+                    onPressed: onMonitor,
+                    icon: const Icon(Icons.child_care, size: 16),
+                    label: Text(l10n.babyTitle, style: const TextStyle(fontSize: 12)),
+                  ),
+              ],
             ),
           ],
         ),

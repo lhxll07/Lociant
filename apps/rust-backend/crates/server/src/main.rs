@@ -8,7 +8,6 @@ mod init;
 mod mcp;
 mod models;
 mod peer;
-#[cfg(not(target_os = "android"))]
 mod peers;
 mod rkllm_backend;
 mod state;
@@ -156,7 +155,6 @@ async fn main() -> anyhow::Result<()> {
         None => Arc::new(ToolRegistry::new(Box::new(NoopDevice))),
     };
 
-    #[cfg(not(target_os = "android"))]
     let peers = match settings
         .get("peerToken")
         .and_then(Value::as_str)
@@ -194,7 +192,6 @@ async fn main() -> anyhow::Result<()> {
         }
         None => None,
     };
-    #[cfg(not(target_os = "android"))]
     let peers_for_start = peers.clone();
 
     let baby = settings
@@ -217,12 +214,10 @@ async fn main() -> anyhow::Result<()> {
         models_dir,
         installs: Arc::new(Mutex::new(HashMap::new())),
         rkllm,
-        #[cfg(not(target_os = "android"))]
         peers,
         baby,
     };
 
-    #[cfg(not(target_os = "android"))]
     if let Some(peers) = peers_for_start {
         let bind_ip = host;
         // mDNS advertises a concrete address; 0.0.0.0 means "any interface",
@@ -267,6 +262,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/v1/peer/models", get(peer::list_peer_models))
         .route("/api/v1/baby/state", get(peer::baby_state))
+        .route("/api/v1/peers", post(peer::add_peer))
+        .route(
+            "/api/v1/peers/{node_id}/baby/state",
+            get(peer::peer_baby_state),
+        )
         .route("/mcp", post(mcp::handle))
         .route("/v1/models", get(models::openai_models))
         .route("/v1/chat/completions", post(chat::chat_completions));

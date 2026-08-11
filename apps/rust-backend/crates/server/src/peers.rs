@@ -194,6 +194,28 @@ impl PeerManager {
         nodes.values().cloned().collect()
     }
 
+    /// Manually registers a peer (host:port) without mDNS, so nodes on any
+    /// platform can join by address.
+    pub fn add_manual_peer(&self, host: String, port: u16, name: Option<String>) {
+        let id = format!("{host}:{port}");
+        if id == format!("{}:{}", self.self_id, self.port) {
+            return;
+        }
+        let host_ip = host
+            .parse::<IpAddr>()
+            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+        let node = PeerNode {
+            id: id.clone(),
+            name: name.unwrap_or_else(|| id.clone()),
+            platform: "manual".to_owned(),
+            host: host_ip,
+            port,
+            last_seen: Instant::now(),
+        };
+        self.upsert_peer(node);
+        tracing::info!("peer added manually: {id}");
+    }
+
     pub fn node(&self, id: &str) -> Option<PeerNode> {
         self.nodes.read().expect("nodes lock").get(id).cloned()
     }

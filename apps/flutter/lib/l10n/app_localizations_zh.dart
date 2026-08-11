@@ -95,6 +95,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get babyStateCooldown => '冷却中';
 
   @override
+  String get nodesAdd => '添加节点';
+
+  @override
+  String get nodesAddFailed => '添加节点失败';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get settingsPeerToken => '节点令牌（局域网互联）';
+
+  @override
+  String get settingsPeerTokenSave => '保存';
+
+  @override
+  String get settingsPeerTokenHint =>
+      '与其他 Lociant 节点共享此令牌后，它们会自动出现在节点页；修改后需重启服务生效。';
+
+  @override
   String get statusIdle => '待机';
 
   @override
