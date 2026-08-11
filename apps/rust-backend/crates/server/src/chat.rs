@@ -126,8 +126,12 @@ pub async fn chat_completions(
         .unwrap_or("rkllm")
         .to_owned();
     let backend: Arc<dyn ChatBackend> = {
-        if let Some((node_id, model_id)) =
-            request.model.strip_prefix("peer:").and_then(|rest| rest.split_once(':'))
+        // Node ids may contain a colon (manual peers are "host:port"), so
+        // split from the right — model names rarely contain colons.
+        if let Some((node_id, model_id)) = request
+            .model
+            .strip_prefix("peer:")
+            .and_then(|rest| rest.rsplit_once(':'))
         {
             let Some(peers) = &state.peers else {
                 return Err(Problem::bad_request(
