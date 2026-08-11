@@ -104,6 +104,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodesAddFailed => 'Failed to add node';
 
   @override
+  String get nodesDelete => 'Delete node';
+
+  @override
+  String get nodesDeleteFailed => 'Failed to delete node';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override

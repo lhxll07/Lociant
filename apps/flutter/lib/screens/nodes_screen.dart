@@ -124,6 +124,9 @@ class _NodesScreenState extends State<NodesScreen> {
                                               ),
                                             ),
                                           ),
+                                    onDelete: node['self'] == true
+                                        ? null
+                                        : () => _deleteNode(node['id'] as String),
                                   ),
                                 const SizedBox(height: 8),
                                 Padding(
@@ -200,13 +203,28 @@ class _NodesScreenState extends State<NodesScreen> {
       }
     }
   }
+
+  Future<void> _deleteNode(String id) async {
+    final api = AppScope.of(context).runtime.api;
+    try {
+      await api.delete('/api/v1/peers/$id');
+      _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.nodesDeleteFailed}: $error')),
+        );
+      }
+    }
+  }
 }
 
 class _NodeCard extends StatelessWidget {
-  const _NodeCard({required this.node, required this.onMonitor});
+  const _NodeCard({required this.node, required this.onMonitor, this.onDelete});
 
   final Map<String, dynamic> node;
   final VoidCallback? onMonitor;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -286,6 +304,13 @@ class _NodeCard extends StatelessWidget {
                     onPressed: onMonitor,
                     icon: const Icon(Icons.child_care, size: 16),
                     label: Text(l10n.babyTitle, style: const TextStyle(fontSize: 12)),
+                  ),
+                if (onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    tooltip: l10n.nodesDelete,
+                    onPressed: onDelete,
+                    visualDensity: VisualDensity.compact,
                   ),
               ],
             ),

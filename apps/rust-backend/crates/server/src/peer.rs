@@ -111,6 +111,20 @@ pub async fn add_peer(
     Json(json!({ "ok": true }))
 }
 
+/// `DELETE /api/v1/peers/{node_id}` — 移除一个节点。
+pub async fn remove_peer(
+    State(state): State<AppState>,
+    _: RequireAuth,
+    Path(node_id): Path<String>,
+) -> Json<Value> {
+    if let Some(peers) = &state.peers {
+        peers.remove_peer(&node_id);
+        Json(json!({ "ok": true }))
+    } else {
+        Json(json!({ "error": "peer networking not enabled" }))
+    }
+}
+
 /// `GET /api/v1/peers/{node_id}/baby/state` — 查看某节点的眠安智护监控。
 pub async fn peer_baby_state(
     State(state): State<AppState>,

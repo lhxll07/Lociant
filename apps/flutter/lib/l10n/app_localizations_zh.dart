@@ -101,6 +101,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesAddFailed => '添加节点失败';
 
   @override
+  String get nodesDelete => '删除节点';
+
+  @override
+  String get nodesDeleteFailed => '删除节点失败';
+
+  @override
   String get commonCancel => '取消';
 
   @override

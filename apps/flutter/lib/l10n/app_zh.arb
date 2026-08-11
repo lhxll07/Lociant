@@ -30,6 +30,8 @@
   "babyStateCooldown": "冷却中",
   "nodesAdd": "添加节点",
   "nodesAddFailed": "添加节点失败",
+  "nodesDelete": "删除节点",
+  "nodesDeleteFailed": "删除节点失败",
   "commonCancel": "取消",
   "settingsPeerToken": "节点令牌（局域网互联）",
   "settingsPeerTokenSave": "保存",

@@ -248,6 +248,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/peer/models", get(peer::list_peer_models))
         .route("/api/v1/baby/state", get(peer::baby_state))
         .route("/api/v1/peers", post(peer::add_peer))
+        .route("/api/v1/peers/{node_id}", delete(peer::remove_peer))
         .route(
             "/api/v1/peers/{node_id}/baby/state",
             get(peer::peer_baby_state),

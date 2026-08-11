@@ -278,6 +278,18 @@ abstract class AppLocalizations {
   /// **'Failed to add node'**
   String get nodesAddFailed;
 
+  /// No description provided for @nodesDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete node'**
+  String get nodesDelete;
+
+  /// No description provided for @nodesDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete node'**
+  String get nodesDeleteFailed;
+
   /// No description provided for @commonCancel.
   ///
   /// In en, this message translates to:

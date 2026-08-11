@@ -287,7 +287,7 @@ impl PeerManager {
         }
     }
 
-    fn remove_peer(&self, id: &str) {
+    pub fn remove_peer(&self, id: &str) {
         let mut nodes = self.nodes.write().expect("nodes lock");
         nodes.remove(id);
         let adapter = self.adapters.lock().expect("adapters lock").remove(id);

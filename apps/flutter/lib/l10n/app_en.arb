@@ -30,6 +30,8 @@
   "babyStateCooldown": "Cooling down",
   "nodesAdd": "Add node",
   "nodesAddFailed": "Failed to add node",
+  "nodesDelete": "Delete node",
+  "nodesDeleteFailed": "Failed to delete node",
   "commonCancel": "Cancel",
   "settingsPeerToken": "Peer token (LAN networking)",
   "settingsPeerTokenSave": "Save",
