@@ -387,10 +387,14 @@ pub async fn stream_agent(
             ..AgentResult::error("client disconnected")
         };
     }
+    // Tool metadata is fixed for the whole run; building it once here (with
+    // adapter-level caching) keeps the per-round path free of network I/O.
+    let tools = build_tools(&config, &registry);
     let result = run_loop(
         backend,
         registry,
         &config,
+        &tools,
         messages,
         true,
         Some(&meta),
@@ -427,13 +431,37 @@ pub async fn run_agent_complete(
     config: AgentConfig,
     messages: Vec<LoopMessage>,
 ) -> AgentResult {
-    run_loop(backend, registry, &config, messages, false, None, None).await
+    let tools = build_tools(&config, &registry);
+    run_loop(backend, registry, &config, &tools, messages, false, None, None).await
+}
+
+/// Builds the OpenAI tool definitions once per agent run. The registry is
+/// authoritative when tool execution is enabled; otherwise the caller's
+/// request tools pass through untouched.
+fn build_tools(config: &AgentConfig, registry: &ToolRegistry) -> Vec<Value> {
+    if config.local_model {
+        Vec::new()
+    } else if config.execute_tools {
+        registry
+            .visible(&config.exposure)
+            .iter()
+            .map(openai_tool_definition)
+            .collect()
+    } else {
+        config
+            .request_tools
+            .as_ref()
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    }
 }
 
 async fn run_loop(
     backend: Arc<dyn ChatBackend>,
     registry: Arc<ToolRegistry>,
     config: &AgentConfig,
+    tools: &[Value],
     mut messages: Vec<LoopMessage>,
     streaming: bool,
     meta: Option<&StreamMeta>,
@@ -465,22 +493,6 @@ async fn run_loop(
         if config.enable_thinking {
             body["enable_thinking"] = json!(true);
         }
-        let tools: Vec<Value> = if config.local_model {
-            Vec::new()
-        } else if config.execute_tools {
-            registry
-                .visible(&config.exposure)
-                .iter()
-                .map(openai_tool_definition)
-                .collect()
-        } else {
-            config
-                .request_tools
-                .as_ref()
-                .and_then(Value::as_array)
-                .cloned()
-                .unwrap_or_default()
-        };
         if !tools.is_empty() {
             body["tools"] = json!(tools);
         }

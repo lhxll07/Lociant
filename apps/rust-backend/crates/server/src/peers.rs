@@ -273,6 +273,7 @@ impl PeerManager {
                 base_url: format!("http://{}:{}", node.host, node.port),
                 token: self.token.clone(),
                 client: self.client.clone(),
+                tools_cache: Arc::new(Mutex::new(None)),
             });
             self.registry.add_adapter(adapter.clone());
             let mut adapters = self.adapters.lock().expect("adapters lock");
@@ -382,7 +383,12 @@ pub struct HttpPeerAdapter {
     base_url: String,
     token: String,
     client: reqwest::blocking::Client,
+    tools_cache: Arc<Mutex<Option<(Instant, Vec<ToolDescriptor>)>>>,
 }
+
+/// Remote tool metadata is slow-changing; cache it so the agent loop and the
+/// control plane never wait on a peer round trip for every request.
+const PEER_TOOLS_TTL: Duration = Duration::from_secs(15);
 
 /// Forwards a chat turn to a peer node, stripping the `peer:<node>:`
 /// prefix from the model name before the OpenAI-compatible request is sent.
@@ -407,7 +413,21 @@ impl ChatBackend for PeerChatBackend {
 }
 
 impl DeviceAdapter for HttpPeerAdapter {
+    fn is_peer(&self) -> bool {
+        true
+    }
+
     fn tools(&self) -> Vec<ToolDescriptor> {
+        if let Some((at, cached)) = self
+            .tools_cache
+            .lock()
+            .expect("peer tools cache lock")
+            .as_ref()
+        {
+            if at.elapsed() < PEER_TOOLS_TTL {
+                return cached.clone();
+            }
+        }
         let Ok(response) = self
             .client
             .get(format!("{}/api/v1/peer/tools", self.base_url))
@@ -419,8 +439,13 @@ impl DeviceAdapter for HttpPeerAdapter {
         let Ok(body) = response.json::<Value>() else {
             return Vec::new();
         };
-        serde_json::from_value(body.get("data").cloned().unwrap_or(Value::Array(Vec::new())))
-            .unwrap_or_default()
+        let tools: Vec<ToolDescriptor> =
+            serde_json::from_value(body.get("data").cloned().unwrap_or(Value::Array(Vec::new())))
+                .unwrap_or_default();
+        if let Ok(mut cache) = self.tools_cache.lock() {
+            cache.replace((Instant::now(), tools.clone()));
+        }
+        tools
     }
 
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError> {

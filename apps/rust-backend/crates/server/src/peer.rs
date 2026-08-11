@@ -20,7 +20,9 @@ pub async fn list_peer_tools(
         .and_then(Value::as_str)
         .unwrap_or("action")
         .to_owned();
-    Json(json!({ "data": state.tools.visible(&exposure) }))
+    // The peer plane serves this node's own tools only; aggregating peer
+    // adapters here would make sibling nodes recurse into each other.
+    Json(json!({ "data": state.tools.local_visible(&exposure) }))
 }
 
 pub async fn call_peer_tool(

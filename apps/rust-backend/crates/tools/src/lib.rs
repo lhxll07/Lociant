@@ -41,6 +41,11 @@ impl std::error::Error for ToolError {}
 pub trait DeviceAdapter: Send + Sync {
     fn tools(&self) -> Vec<ToolDescriptor>;
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError>;
+    /// Peer adapters forward to a remote node; the peer plane excludes them
+    /// so tool listings never recurse across nodes.
+    fn is_peer(&self) -> bool {
+        false
+    }
 }
 
 /// No-op adapter used until a real device layer exists (Linux desktop MVP).
@@ -111,9 +116,32 @@ impl ToolRegistry {
         tools
     }
 
+    /// Tools contributed by local adapters only. Used by the peer plane so a
+    /// sibling's request is answered from this node alone.
+    pub fn all_local(&self) -> Vec<ToolDescriptor> {
+        let mut tools = Vec::new();
+        if let Ok(adapters) = self.adapters.read() {
+            for adapter in adapters.iter() {
+                if adapter.is_peer() {
+                    continue;
+                }
+                tools.extend(adapter.tools());
+            }
+        }
+        tools
+    }
+
     /// Descriptors visible to a caller at the given exposure level.
     pub fn visible(&self, exposure: &str) -> Vec<ToolDescriptor> {
         self.all()
+            .into_iter()
+            .filter(|tool| exposure_allows(exposure, &tool.exposure))
+            .collect()
+    }
+
+    /// Local descriptors visible at the given exposure level.
+    pub fn local_visible(&self, exposure: &str) -> Vec<ToolDescriptor> {
+        self.all_local()
             .into_iter()
             .filter(|tool| exposure_allows(exposure, &tool.exposure))
             .collect()
@@ -240,6 +268,41 @@ mod tests {
 
     fn registry(tools: Vec<ToolDescriptor>) -> ToolRegistry {
         ToolRegistry::new(Box::new(FakeDevice { tools }))
+    }
+
+    struct FakePeer {
+        tools: Vec<ToolDescriptor>,
+    }
+
+    impl DeviceAdapter for FakePeer {
+        fn tools(&self) -> Vec<ToolDescriptor> {
+            self.tools.clone()
+        }
+
+        fn call(&self, name: &str, _arguments: Value) -> Result<ToolResult, ToolError> {
+            Ok(ToolResult::ok(format!("ran {name}")))
+        }
+
+        fn is_peer(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn local_visible_excludes_peer_adapters() {
+        let registry = registry(vec![read_tool("local_screen")]);
+        registry.add_adapter(Arc::new(FakePeer {
+            tools: vec![read_tool("peer_screen")],
+        }));
+        let names = |exposure: &str| -> Vec<String> {
+            registry
+                .local_visible(exposure)
+                .into_iter()
+                .map(|tool| tool.name)
+                .collect()
+        };
+        assert_eq!(names("action"), vec!["local_screen".to_owned()]);
+        assert_eq!(registry.visible("action").len(), 2);
     }
 
     #[test]

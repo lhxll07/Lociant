@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -85,6 +87,7 @@ class _LociantAppState extends State<LociantApp> {
     super.initState();
     _onboardingDone = widget.onboardingDone;
     widget.runtime.startPolling();
+    widget.runtime.addListener(_onRuntimeChanged);
     widget.locale.addListener(_onLocaleChanged);
     widget.theme.addListener(_onThemeChanged);
     widget.server.start(); // 桌面端：确保 sidecar 已启动（幂等）
@@ -93,6 +96,7 @@ class _LociantAppState extends State<LociantApp> {
   @override
   void dispose() {
     widget.server.stop();
+    widget.runtime.removeListener(_onRuntimeChanged);
     widget.locale.removeListener(_onLocaleChanged);
     widget.theme.removeListener(_onThemeChanged);
     widget.runtime.dispose();
@@ -102,6 +106,14 @@ class _LociantAppState extends State<LociantApp> {
 
   void _onLocaleChanged() => setState(() {});
   void _onThemeChanged() => setState(() {});
+
+  void _onRuntimeChanged() {
+    // The server is up: warm the tool manifest in the background so the first
+    // chat send already has the agent's tool list cached.
+    if (widget.runtime.state != null) {
+      unawaited(widget.chat.warmTools());
+    }
+  }
 
   void _finishOnboarding() {
     widget.prefs.setBool('onboarding_done', true);

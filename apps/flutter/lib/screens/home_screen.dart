@@ -148,7 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                      if (item.reasoning.isNotEmpty)
+                      if (item.reasoning.isNotEmpty ||
+                          (chat.streaming && item.text.trim().isEmpty && !item.isError))
                         _ReasoningView(
                           reasoning: item.reasoning,
                           thinking: chat.streaming && item.text.trim().isEmpty,

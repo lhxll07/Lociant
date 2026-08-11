@@ -47,6 +47,7 @@ class ChatController extends ChangeNotifier {
 
   final List<ChatItem> messages = [];
   List<Map<String, dynamic>> _toolManifest = [];
+  Future<List<Map<String, dynamic>>>? _manifestLoad;
   bool streaming = false;
   String runStatus = '';
   String? lastError;
@@ -55,13 +56,16 @@ class ChatController extends ChangeNotifier {
 
   String? get currentSessionId => runtime.state?.currentSessionId;
 
-  Future<List<Map<String, dynamic>>> _loadToolManifest() async {
+  Future<List<Map<String, dynamic>>> _loadToolManifest() {
+    // One in-flight fetch shared by warmup and send; the result is cached so
+    // the chat hot path never waits on the manifest twice.
+    return _manifestLoad ??= _fetchToolManifest().whenComplete(() => _manifestLoad = null);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchToolManifest() async {
     if (_toolManifest.isNotEmpty) return _toolManifest;
     try {
-      // Loading the tool manifest can be slow on nodes with many peer
-      // adapters (each peer's tools are fetched over the LAN); never block
-      // sending a chat on it.
-      final data = await api.get('/api/v1/tools').timeout(const Duration(seconds: 2));
+      final data = await api.get('/api/v1/tools');
       final list = (data is Map && data['data'] is List) ? data['data'] as List : const [];
       final next = list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       if (next.isNotEmpty) _toolManifest = next;
@@ -69,6 +73,12 @@ class ChatController extends ChangeNotifier {
     } catch (_) {
       return _toolManifest;
     }
+  }
+
+  /// Pre-warms the tool manifest in the background (e.g. once the runtime is
+  /// ready) so the first send does not wait on the control plane.
+  Future<void> warmTools() async {
+    await _loadToolManifest();
   }
 
   Future<void> send(String prompt, {String? imageDataUrl}) async {
