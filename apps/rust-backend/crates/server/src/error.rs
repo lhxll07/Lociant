@@ -206,7 +206,10 @@ impl FromRequestParts<AppState> for RequireChatAuth {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("")
             .to_owned();
-        if token.is_empty() && peer_token.is_empty() {
+        // No API token configured: the node is in local/open mode and chat
+        // stays open even when a peer token exists (the peer token only
+        // guards the /api/v1/peer/* plane, not local UI chat).
+        if token.is_empty() {
             return Ok(Self);
         }
         let supplied = supplied_token(parts);

@@ -28,11 +28,29 @@ pub struct AppState {
     pub rkllm: Option<Arc<Rkllm>>,
     pub peers: Option<Arc<PeerManager>>,
     pub baby: Option<Arc<BabyService>>,
+    pub baby_cache: Arc<Mutex<HashMap<String, (std::time::Instant, Value)>>>,
 }
 
 impl AppState {
     pub fn settings_snapshot(&self) -> Value {
         self.settings.lock().expect("settings lock").clone()
+    }
+
+    /// Cached peer baby snapshot (1s TTL).
+    pub fn baby_cache(&self, node_id: &str) -> Option<Value> {
+        let cache = self.baby_cache.lock().expect("baby cache lock");
+        cache.get(node_id).and_then(|(at, body)| {
+            if at.elapsed() < std::time::Duration::from_secs(1) {
+                Some(body.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn set_baby_cache(&self, node_id: &str, body: Value) {
+        let mut cache = self.baby_cache.lock().expect("baby cache lock");
+        cache.insert(node_id.to_owned(), (std::time::Instant::now(), body));
     }
 
     pub fn auth_token(&self) -> String {
