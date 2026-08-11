@@ -53,14 +53,17 @@ impl BabyService {
                 "audio": format!("{:?}", event.evidence.audio),
             })
         });
+        let audio_error = runtime.audio_error();
         json!({
             "state": format!("{state:?}"),
             "latest": latest_json,
+            "audioError": audio_error,
             "events": events.iter().map(|event| json!({
                 "state": format!("{:?}", event.decision.state),
                 "action": format!("{:?}", event.decision.action),
                 "reason": event.decision.reason,
                 "motion": event.evidence.visual.motion_strength,
+                "audio": format!("{:?}", event.evidence.audio),
                 "timestamp": event.evidence.timestamp,
             })).collect::<Vec<_>>(),
         })
