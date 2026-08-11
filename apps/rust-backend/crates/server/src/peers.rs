@@ -65,7 +65,10 @@ impl PeerManager {
             adapters: Mutex::new(HashMap::new()),
             registry,
             client: reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(5))
+                // Peer metadata must never stall request paths for long:
+                // short connect cap, then the result is cached either way.
+                .connect_timeout(Duration::from_secs(2))
+                .timeout(Duration::from_secs(4))
                 .build()
                 .unwrap_or_default(),
         }
@@ -181,6 +184,21 @@ impl PeerManager {
             "peer discovery enabled (UDP broadcast :{})",
             DISCOVERY_PORT
         );
+
+        // Background refresher: keep every peer's tool metadata warm so the
+        // request path only ever hits the cache. Primes immediately, then
+        // runs every TTL. Blocking I/O lives in this dedicated thread.
+        let peers = self.clone();
+        std::thread::spawn(move || loop {
+            let adapters = {
+                let adapters = peers.adapters.lock().expect("adapters lock");
+                adapters.values().cloned().collect::<Vec<_>>()
+            };
+            for adapter in adapters {
+                adapter.refresh_tools();
+            }
+            std::thread::sleep(PEER_TOOLS_TTL);
+        });
     }
 
     fn handle_discovery_packet(&self, addr: SocketAddr, payload: Value) {
@@ -428,24 +446,7 @@ impl DeviceAdapter for HttpPeerAdapter {
                 return cached.clone();
             }
         }
-        let Ok(response) = self
-            .client
-            .get(format!("{}/api/v1/peer/tools", self.base_url))
-            .bearer_auth(&self.token)
-            .send()
-        else {
-            return Vec::new();
-        };
-        let Ok(body) = response.json::<Value>() else {
-            return Vec::new();
-        };
-        let tools: Vec<ToolDescriptor> =
-            serde_json::from_value(body.get("data").cloned().unwrap_or(Value::Array(Vec::new())))
-                .unwrap_or_default();
-        if let Ok(mut cache) = self.tools_cache.lock() {
-            cache.replace((Instant::now(), tools.clone()));
-        }
-        tools
+        self.refresh_tools()
     }
 
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError> {
@@ -470,5 +471,33 @@ impl DeviceAdapter for HttpPeerAdapter {
         }
         serde_json::from_value(body.get("data").cloned().unwrap_or_default())
             .map_err(|_| ToolError::Adapter(format!("peer {name} result parse failed")))
+    }
+}
+
+impl HttpPeerAdapter {
+    /// Fetches the peer's tool list and stores the result — including
+    /// failures, so an offline peer cannot stall request paths repeatedly.
+    fn refresh_tools(&self) -> Vec<ToolDescriptor> {
+        let tools: Vec<ToolDescriptor> = self.fetch_tools().unwrap_or_default();
+        if let Ok(mut cache) = self.tools_cache.lock() {
+            cache.replace((Instant::now(), tools.clone()));
+        }
+        tools
+    }
+
+    fn fetch_tools(&self) -> Option<Vec<ToolDescriptor>> {
+        let Ok(response) = self
+            .client
+            .get(format!("{}/api/v1/peer/tools", self.base_url))
+            .bearer_auth(&self.token)
+            .send()
+        else {
+            return None;
+        };
+        let Ok(body) = response.json::<Value>() else {
+            return None;
+        };
+        serde_json::from_value(body.get("data").cloned().unwrap_or(Value::Array(Vec::new())))
+            .ok()
     }
 }
