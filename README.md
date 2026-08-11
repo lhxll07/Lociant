@@ -15,85 +15,28 @@
 
 例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息、在输入框里帮你填好一段文字，或者先"感觉"一下手机现在是在口袋里还是桌上，再决定要不要亮屏操作。
 
-## Linux 桌面与开发板
+## 快速开始
 
-同一套 Flutter UI + Rust 后端跑在 Linux 上：桌面端 UI 通过 HTTP 连接本机
-Rust 服务（`/v1`、`/api/v1`、`/mcp`）；无头开发板（如 RK3576）可以直接跑
-systemd 服务，并通过 RKLLM 使用 NPU 本地推理。Android 上 Kotlin 只保留设备层
-（无障碍、传感器、悬浮窗、本地 MNN 推理），通过本地 IPC 给 Rust 提供工具。
+支持三种玩法，按你的设备选对应章节：
+
+- **安卓手机**：完整 Agent（云端/本地模型 + 手机工具）
+- **Linux 桌面**：Flutter UI + 内置 Rust 后端，一个压缩包开箱即用
+- **RK 开发板（无头）**：systemd 常驻 + RKLLM NPU 推理 + 终端 TUI
+
+所有平台的下载、安装、配置、RKLLM 和多节点互联，见
+**[配置指南（从零开始）](docs/setup-guide.md)**。
+
+当前发布包：
+
+[下载 Lociant v2.0.0 APK（Android arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-arm64-v8a-release.apk) ·
+[下载 Lociant v2.0.0 Linux（x86_64）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-x86_64.tar.gz)
+
+## 架构
+
+一套 Flutter UI + Rust 后端跑在全部平台：Android 只保留设备层（无障碍、
+传感器、悬浮窗、本地 MNN 推理），通过本地 IPC 给 Rust 提供工具；桌面端
+UI 连接本机 Rust 服务；无头板子直接跑 systemd 服务并通过 RKLLM 走 NPU。
 详见 [架构](docs/architecture.md)。
-
-## 一步一步开始
-
-### 1. 安装
-
-当前发布包适用于 Android 8.0 及以上、`arm64-v8a` 设备：
-
-[下载 Lociant v2.0.0 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-arm64-v8a-release.apk)
-
-Linux 桌面版（x86_64，含内置 Rust 后端 sidecar）：
-
-[下载 Lociant v2.0.0 Linux](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-x86_64.tar.gz)
-
-安装时如果系统提示允许安装未知来源应用，请按系统提示允许即可。
-
-### 2. 打开权限
-
-第一次打开 Lociant，会自动进入新手引导；以后也可以从“设置 → 新手引导”再次运行。按引导配置云端模型、运行时和权限即可。
-
-需要手动检查时，进入“设置”，按需要开启权限：
-
-1. 开启“无障碍”：让 Lociant 读取屏幕并执行点击、滑动等操作。
-2. 允许通知：保持后台运行时显示服务状态。
-3. 允许相机：需要拍照或视觉分析时再开启。
-4. 允许悬浮窗：需要在其他 App 上方显示运行状态时开启。
-5. 将电池策略设为“不限制”：避免手机锁屏后暂停服务。
-
-只聊天和调用普通接口时不需要全部权限；涉及屏幕和 UI 操作时，无障碍权限是关键。
-
-### 3. 安装模型
-
-进入“模型”页，选择一个模型并点击“安装”，等待下载和初始化完成。安装完成后选择它作为默认模型。
-
-模型会占用手机存储和内存。旧设备建议先选小模型，第一次运行时保持手机亮屏并接入电源。
-
-### 4. 启动运行时
-
-回到首页，点击启动运行时。看到状态变为“运行中”后，先在 Lociant 内发一条简单消息确认模型正常，再开始调用手机能力。
-
-连续对话不需要额外打开缓存选项。对本地模型，Lociant 会自动复用上一轮提示词的 KV 缓存来减少等待，但客户端仍应像普通 OpenAI 接口一样，在下一轮请求中发送完整的 `messages` 历史。刚启动运行时、切换模型或切换会话后的第一轮会重新计算，后续轮次才会逐步命中缓存。
-
-默认服务地址是：
-
-```text
-http://手机IP:11434
-```
-
-手机 IP 可以在手机的 Wi-Fi 详情里查看。电脑和手机需要连接同一个局域网。
-
-### 5. 连接 MCP Agent
-
-在“设置”中生成 API 令牌，然后把下面的配置加入支持 MCP 的客户端：
-
-```json
-{
-  "mcpServers": {
-    "lociant": {
-      "type": "streamable-http",
-      "url": "http://手机IP:11434/mcp",
-      "headers": {
-        "Authorization": "Bearer 你的API令牌"
-      }
-    }
-  }
-}
-```
-
-连接后，Agent 就可以发现 Lociant 暴露的手机工具。想让它执行打开 App、点击和滑动等操作，请在“设置 → 远程工具”中选择“操作”；只查看状态时选择“读取”即可。
-
-## 安全提醒
-
-Lociant 面向局域网使用，当前接口使用 HTTP。请设置 API 令牌，不要把 `11434` 端口直接暴露到公网，也不要把令牌发给不信任的客户端。
 
 ## 开发者
 
@@ -101,6 +44,7 @@ UI 是 Flutter，服务端是 Rust（`apps/rust-backend`），Android 是设备�
 开发、构建和完整接口说明见：
 
 - [架构](docs/architecture.md)
+- [配置指南（从零开始）](docs/setup-guide.md)
 - [Android 开发说明](apps/android/README.md)
 - [Agent 与 MCP 接入（含 OpenAI 兼容 API）](docs/agent-integration.md)
 - [控制 API](docs/control-api.md)
