@@ -88,6 +88,28 @@ async fn main() -> anyhow::Result<()> {
     // Headless bootstrap: a config file (`LOCIANT_CONFIG`) overrides stored
     // settings on every start, so a board can be configured without a UI.
     let settings = load_headless_config(settings);
+    // Auto-generate an API token when none is configured, so clients (e.g.
+    // the Flutter UI) always have a credential once peer networking is
+    // enabled (which tightens auth on chat routes).
+    let settings = if settings
+        .get("authToken")
+        .and_then(Value::as_str)
+        .map(|t| t.is_empty())
+        .unwrap_or(true)
+    {
+        let token = init::random_token();
+        tracing::info!("generated API token (authToken)");
+        let mut settings = settings;
+        if let Some(object) = settings.as_object_mut() {
+            object.insert("authToken".to_owned(), Value::String(token));
+        }
+        if let Err(error) = store.set_json("settings", &settings) {
+            tracing::warn!("persist generated token failed: {error}");
+        }
+        settings
+    } else {
+        settings
+    };
     let port = settings
         .get("port")
         .and_then(Value::as_u64)

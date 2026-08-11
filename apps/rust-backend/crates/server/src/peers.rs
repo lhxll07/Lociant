@@ -73,15 +73,6 @@ impl PeerManager {
 
     /// Starts UDP advertisement and discovery on background tasks.
     pub fn start(self: &Arc<Self>) {
-        // Android: UDP broadcast/listen can wedge the tokio runtime on some
-        // devices (AP isolation + Android network stack). Discovery stays
-        // manual there; LAN peers can still be added by address.
-        #[cfg(target_os = "android")]
-        {
-            tracing::info!("peer discovery disabled on Android (manual add only)");
-            return;
-        }
-
         // Advertisement: broadcast our identity periodically.
         let peers = self.clone();
         std::thread::spawn(move || {

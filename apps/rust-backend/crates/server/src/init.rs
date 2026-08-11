@@ -133,7 +133,7 @@ fn prompt(label: &str, default: &str) -> String {
     if value.is_empty() { default.to_string() } else { value }
 }
 
-fn random_token() -> String {
+pub fn random_token() -> String {
     let mut buf = [0u8; 16];
     if let Ok(mut file) = std::fs::File::open("/dev/urandom") {
         if file.read_exact(&mut buf).is_ok() {
