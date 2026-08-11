@@ -21,7 +21,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navModels => '模型';
 
   @override
+  String get navNodes => '节点';
+
+  @override
   String get navSettings => '设置';
+
+  @override
+  String get nodesTitle => '节点';
+
+  @override
+  String get nodesSubtitle => '局域网内的 Lociant 设备';
+
+  @override
+  String get nodesRefresh => '刷新';
+
+  @override
+  String get nodesSelf => '本机';
+
+  @override
+  String get nodesOnline => '在线';
+
+  @override
+  String get nodesOffline => '离线';
+
+  @override
+  String get nodesEmpty => '还没有发现其他节点。在其他设备上配置相同的节点令牌后，它们会自动出现在这里。';
+
+  @override
+  String get nodesPeersHint => '其他节点的模型会自动以 peer: 前缀出现在模型页，可以直接选用。';
+
+  @override
+  String nodesError(Object error) {
+    return '加载节点失败：$error';
+  }
 
   @override
   String get statusIdle => '待机';
@@ -88,6 +120,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeDeleteChat => '删除对话';
+
+  @override
+  String get onboardingSkip => '跳过';
+
+  @override
+  String get onboardingNext => '下一步';
+
+  @override
+  String get onboardingStart => '开始使用';
+
+  @override
+  String get onboardingWelcomeTitle => '欢迎使用 Lociant';
+
+  @override
+  String get onboardingWelcomeBody =>
+      '让一台设备成为真正能干活的本地 Agent：本地运行模型、读取屏幕、操作界面、感知环境，也能通过 MCP 被 Claude、Codex 等 Agent 调用。';
+
+  @override
+  String get onboardingServerTitle => '本地服务';
+
+  @override
+  String get onboardingServerBody =>
+      '桌面版会自动启动内置的 Rust 服务（127.0.0.1:11434），无需手动配置。要连接局域网内的开发板或手机时，在设置里修改服务器地址即可。';
+
+  @override
+  String get onboardingReadyTitle => '准备就绪';
+
+  @override
+  String get onboardingReadyBody =>
+      '开始前建议先完成设置：安卓设备在设置中开启无障碍等权限；无头 Linux 设备先运行 lociant-server --init 完成初始化。';
 
   @override
   String get commonBack => '返回';

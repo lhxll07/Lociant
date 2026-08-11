@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/app_localizations.dart';
 import 'screens/home_shell.dart';
+import 'screens/onboarding_screen.dart';
+import 'platform/desktop_server.dart';
 import 'state/chat_controller.dart';
 import 'state/locale_controller.dart';
 import 'state/runtime_controller.dart';
@@ -17,6 +20,7 @@ class AppScope extends InheritedWidget {
     required this.chat,
     required this.locale,
     required this.theme,
+    required this.server,
     required super.child,
   });
 
@@ -24,6 +28,7 @@ class AppScope extends InheritedWidget {
   final ChatController chat;
   final LocaleController locale;
   final ThemeController theme;
+  final DesktopServerProcess server;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -40,7 +45,8 @@ class AppScope extends InheritedWidget {
       runtime != oldWidget.runtime ||
       chat != oldWidget.chat ||
       locale != oldWidget.locale ||
-      theme != oldWidget.theme;
+      theme != oldWidget.theme ||
+      server != oldWidget.server;
 }
 
 class LociantApp extends StatefulWidget {
@@ -50,28 +56,39 @@ class LociantApp extends StatefulWidget {
     required this.chat,
     required this.locale,
     required this.theme,
+    required this.server,
+    required this.onboardingDone,
+    required this.prefs,
   });
 
   final RuntimeController runtime;
   final ChatController chat;
   final LocaleController locale;
   final ThemeController theme;
+  final DesktopServerProcess server;
+  final bool onboardingDone;
+  final SharedPreferences prefs;
 
   @override
   State<LociantApp> createState() => _LociantAppState();
 }
 
 class _LociantAppState extends State<LociantApp> {
+  late bool _onboardingDone;
+
   @override
   void initState() {
     super.initState();
+    _onboardingDone = widget.onboardingDone;
     widget.runtime.startPolling();
     widget.locale.addListener(_onLocaleChanged);
     widget.theme.addListener(_onThemeChanged);
+    widget.server.start(); // 桌面端：确保 sidecar 已启动（幂等）
   }
 
   @override
   void dispose() {
+    widget.server.stop();
     widget.locale.removeListener(_onLocaleChanged);
     widget.theme.removeListener(_onThemeChanged);
     widget.runtime.dispose();
@@ -82,6 +99,11 @@ class _LociantAppState extends State<LociantApp> {
   void _onLocaleChanged() => setState(() {});
   void _onThemeChanged() => setState(() {});
 
+  void _finishOnboarding() {
+    widget.prefs.setBool('onboarding_done', true);
+    setState(() => _onboardingDone = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScope(
@@ -89,6 +111,7 @@ class _LociantAppState extends State<LociantApp> {
       chat: widget.chat,
       locale: widget.locale,
       theme: widget.theme,
+      server: widget.server,
       child: MaterialApp(
         title: 'Lociant',
         debugShowCheckedModeBanner: false,
@@ -104,7 +127,9 @@ class _LociantAppState extends State<LociantApp> {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        home: const HomeShell(),
+        home: _onboardingDone
+            ? const HomeShell()
+            : OnboardingScreen(onDone: _finishOnboarding),
       ),
     );
   }

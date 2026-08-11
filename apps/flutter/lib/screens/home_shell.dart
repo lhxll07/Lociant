@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/anchored_popup.dart';
 import 'home_screen.dart';
 import 'models_screen.dart';
+import 'nodes_screen.dart';
 import 'settings_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -19,7 +20,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _pages = [HomeScreen(), ModelsScreen(), SettingsScreen()];
+  static const _pages = [HomeScreen(), ModelsScreen(), NodesScreen(), SettingsScreen()];
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +119,7 @@ class _NavPopup extends StatelessWidget {
     final items = [
       (Icons.chat_bubble_outline, l10n.navHome),
       (Icons.memory_outlined, l10n.navModels),
+      (Icons.hub_outlined, l10n.navNodes),
       (Icons.settings_outlined, l10n.navSettings),
     ];
     return Padding(

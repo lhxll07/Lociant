@@ -122,11 +122,71 @@ abstract class AppLocalizations {
   /// **'Models'**
   String get navModels;
 
+  /// No description provided for @navNodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Nodes'**
+  String get navNodes;
+
   /// No description provided for @navSettings.
   ///
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
+
+  /// No description provided for @nodesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nodes'**
+  String get nodesTitle;
+
+  /// No description provided for @nodesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lociant devices on your LAN'**
+  String get nodesSubtitle;
+
+  /// No description provided for @nodesRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get nodesRefresh;
+
+  /// No description provided for @nodesSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'This device'**
+  String get nodesSelf;
+
+  /// No description provided for @nodesOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get nodesOnline;
+
+  /// No description provided for @nodesOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get nodesOffline;
+
+  /// No description provided for @nodesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No other nodes discovered yet. Devices sharing your peer token will appear here automatically.'**
+  String get nodesEmpty;
+
+  /// No description provided for @nodesPeersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Peer models appear in Models with a peer: prefix and can be selected directly.'**
+  String get nodesPeersHint;
+
+  /// No description provided for @nodesError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load nodes: {error}'**
+  String nodesError(Object error);
 
   /// No description provided for @statusIdle.
   ///
@@ -247,6 +307,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete chat'**
   String get homeDeleteChat;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingWelcomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Lociant'**
+  String get onboardingWelcomeTitle;
+
+  /// No description provided for @onboardingWelcomeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn any device into a local agent that runs models, reads the screen, controls the UI and senses its environment — callable from Claude, Codex and other agents over MCP.'**
+  String get onboardingWelcomeBody;
+
+  /// No description provided for @onboardingServerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local service'**
+  String get onboardingServerTitle;
+
+  /// No description provided for @onboardingServerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The desktop app starts its bundled Rust service (127.0.0.1:11434) automatically. To connect a board or phone on your LAN, change the server address in Settings.'**
+  String get onboardingServerBody;
+
+  /// No description provided for @onboardingReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get onboardingReadyTitle;
+
+  /// No description provided for @onboardingReadyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Before you start: on Android, grant accessibility and other permissions in Settings; on headless Linux, run lociant-server --init first.'**
+  String get onboardingReadyBody;
 
   /// No description provided for @commonBack.
   ///

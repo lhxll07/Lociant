@@ -21,7 +21,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navModels => 'Models';
 
   @override
+  String get navNodes => 'Nodes';
+
+  @override
   String get navSettings => 'Settings';
+
+  @override
+  String get nodesTitle => 'Nodes';
+
+  @override
+  String get nodesSubtitle => 'Lociant devices on your LAN';
+
+  @override
+  String get nodesRefresh => 'Refresh';
+
+  @override
+  String get nodesSelf => 'This device';
+
+  @override
+  String get nodesOnline => 'Online';
+
+  @override
+  String get nodesOffline => 'Offline';
+
+  @override
+  String get nodesEmpty =>
+      'No other nodes discovered yet. Devices sharing your peer token will appear here automatically.';
+
+  @override
+  String get nodesPeersHint =>
+      'Peer models appear in Models with a peer: prefix and can be selected directly.';
+
+  @override
+  String nodesError(Object error) {
+    return 'Failed to load nodes: $error';
+  }
 
   @override
   String get statusIdle => 'Idle';
@@ -88,6 +122,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeDeleteChat => 'Delete chat';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingStart => 'Get started';
+
+  @override
+  String get onboardingWelcomeTitle => 'Welcome to Lociant';
+
+  @override
+  String get onboardingWelcomeBody =>
+      'Turn any device into a local agent that runs models, reads the screen, controls the UI and senses its environment — callable from Claude, Codex and other agents over MCP.';
+
+  @override
+  String get onboardingServerTitle => 'Local service';
+
+  @override
+  String get onboardingServerBody =>
+      'The desktop app starts its bundled Rust service (127.0.0.1:11434) automatically. To connect a board or phone on your LAN, change the server address in Settings.';
+
+  @override
+  String get onboardingReadyTitle => 'Ready';
+
+  @override
+  String get onboardingReadyBody =>
+      'Before you start: on Android, grant accessibility and other permissions in Settings; on headless Linux, run lociant-server --init first.';
 
   @override
   String get commonBack => 'Back';
