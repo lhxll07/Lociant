@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../app.dart';
@@ -143,16 +144,25 @@ class _RuntimePanel extends StatelessWidget {
       listenable: runtime,
       builder: (context, _) {
         final state = runtime.state;
+        final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
         return _SettingsList(
           children: [
             Card(
               child: SwitchListTile(
                 title: Text(l10n.settingsModelServer),
-                subtitle: Text(state?.message ?? ''),
+                subtitle: Text(
+                  isAndroid
+                      ? (state?.message ?? '')
+                      : l10n.settingsModelServerDesktop,
+                ),
                 value: state?.running ?? false,
-                onChanged: state?.starting == true
+                onChanged: !isAndroid && state?.starting == true
                     ? null
-                    : (_) => (state?.running ?? false) ? runtime.stopRuntime() : runtime.startRuntime(),
+                    : isAndroid
+                        ? (_) => (state?.running ?? false)
+                            ? runtime.stopRuntime()
+                            : runtime.startRuntime()
+                        : null,
               ),
             ),
             Card(

@@ -36,6 +36,7 @@
   "settingsPeerToken": "节点令牌（局域网互联）",
   "settingsPeerTokenSave": "保存",
   "settingsPeerTokenHint": "与其他 Lociant 节点共享此令牌后，它们会自动出现在节点页；修改后需重启服务生效。",
+  "settingsModelServerDesktop": "桌面端服务随应用自动运行（内置 Rust 后端）",
   "statusIdle": "待机",
   "statusRunning": "运行中",
   "statusStarting": "启动中",

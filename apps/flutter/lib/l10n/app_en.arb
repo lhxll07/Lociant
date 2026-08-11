@@ -36,6 +36,7 @@
   "settingsPeerToken": "Peer token (LAN networking)",
   "settingsPeerTokenSave": "Save",
   "settingsPeerTokenHint": "Nodes sharing this token appear automatically on the Nodes page; restart the service after changing it.",
+  "settingsModelServerDesktop": "Desktop service runs automatically with the app (built-in Rust backend)",
   "statusIdle": "Idle",
   "statusRunning": "Running",
   "statusStarting": "Starting",

@@ -314,6 +314,12 @@ abstract class AppLocalizations {
   /// **'Nodes sharing this token appear automatically on the Nodes page; restart the service after changing it.'**
   String get settingsPeerTokenHint;
 
+  /// No description provided for @settingsModelServerDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Desktop service runs automatically with the app (built-in Rust backend)'**
+  String get settingsModelServerDesktop;
+
   /// No description provided for @statusIdle.
   ///
   /// In en, this message translates to:

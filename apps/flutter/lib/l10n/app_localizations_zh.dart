@@ -120,6 +120,9 @@ class AppLocalizationsZh extends AppLocalizations {
       '与其他 Lociant 节点共享此令牌后，它们会自动出现在节点页；修改后需重启服务生效。';
 
   @override
+  String get settingsModelServerDesktop => '桌面端服务随应用自动运行（内置 Rust 后端）';
+
+  @override
   String get statusIdle => '待机';
 
   @override

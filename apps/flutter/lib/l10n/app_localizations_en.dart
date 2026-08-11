@@ -123,6 +123,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nodes sharing this token appear automatically on the Nodes page; restart the service after changing it.';
 
   @override
+  String get settingsModelServerDesktop =>
+      'Desktop service runs automatically with the app (built-in Rust backend)';
+
+  @override
   String get statusIdle => 'Idle';
 
   @override
