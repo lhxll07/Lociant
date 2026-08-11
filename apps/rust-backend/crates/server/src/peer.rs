@@ -76,3 +76,11 @@ pub async fn list_nodes(State(state): State<AppState>, _: RequireAuth) -> Json<V
     }
     Json(json!({ "nodes": nodes }))
 }
+
+/// `/api/v1/baby/state` — 眠安智护监控快照（需在配置中启用 babyCamera）。
+pub async fn baby_state(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
+    match &state.baby {
+        Some(baby) => Json(baby.snapshot()),
+        None => Json(json!({ "error": "baby monitor not enabled (set babyCamera in config)" })),
+    }
+}

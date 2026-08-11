@@ -1,3 +1,4 @@
+mod baby;
 mod catalog;
 mod chat;
 mod control;
@@ -193,6 +194,12 @@ async fn main() -> anyhow::Result<()> {
     };
     let peers_for_start = peers.clone();
 
+    let baby = settings
+        .get("babyCamera")
+        .and_then(Value::as_str)
+        .filter(|device| !device.is_empty())
+        .map(|device| crate::baby::BabyService::start(device));
+
     let state = AppState {
         store,
         settings: Arc::new(Mutex::new(settings)),
@@ -208,6 +215,7 @@ async fn main() -> anyhow::Result<()> {
         installs: Arc::new(Mutex::new(HashMap::new())),
         rkllm,
         peers,
+        baby,
     };
 
     if let Some(peers) = peers_for_start {
@@ -254,6 +262,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/v1/peer/models", get(peer::list_peer_models))
         .route("/api/v1/nodes", get(peer::list_nodes))
+        .route("/api/v1/baby/state", get(peer::baby_state))
         .route("/mcp", post(mcp::handle))
         .route("/v1/models", get(models::openai_models))
         .route("/v1/chat/completions", post(chat::chat_completions))

@@ -9,6 +9,7 @@ use lociant_tools::ToolRegistry;
 use serde_json::Value;
 
 use crate::catalog::CatalogEntry;
+use crate::baby::BabyService;
 use crate::device::IpcDeviceAdapter;
 use crate::models::InstallJob;
 use crate::peers::PeerManager;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub installs: Arc<Mutex<HashMap<String, InstallJob>>>,
     pub rkllm: Option<Arc<Rkllm>>,
     pub peers: Option<Arc<PeerManager>>,
+    pub baby: Option<Arc<BabyService>>,
 }
 
 impl AppState {
