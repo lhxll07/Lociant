@@ -15,13 +15,13 @@ lociant-core = { path = "../core" }
 lociant-rkllm = { path = "../rkllm" }
 lociant-store = { path = "../store" }
 lociant-tools = { path = "../tools" }
-mdns-sd.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 slumberguard-core = { path = "../../../../../slumberguard/crates/core" }
 slumberguard-runtime = { path = "../../../../../slumberguard/crates/runtime" }
 slumberguard-source = { path = "../../../../../slumberguard/crates/source" }
+socket2.workspace = true
 sha2 = "0.10"
 hex = "0.4"
 tokio.workspace = true

@@ -1,26 +1,30 @@
 //! Peer-to-peer node discovery and remote capability sharing.
 //!
-//! Every Lociant node advertises itself over mDNS (`_lociant._tcp.local.`)
-//! and watches for siblings. Discovered peers are attached to the shared
+//! Every Lociant node advertises itself over UDP broadcast (port 11435) and
+//! watches for siblings, so discovery works on any LAN (Android included)
+//! without mDNS/group-multicast support. Discovered peers are attached to
+//! the shared
 //! `ToolRegistry` (tools are called over the peer's `/api/v1/peer/*` routes,
 //! and the provider enforces its own exposure policy — "the remote side
 //! decides"). Peer model inference reuses the OpenAI-compatible
 //! `/v1/chat/completions` route through the existing `CloudBackend`.
 
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use lociant_core::{ToolDescriptor, ToolResult};
 use lociant_tools::{DeviceAdapter, ToolError, ToolRegistry};
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use async_trait::async_trait;
 use lociant_agent::backend::{ChatBackend, TurnEvent, TurnOutcome};
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
-pub const SERVICE_TYPE: &str = "_lociant._tcp.local.";
+/// UDP discovery port (broadcast), separate from the HTTP service port.
+pub const DISCOVERY_PORT: u16 = 11435;
+/// Broadcast interval.
+const ADVERTISE_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
 pub struct PeerNode {
@@ -32,7 +36,7 @@ pub struct PeerNode {
     pub last_seen: Instant,
 }
 
-/// Manages mDNS advertisement, peer tracking and remote tool adapters.
+/// Manages UDP advertisement, peer tracking and remote tool adapters.
 pub struct PeerManager {
     pub self_id: String,
     pub self_name: String,
@@ -42,7 +46,6 @@ pub struct PeerManager {
     adapters: Mutex<HashMap<String, Arc<HttpPeerAdapter>>>,
     registry: Arc<ToolRegistry>,
     client: reqwest::blocking::Client,
-    _daemon: ServiceDaemon,
 }
 
 impl PeerManager {
@@ -52,9 +55,8 @@ impl PeerManager {
         self_name: String,
         token: String,
         port: u16,
-    ) -> Result<Self, mdns_sd::Error> {
-        let daemon = ServiceDaemon::new()?;
-        let manager = PeerManager {
+    ) -> Self {
+        PeerManager {
             self_id,
             self_name,
             port,
@@ -66,87 +68,194 @@ impl PeerManager {
                 .timeout(Duration::from_secs(5))
                 .build()
                 .unwrap_or_default(),
-            _daemon: daemon,
-        };
-        Ok(manager)
+        }
     }
 
-    /// Starts advertising this node and browsing for siblings. Runs the
-    /// mDNS event loop on a background task; `peers` keeps the daemon alive.
-    pub fn start(self: &Arc<Self>, ip: IpAddr) {
-        let mut properties = HashMap::new();
-        properties.insert("id".to_owned(), self.self_id.clone());
-        properties.insert("name".to_owned(), self.self_name.clone());
-        properties.insert("platform".to_owned(), std::env::consts::OS.to_owned());
-        let info = ServiceInfo::new(
-            SERVICE_TYPE,
-            &self.self_id,
-            &format!("{}.local.", self.self_id),
-            ip,
-            self.port,
-            properties,
-        )
-        .expect("valid mDNS service info");
-        if let Err(error) = self._daemon.register(info) {
-            tracing::warn!("mDNS register failed: {error}");
-            return;
-        }
-        let receiver = match self._daemon.browse(SERVICE_TYPE) {
-            Ok(receiver) => receiver,
-            Err(error) => {
-                tracing::warn!("mDNS browse failed: {error}");
-                return;
-            }
-        };
+    /// Starts UDP advertisement and discovery on background tasks.
+    pub fn start(self: &Arc<Self>) {
+        // Advertisement: broadcast our identity periodically.
         let peers = self.clone();
-        tokio::spawn(async move {
-            while let Ok(event) = receiver.recv_async().await {
-                peers.handle_event(event);
+        std::thread::spawn(move || {
+            let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {
+                Ok(socket) => socket,
+                Err(error) => {
+                    tracing::error!("UDP advertise bind failed: {error}");
+                    return;
+                }
+            };
+            let _ = socket.set_broadcast(true);
+            let payload = json!({
+                "id": peers.self_id,
+                "name": peers.self_name,
+                "platform": std::env::consts::OS,
+                "port": peers.port,
+            })
+            .to_string();
+            let targets = Self::subnet_broadcast_addrs();
+            let targets = if targets.is_empty() {
+                vec![std::net::Ipv4Addr::BROADCAST]
+            } else {
+                targets
+            };
+            loop {
+                for target in &targets {
+                    match socket.send_to(payload.as_bytes(), (*target, DISCOVERY_PORT)) {
+                        Ok(n) => {
+                            let _ = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open("/tmp/peers-advertise.log")
+                                .and_then(|mut f| {
+                                    use std::io::Write;
+                                    writeln!(f, "sent {n} bytes to {target}")
+                                });
+                        }
+                        Err(error) => {
+                            let _ = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open("/tmp/peers-advertise.log")
+                                .and_then(|mut f| {
+                                    use std::io::Write;
+                                    writeln!(f, "advertise to {target} failed: {error}")
+                                });
+                        }
+                    }
+                }
+                std::thread::sleep(ADVERTISE_INTERVAL);
             }
         });
+
+        // Discovery: listen for sibling broadcasts.
+        let peers = self.clone();
+        tokio::spawn(async move {
+            let socket2_socket = match socket2::Socket::new(
+                socket2::Domain::IPV4,
+                socket2::Type::DGRAM,
+                Some(socket2::Protocol::UDP),
+            ) {
+                Ok(socket) => socket,
+                Err(error) => {
+                    tracing::error!("UDP discovery socket failed: {error}");
+                    return;
+                }
+            };
+            let _ = socket2_socket.set_reuse_address(true);
+            let _ = socket2_socket.set_nonblocking(true);
+            let _ = socket2_socket.bind(
+                &format!("0.0.0.0:{DISCOVERY_PORT}")
+                    .parse::<std::net::SocketAddr>()
+                    .expect("static discovery addr")
+                    .into(),
+            );
+            let std_socket: std::net::UdpSocket = socket2_socket.into();
+            let socket = match tokio::net::UdpSocket::from_std(std_socket) {
+                Ok(socket) => socket,
+                Err(error) => {
+                    tracing::error!("UDP discovery socket failed: {error}");
+                    return;
+                }
+            };
+            let mut buf = [0u8; 2048];
+            loop {
+                let Ok((size, addr)) = socket.recv_from(&mut buf).await else {
+                    continue;
+                };
+                if let Ok(payload) = serde_json::from_slice::<Value>(&buf[..size]) {
+                    peers.handle_discovery_packet(addr, payload);
+                }
+            }
+        });
+
+        // Heartbeat cleanup: drop peers that stopped broadcasting.
+        let peers = self.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(15));
+            loop {
+                interval.tick().await;
+                peers.reap_stale(Duration::from_secs(45));
+            }
+        });
+
         tracing::info!(
-            "peer discovery enabled (mDNS {}:{})",
-            ip,
-            self.port
+            "peer discovery enabled (UDP broadcast :{})",
+            DISCOVERY_PORT
         );
     }
 
-    fn handle_event(&self, event: ServiceEvent) {
-        match event {
-            ServiceEvent::ServiceResolved(info) => {
-                let props = info.get_properties();
-                let id = props.get_property_val_str("id").unwrap_or_default().to_owned();
-                if id.is_empty() || id == self.self_id {
-                    return;
-                }
-                let Some(ip) = info.get_addresses_v4().into_iter().next() else {
-                    return;
-                };
-                let node = PeerNode {
-                    id: id.clone(),
-                    name: props
-                        .get_property_val_str("name")
-                        .unwrap_or(&id)
-                        .to_owned(),
-                    platform: props
-                        .get_property_val_str("platform")
-                        .unwrap_or_default()
-                        .to_owned(),
-                    host: IpAddr::V4(ip),
-                    port: info.get_port(),
-                    last_seen: Instant::now(),
-                };
-                self.upsert_peer(node);
+    fn handle_discovery_packet(&self, addr: SocketAddr, payload: Value) {
+        let id = payload.get("id").and_then(Value::as_str).unwrap_or("");
+        if id.is_empty() || id == self.self_id {
+            return;
+        }
+        let node = PeerNode {
+            id: id.to_owned(),
+            name: payload
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or(id)
+                .to_owned(),
+            platform: payload
+                .get("platform")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
+            host: addr.ip(),
+            port: payload.get("port").and_then(Value::as_u64).unwrap_or(11434) as u16,
+            last_seen: Instant::now(),
+        };
+        self.upsert_peer(node);
+    }
+
+    /// Enumerates per-interface subnet broadcast addresses from
+    /// `/proc/net/route` (Linux/Android), so announcements reach every LAN
+    /// interface instead of just the default-route one.
+    fn subnet_broadcast_addrs() -> Vec<std::net::Ipv4Addr> {
+        let Ok(content) = std::fs::read_to_string("/proc/net/route") else {
+            return Vec::new();
+        };
+        let mut addrs = Vec::new();
+        for line in content.lines().skip(1) {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() < 8 || fields[0] == "lo" {
+                continue;
             }
-            ServiceEvent::ServiceRemoved(_, fullname) => {
-                let id = fullname
-                    .split('.')
-                    .next()
-                    .unwrap_or_default()
-                    .to_owned();
+            let Ok(dest) = u32::from_str_radix(fields[1], 16) else {
+                continue;
+            };
+            let Ok(mask) = u32::from_str_radix(fields[7], 16) else {
+                continue;
+            };
+            if dest == 0 && mask == 0 {
+                continue; // default route: broadcast is 255.255.255.255 anyway
+            }
+            let broadcast = dest.swap_bytes() | !mask.swap_bytes();
+            addrs.push(std::net::Ipv4Addr::from(broadcast));
+        }
+        addrs
+    }
+
+    /// Removes peers that stopped broadcasting (heartbeat timeout).
+    pub fn reap_stale(&self, timeout: Duration) {
+        let stale = {
+            let nodes = self.nodes.read().expect("nodes lock");
+            nodes
+                .values()
+                .filter(|node| node.last_seen.elapsed() > timeout)
+                .map(|node| node.id.clone())
+                .collect::<Vec<_>>()
+        };
+        for id in stale {
+            if !self
+                .nodes
+                .read()
+                .expect("nodes lock")
+                .get(&id)
+                .map(|node| node.platform == "manual")
+                .unwrap_or(false)
+            {
                 self.remove_peer(&id);
             }
-            _ => {}
         }
     }
 

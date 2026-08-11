@@ -22,7 +22,7 @@ tokio-stream = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 libloading = "0.8"
-mdns-sd = "0.20"
 crossterm = "0.28"
 ratatui = "0.29"
 unicode-width = "0.2"
+socket2 = "0.5"

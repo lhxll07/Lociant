@@ -175,20 +175,13 @@ async fn main() -> anyhow::Result<()> {
                 .and_then(Value::as_str)
                 .map(str::to_owned)
                 .unwrap_or_else(|| self_id.clone());
-            let manager = match peers::PeerManager::new(
+            Some(Arc::new(peers::PeerManager::new(
                 tools.clone(),
                 self_id,
                 self_name,
                 token.to_owned(),
                 port,
-            ) {
-                Ok(manager) => Some(manager),
-                Err(error) => {
-                    tracing::error!("peer manager init failed: {error}");
-                    None
-                }
-            };
-            manager.map(Arc::new)
+            )))
         }
         None => None,
     };
@@ -219,15 +212,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     if let Some(peers) = peers_for_start {
-        let bind_ip = host;
-        // mDNS advertises a concrete address; 0.0.0.0 means "any interface",
-        // so prefer a LAN address when available.
-        let advertise_ip = if bind_ip.is_unspecified() {
-            local_lan_ip().unwrap_or(bind_ip)
-        } else {
-            bind_ip
-        };
-        peers.start(advertise_ip);
+        peers.start();
     }
 
     let app = Router::new()
@@ -282,13 +267,6 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn local_lan_ip() -> Option<std::net::IpAddr> {
-    use std::net::UdpSocket;
-    // Learn the outbound interface address without sending anything.
-    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
-    socket.connect("192.168.1.1:9").ok()?;
-    socket.local_addr().ok().map(|addr| addr.ip())
-}
 
 fn load_headless_config(mut settings: Value) -> Value {
     let path = match std::env::var("LOCIANT_CONFIG") {
