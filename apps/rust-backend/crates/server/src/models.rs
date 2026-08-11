@@ -30,11 +30,43 @@ pub async fn list_models(
     State(state): State<AppState>,
     _: RequireAuth,
 ) -> Result<Json<Value>, Problem> {
+    // collect_models may reach out to peers over HTTP (blocking client),
+    // so run it off the async workers.
+    let state_for_block = state.clone();
+    let models = tokio::task::spawn_blocking(move || collect_models(&state_for_block))
+        .await
+        .map_err(|error| Problem::internal(error.to_string()))?;
+    Ok(Json(json!({ "models": models })))
+}
+
+/// The models this node can serve: installed MNN packages, local MNN models
+/// from the device layer, the built-in RKLLM model, the configured cloud
+/// model, and models forwarded from discovered peers (`peer:<id>:<model>`).
+pub fn collect_models(state: &AppState) -> Vec<Value> {
+    let mut models = collect_local_models(state);
+    if let Some(peers) = &state.peers {
+        for model in peers.peer_models() {
+            let id = model
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            if !models.iter().any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str())) {
+                models.push(model);
+            }
+        }
+    }
+    models
+}
+
+/// Models this node can serve directly (no peer forwarding), used by the
+/// peer plane so sibling calls can never recurse back into discovery.
+pub fn collect_local_models(state: &AppState) -> Vec<Value> {
     let mut models = Vec::new();
     for installed in state
         .store
         .list_models()
-        .map_err(|e| Problem::internal(e.to_string()))?
+        .unwrap_or_default()
     {
         let json = match catalog::find(&state.catalog, &installed.id) {
             Some(entry) => catalog::installed_json(entry),
@@ -85,7 +117,27 @@ pub async fn list_models(
     if let Some(cloud) = cloud_model(&state) {
         models.push(cloud);
     }
-    Ok(Json(json!({ "models": models })))
+    if state.rkllm.is_some() {
+        let id = state
+            .settings_snapshot()
+            .get("rkllmModelName")
+            .and_then(Value::as_str)
+            .unwrap_or("rkllm")
+            .to_owned();
+        if !models.iter().any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str())) {
+            models.push(json!({
+                "id": id,
+                "name": id,
+                "runtime": "rkllm",
+                "type": "chat",
+                "ready": true,
+                "installed": true,
+                "missingFiles": [],
+                "cloud": false,
+            }));
+        }
+    }
+    models
 }
 
 pub async fn catalog_models(

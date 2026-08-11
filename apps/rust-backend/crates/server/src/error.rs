@@ -140,3 +140,82 @@ impl FromRequestParts<AppState> for RequireAuth {
         }
     }
 }
+
+fn supplied_token(parts: &axum::http::request::Parts) -> Option<String> {
+    parts
+        .headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::to_owned)
+        .or_else(|| {
+            parts
+                .headers
+                .get("x-lociant-token")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_owned)
+        })
+}
+
+/// Peer-plane guard: accepts only the configured peer token, so nodes can
+/// call each other's tools/models without gaining control-plane access.
+pub struct RequirePeerAuth;
+
+impl FromRequestParts<AppState> for RequirePeerAuth {
+    type Rejection = Box<Problem>;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let peer_token = state
+            .settings_snapshot()
+            .get("peerToken")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+        if peer_token.is_empty() {
+            return Err(Box::new(Problem::forbidden(
+                "peer networking is not enabled on this node",
+                "/api/v1/peer",
+            )));
+        }
+        if supplied_token(parts).as_deref() == Some(peer_token.as_str()) {
+            Ok(Self)
+        } else {
+            Err(Box::new(Problem::unauthorized("/api/v1/peer")))
+        }
+    }
+}
+
+/// Chat-plane guard: accepts the API token or the peer token, so sibling
+/// nodes can forward chat completions without control-plane access.
+pub struct RequireChatAuth;
+
+impl FromRequestParts<AppState> for RequireChatAuth {
+    type Rejection = Box<Problem>;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let token = state.auth_token();
+        let peer_token = state
+            .settings_snapshot()
+            .get("peerToken")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+        if token.is_empty() && peer_token.is_empty() {
+            return Ok(Self);
+        }
+        let supplied = supplied_token(parts);
+        if supplied.as_deref() == Some(token.as_str())
+            || (!peer_token.is_empty() && supplied.as_deref() == Some(peer_token.as_str()))
+        {
+            Ok(Self)
+        } else {
+            Err(Box::new(Problem::unauthorized("/v1/chat/completions")))
+        }
+    }
+}

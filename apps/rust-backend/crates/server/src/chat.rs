@@ -22,7 +22,8 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use crate::control::valid_session_id;
 use crate::device::IpcChatBackend;
-use crate::error::{Problem, RequireAuth};
+use crate::error::{Problem, RequireChatAuth};
+use crate::rkllm_backend::RkllmBackend;
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,7 +58,7 @@ pub(crate) struct ChatRequest {
 
 pub async fn chat_completions(
     State(state): State<AppState>,
-    _: RequireAuth,
+    _: RequireChatAuth,
     Json(request): Json<ChatRequest>,
 ) -> Result<Response, Problem> {
     let settings = state.settings_snapshot();
@@ -119,15 +120,56 @@ pub async fn chat_completions(
         .get("localModel")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let backend: Arc<dyn ChatBackend> =
-        if cloud_ready && (request.model.is_empty() || request.model == cloud_model) {
+    let rkllm_model = settings
+        .get("rkllmModelName")
+        .and_then(Value::as_str)
+        .unwrap_or("rkllm")
+        .to_owned();
+    let backend: Arc<dyn ChatBackend> = if let Some((node_id, model_id)) =
+        request.model.strip_prefix("peer:").and_then(|rest| rest.split_once(':'))
+    {
+        let Some(peers) = &state.peers else {
+            return Err(Problem::bad_request(
+                format!("unknown peer node: {node_id}"),
+                "/v1/chat/completions",
+            ));
+        };
+        let Some((base_url, peer_token)) = peers.peer_base_url(node_id) else {
+            return Err(Problem::bad_request(
+                format!("peer node offline: {node_id}"),
+                "/v1/chat/completions",
+            ));
+        };
+        Arc::new(crate::peers::PeerChatBackend {
+            inner: CloudBackend {
+                client: state.http.clone(),
+                base_url,
+                api_key: peer_token,
+                model: model_id.to_owned(),
+            },
+            model_id: model_id.to_owned(),
+        })
+    } else if let Some(rkllm) = &state.rkllm {
+        if request.model.is_empty() || request.model == rkllm_model {
+            local_model = true;
+            Arc::new(RkllmBackend {
+                model: rkllm.clone(),
+                enable_thinking,
+            })
+        } else {
+            return Err(Problem::bad_request(
+                format!("unknown model: {}", request.model),
+                "/v1/chat/completions",
+            ));
+        }
+    } else if cloud_ready && (request.model.is_empty() || request.model == cloud_model) {
             Arc::new(CloudBackend {
                 client: state.http.clone(),
                 base_url: cloud_base,
                 api_key: cloud_api_key,
                 model: cloud_model.clone(),
             })
-        } else if let Some(device) = &state.device {
+    } else if let Some(device) = &state.device {
             if device.has_model(&request.model) {
                 local_model = true;
                 Arc::new(IpcChatBackend {

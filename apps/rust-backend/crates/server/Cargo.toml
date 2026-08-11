@@ -10,10 +10,13 @@ async-trait.workspace = true
 axum.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
+if-addrs.workspace = true
 lociant-agent = { path = "../agent" }
 lociant-core = { path = "../core" }
+lociant-rkllm = { path = "../rkllm" }
 lociant-store = { path = "../store" }
 lociant-tools = { path = "../tools" }
+mdns-sd.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -3,8 +3,12 @@ mod chat;
 mod control;
 mod device;
 mod error;
+mod init;
 mod mcp;
 mod models;
+mod peer;
+mod peers;
+mod rkllm_backend;
 mod state;
 
 use std::collections::HashMap;
@@ -39,6 +43,37 @@ fn data_dir() -> PathBuf {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if std::env::args().any(|arg| arg == "--init") {
+        return init::run();
+    }
+    if std::env::args().any(|arg| arg == "--rkllm-test") {
+        let prompt = std::env::args()
+            .last()
+            .unwrap_or_else(|| "你好".to_owned());
+        let config_path = std::env::var("LOCIANT_CONFIG")
+            .unwrap_or_else(|_| "/etc/lociant/config.json".to_owned());
+        let config = std::fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok());
+        let model_path = config
+            .as_ref()
+            .and_then(|config| config.get("rkllmModelPath"))
+            .and_then(Value::as_str)
+            .unwrap_or("/home/lhx/qwen3.5-0.8b.rkllm")
+            .to_owned();
+        let lib_path = config
+            .as_ref()
+            .and_then(|config| config.get("rkllmLibPath"))
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let model = lociant_rkllm::Rkllm::load(&model_path, lib_path.as_deref())?;
+        let started = std::time::Instant::now();
+        let out = lociant_rkllm::run_collect(&model, &prompt, "user", false, Some(200))?;
+        println!("elapsed={:?}", started.elapsed());
+        println!("OUT: {out}");
+        return Ok(());
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
@@ -66,7 +101,38 @@ async fn main() -> anyhow::Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|_| data_dir().join("models"));
     std::fs::create_dir_all(&models_dir)?;
-
+    let host = settings
+        .get("host")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<IpAddr>().ok())
+        .or_else(|| {
+            std::env::var("LOCIANT_HOST")
+                .ok()
+                .and_then(|value| value.parse::<IpAddr>().ok())
+        })
+        .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let rkllm = match settings
+        .get("rkllmModelPath")
+        .and_then(Value::as_str)
+    {
+        Some(path) => {
+            let lib_path = settings
+                .get("rkllmLibPath")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            match lociant_rkllm::Rkllm::load(path, lib_path.as_deref()) {
+                Ok(model) => {
+                    tracing::info!("RKLLM loaded: {path}");
+                    Some(Arc::new(model))
+                }
+                Err(error) => {
+                    tracing::error!("RKLLM init failed ({path}): {error:#}");
+                    None
+                }
+            }
+        }
+        None => None,
+    };
     let device: Option<Arc<IpcDeviceAdapter>> = match (
         std::env::var(IpcDeviceAdapter::TOKEN_ENV),
         std::env::var(IpcDeviceAdapter::PORT_ENV),
@@ -88,6 +154,45 @@ async fn main() -> anyhow::Result<()> {
         None => Arc::new(ToolRegistry::new(Box::new(NoopDevice))),
     };
 
+    let peers = match settings
+        .get("peerToken")
+        .and_then(Value::as_str)
+        .filter(|token| !token.is_empty())
+    {
+        Some(token) => {
+            let self_id = settings
+                .get("peerId")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .unwrap_or_else(|| {
+                    std::env::var("HOSTNAME")
+                        .or_else(|_| std::env::var("HOST"))
+                        .unwrap_or_else(|_| "lociant-node".to_owned())
+                });
+            let self_name = settings
+                .get("peerName")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .unwrap_or_else(|| self_id.clone());
+            let manager = match peers::PeerManager::new(
+                tools.clone(),
+                self_id,
+                self_name,
+                token.to_owned(),
+                port,
+            ) {
+                Ok(manager) => Some(manager),
+                Err(error) => {
+                    tracing::error!("peer manager init failed: {error}");
+                    None
+                }
+            };
+            manager.map(Arc::new)
+        }
+        None => None,
+    };
+    let peers_for_start = peers.clone();
+
     let state = AppState {
         store,
         settings: Arc::new(Mutex::new(settings)),
@@ -101,7 +206,21 @@ async fn main() -> anyhow::Result<()> {
         catalog: Arc::new(catalog::load()),
         models_dir,
         installs: Arc::new(Mutex::new(HashMap::new())),
+        rkllm,
+        peers,
     };
+
+    if let Some(peers) = peers_for_start {
+        let bind_ip = host;
+        // mDNS advertises a concrete address; 0.0.0.0 means "any interface",
+        // so prefer a LAN address when available.
+        let advertise_ip = if bind_ip.is_unspecified() {
+            local_lan_ip().unwrap_or(bind_ip)
+        } else {
+            bind_ip
+        };
+        peers.start(advertise_ip);
+    }
 
     let app = Router::new()
         .route("/health", get(health))
@@ -128,20 +247,46 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/v1/tools", get(control::list_tools))
         .route("/api/v1/tools/{tool_name}/calls", post(control::call_tool))
+        .route("/api/v1/peer/tools", get(peer::list_peer_tools))
+        .route(
+            "/api/v1/peer/tools/{tool_name}/calls",
+            post(peer::call_peer_tool),
+        )
+        .route("/api/v1/peer/models", get(peer::list_peer_models))
+        .route("/api/v1/nodes", get(peer::list_nodes))
         .route("/mcp", post(mcp::handle))
         .route("/v1/models", get(models::openai_models))
         .route("/v1/chat/completions", post(chat::chat_completions))
         .with_state(state);
 
-    let host = std::env::var("LOCIANT_HOST")
-        .ok()
-        .and_then(|value| value.parse::<IpAddr>().ok())
-        .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
     let addr = SocketAddr::new(host, port);
     tracing::info!("lociant-server listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+fn local_lan_ip() -> Option<std::net::IpAddr> {
+    // Pick the first private IPv4 on a real interface, skipping loopback,
+    // link-local and adb/container virtual ranges (e.g. 198.18.x.x).
+    if_addrs::get_if_addrs()
+        .ok()?
+        .into_iter()
+        .filter(|iface| !iface.is_loopback())
+        .filter_map(|iface| match iface.ip() {
+            std::net::IpAddr::V4(ip) => Some(ip),
+            _ => None,
+        })
+        .filter(|ip| {
+            !ip.is_unspecified()
+                && !ip.is_link_local()
+                && !(ip.octets()[0] == 198 && ip.octets()[1] == 18)
+                && (ip.octets()[0] == 10
+                    || (ip.octets()[0] == 172 && (16..=31).contains(&ip.octets()[1]))
+                    || ip.octets()[0] == 192)
+        })
+        .map(std::net::IpAddr::V4)
+        .next()
 }
 
 fn load_headless_config(mut settings: Value) -> Value {

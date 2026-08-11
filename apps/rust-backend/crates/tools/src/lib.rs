@@ -8,6 +8,7 @@
 //! speak the same `ToolDescriptor` / `ToolResult` JSON contract.
 
 use std::fmt;
+use std::sync::{Arc, RwLock};
 
 use lociant_core::{ToolDescriptor, ToolResult};
 use serde_json::Value;
@@ -57,23 +58,62 @@ impl DeviceAdapter for NoopDevice {
 
 /// Owns the tool policy. All execution paths (agent loop, control API, MCP)
 /// go through this type so metadata can never diverge from enforcement.
+///
+/// Adapters are dynamic so peers (other Lociant nodes on the LAN) can be
+/// attached and removed as they join and leave; every adapter contributes its
+/// tools, and a call is routed to the first adapter that provides the tool.
 pub struct ToolRegistry {
-    adapter: Box<dyn DeviceAdapter>,
+    adapters: RwLock<Vec<Arc<dyn DeviceAdapter>>>,
 }
 
 impl ToolRegistry {
     pub fn new(adapter: Box<dyn DeviceAdapter>) -> Self {
-        ToolRegistry { adapter }
+        ToolRegistry {
+            adapters: RwLock::new(vec![Arc::from(adapter)]),
+        }
+    }
+
+    /// Attaches another adapter (e.g. a discovered peer). Duplicates are
+    /// ignored by pointer identity.
+    pub fn add_adapter(&self, adapter: Arc<dyn DeviceAdapter>) {
+        if let Ok(mut adapters) = self.adapters.write() {
+            if !adapters.iter().any(|existing| {
+                std::ptr::eq(
+                    existing.as_ref() as *const dyn DeviceAdapter,
+                    adapter.as_ref() as *const dyn DeviceAdapter,
+                )
+            }) {
+                adapters.push(adapter);
+            }
+        }
+    }
+
+    /// Detaches an adapter by pointer identity (used when a peer goes
+    /// offline).
+    pub fn remove_adapter(&self, adapter: &Arc<dyn DeviceAdapter>) {
+        if let Ok(mut adapters) = self.adapters.write() {
+            adapters.retain(|existing| {
+                !std::ptr::eq(
+                    existing.as_ref() as *const dyn DeviceAdapter,
+                    adapter.as_ref() as *const dyn DeviceAdapter,
+                )
+            });
+        }
     }
 
     pub fn all(&self) -> Vec<ToolDescriptor> {
-        self.adapter.tools()
+        let mut tools = Vec::new();
+        if let Ok(adapters) = self.adapters.read() {
+            for adapter in adapters.iter() {
+                tools.extend(adapter.tools());
+            }
+        }
+        tools
     }
 
     /// Descriptors visible to a caller at the given exposure level.
     pub fn visible(&self, exposure: &str) -> Vec<ToolDescriptor> {
-        self.adapter
-            .tools()
+        self.all()
             .into_iter()
             .filter(|tool| exposure_allows(exposure, &tool.exposure))
             .collect()
@@ -87,8 +127,10 @@ impl ToolRegistry {
         arguments: Value,
         exposure: &str,
     ) -> Result<ToolResult, ToolError> {
-        let tool = self
-            .adapter
+        let adapter = self
+            .adapter_for(name)
+            .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
+        let tool = adapter
             .tools()
             .into_iter()
             .find(|tool| tool.name == name)
@@ -103,7 +145,7 @@ impl ToolRegistry {
                 "{name} requires a higher exposure level than {exposure}"
             )));
         }
-        self.adapter.call(name, arguments)
+        adapter.call(name, arguments)
     }
 
     /// In-process execution (agent loop, local orchestration): exposure still
@@ -114,8 +156,10 @@ impl ToolRegistry {
         arguments: Value,
         exposure: &str,
     ) -> Result<ToolResult, ToolError> {
-        let tool = self
-            .adapter
+        let adapter = self
+            .adapter_for(name)
+            .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
+        let tool = adapter
             .tools()
             .into_iter()
             .find(|tool| tool.name == name)
@@ -125,7 +169,15 @@ impl ToolRegistry {
                 "{name} requires a higher exposure level than {exposure}"
             )));
         }
-        self.adapter.call(name, arguments)
+        adapter.call(name, arguments)
+    }
+
+    fn adapter_for(&self, name: &str) -> Option<Arc<dyn DeviceAdapter>> {
+        let adapters = self.adapters.read().ok()?;
+        adapters
+            .iter()
+            .find(|adapter| adapter.tools().iter().any(|tool| tool.name == name))
+            .cloned()
     }
 }
 

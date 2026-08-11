@@ -4,12 +4,14 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use lociant_store::Store;
+use lociant_rkllm::Rkllm;
 use lociant_tools::ToolRegistry;
 use serde_json::Value;
 
 use crate::catalog::CatalogEntry;
 use crate::device::IpcDeviceAdapter;
 use crate::models::InstallJob;
+use crate::peers::PeerManager;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -22,6 +24,8 @@ pub struct AppState {
     pub catalog: Arc<Vec<CatalogEntry>>,
     pub models_dir: PathBuf,
     pub installs: Arc<Mutex<HashMap<String, InstallJob>>>,
+    pub rkllm: Option<Arc<Rkllm>>,
+    pub peers: Option<Arc<PeerManager>>,
 }
 
 impl AppState {
