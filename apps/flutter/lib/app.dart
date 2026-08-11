@@ -12,6 +12,10 @@ import 'state/runtime_controller.dart';
 import 'state/theme_controller.dart';
 import 'theme.dart';
 
+/// Global key for the main shell so other screens (e.g. Nodes) can switch
+/// the top-level tab programmatically.
+final homeShellKey = GlobalKey<HomeShellState>();
+
 /// Provides the process-scoped controllers to every screen.
 class AppScope extends InheritedWidget {
   const AppScope({
@@ -128,7 +132,7 @@ class _LociantAppState extends State<LociantApp> {
           GlobalCupertinoLocalizations.delegate,
         ],
         home: _onboardingDone
-            ? const HomeShell()
+            ? HomeShell(key: homeShellKey)
             : OnboardingScreen(onDone: _finishOnboarding),
       ),
     );

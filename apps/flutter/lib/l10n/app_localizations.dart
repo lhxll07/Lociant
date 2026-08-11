@@ -290,6 +290,24 @@ abstract class AppLocalizations {
   /// **'Failed to delete node'**
   String get nodesDeleteFailed;
 
+  /// No description provided for @nodesChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get nodesChat;
+
+  /// No description provided for @nodesChatSelectModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a model'**
+  String get nodesChatSelectModel;
+
+  /// No description provided for @nodesChatNoModel.
+  ///
+  /// In en, this message translates to:
+  /// **'No available models on this node'**
+  String get nodesChatNoModel;
+
   /// No description provided for @commonCancel.
   ///
   /// In en, this message translates to:

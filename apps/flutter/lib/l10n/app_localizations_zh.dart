@@ -107,6 +107,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesDeleteFailed => '删除节点失败';
 
   @override
+  String get nodesChat => '对话';
+
+  @override
+  String get nodesChatSelectModel => '选择要使用的模型';
+
+  @override
+  String get nodesChatNoModel => '该节点暂无可用模型';
+
+  @override
   String get commonCancel => '取消';
 
   @override

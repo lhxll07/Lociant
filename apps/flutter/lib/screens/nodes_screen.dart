@@ -127,6 +127,9 @@ class _NodesScreenState extends State<NodesScreen> {
                                     onDelete: node['self'] == true
                                         ? null
                                         : () => _deleteNode(node['id'] as String),
+                                    onChat: node['self'] == true
+                                        ? null
+                                        : () => _showChatModelPicker(node['id'] as String),
                                   ),
                                 const SizedBox(height: 8),
                                 Padding(
@@ -217,14 +220,68 @@ class _NodesScreenState extends State<NodesScreen> {
       }
     }
   }
+
+  Future<void> _showChatModelPicker(String nodeId) async {
+    final api = AppScope.of(context).runtime.api;
+    List<Map<String, dynamic>> peerModels;
+    try {
+      final response = await api.get('/api/v1/models');
+      peerModels = (response['models'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .where((m) => (m['id'] as String? ?? '').startsWith('peer:$nodeId:'))
+          .toList();
+    } catch (_) {
+      peerModels = const [];
+    }
+    if (peerModels.isEmpty || !mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.nodesChatNoModel)),
+        );
+      }
+      return;
+    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                AppLocalizations.of(context)!.nodesChatSelectModel,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            for (final model in peerModels)
+              ListTile(
+                title: Text(model['name'] as String? ?? model['id'] as String),
+                onTap: () => Navigator.of(context).pop(model['id'] as String),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      await AppScope.of(context).runtime.updateSettings({'modelId': selected});
+      homeShellKey.currentState?.switchTo(0);
+    }
+  }
 }
 
 class _NodeCard extends StatelessWidget {
-  const _NodeCard({required this.node, required this.onMonitor, this.onDelete});
+  const _NodeCard({
+    required this.node,
+    required this.onMonitor,
+    this.onDelete,
+    this.onChat,
+  });
 
   final Map<String, dynamic> node;
   final VoidCallback? onMonitor;
   final VoidCallback? onDelete;
+  final VoidCallback? onChat;
 
   @override
   Widget build(BuildContext context) {
@@ -310,6 +367,13 @@ class _NodeCard extends StatelessWidget {
                     icon: const Icon(Icons.delete_outline, size: 18),
                     tooltip: l10n.nodesDelete,
                     onPressed: onDelete,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                if (onChat != null)
+                  IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    tooltip: l10n.nodesChat,
+                    onPressed: onChat,
                     visualDensity: VisualDensity.compact,
                   ),
               ],

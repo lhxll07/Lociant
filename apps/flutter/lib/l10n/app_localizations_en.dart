@@ -110,6 +110,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodesDeleteFailed => 'Failed to delete node';
 
   @override
+  String get nodesChat => 'Chat';
+
+  @override
+  String get nodesChatSelectModel => 'Choose a model';
+
+  @override
+  String get nodesChatNoModel => 'No available models on this node';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override

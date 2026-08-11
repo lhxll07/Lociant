@@ -14,13 +14,19 @@ class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  State<HomeShell> createState() => HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   static const _pages = [HomeScreen(), ModelsScreen(), NodesScreen(), SettingsScreen()];
+
+  /// Switches the top-level tab (used by other screens, e.g. Nodes -> Home).
+  void switchTo(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    setState(() => _index = index);
+  }
 
   @override
   Widget build(BuildContext context) {
