@@ -66,25 +66,10 @@ http://手机IP:11434
 
 手机 IP 在 Wi-Fi 详情里查看；电脑和手机需在同一局域网。
 
-### 1.6 把手机工具接给外部 Agent（MCP）
+### 1.6 把手机能力接给外部 Agent（MCP）
 
-在“设置”里生成 API 令牌，然后在支持 MCP 的客户端里加入：
-
-```json
-{
-  "mcpServers": {
-    "lociant": {
-      "type": "streamable-http",
-      "url": "http://手机IP:11434/mcp",
-      "headers": { "Authorization": "Bearer 你的API令牌" }
-    }
-  }
-}
-```
-
-想让 Agent 执行点击、滑动等操作，在“设置 → 远程工具”选“操作”；只查状态
-选“读取”。RikkaHub、OpenCode 的具体配置见
-[Agent 接入文档](agent-integration.md)。
+手机、电脑、板子共用同一个 MCP 入口（`http://设备IP:11434/mcp`），具体
+配置方法见[第五章：MCP](#五mcp把设备能力接给外部-agent)。
 
 ---
 
@@ -293,6 +278,108 @@ lociant-tui --connect http://板子IP:11434 --token 你的令牌   # 从任意�
   直接选用即可（例如手机用板子的 RKLLM 模型）。
 - **互借工具**：对等调用走 `/api/v1/peer/*`，能暴露什么由**提供方**自己的
   “远程工具”级别（读取/传感器/操作）决定。
+
+---
+
+## 五、MCP：把设备能力接给外部 Agent
+
+MCP 是一个标准接口：Claude、OpenCode 等外部 Agent 通过它“看到”并调用
+Lociant 的设备工具（看屏幕、点击、传感器、相机、模型等）。手机、板子、
+电脑都能作为 MCP 服务器，入口统一是：
+
+```text
+http://设备IP:11434/mcp
+```
+
+### 5.1 准备工作
+
+1. **设置 API 令牌**：手机/电脑在“设置”里生成或填写 API 令牌；板子改
+   `/etc/lociant/config.json` 的 `authToken`（见 3.4）。
+2. **选择工具暴露级别**（“设置 → 远程工具”）：
+   - `读取`：只读状态和模型信息，最安全；
+   - `传感器`：加上传感器和屏幕上下文；
+   - `操作`：全部能力，包括点击、滑动等改动设备状态的操作。
+3. **确认设备地址**：手机/板子的 IP 在“设置”或 Wi-Fi 详情里看（界面上的
+   `lanUrl` 就是）。电脑用 `http://127.0.0.1:11434` 或局域网 IP。
+
+### 5.2 通用配置（任意支持 MCP 的客户端）
+
+以 Claude Desktop 等支持 `mcpServers` 的客户端为例，把下面这段加入客户端
+配置，替换 `设备IP` 和 `你的API令牌`：
+
+```json
+{
+  "mcpServers": {
+    "lociant": {
+      "type": "streamable-http",
+      "url": "http://设备IP:11434/mcp",
+      "headers": { "Authorization": "Bearer 你的API令牌" }
+    }
+  }
+}
+```
+
+### 5.3 OpenCode（电脑）
+
+在 `opencode.json` 中加入（`remote` 是固定类型）：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "lociant": {
+      "type": "remote",
+      "url": "http://设备IP:11434/mcp",
+      "enabled": true,
+      "timeout": 120000,
+      "headers": {
+        "Authorization": "Bearer 你的API令牌",
+        "Accept": "application/json, text/event-stream"
+      }
+    }
+  }
+}
+```
+
+> `timeout` 必须调大：Lociant 的本地工具（如 `llm_chat`、
+> `ui_screen_state`）经常超过 OpenCode 默认的 5 秒超时。
+
+### 5.4 RikkaHub（手机）
+
+设置 → MCP → 导入，粘贴以下 JSON（`streamable_http` 的 `headers` 是
+`[名称, 值]` 对数组）：
+
+```json
+{
+  "type": "streamable_http",
+  "commonOptions": {
+    "name": "Lociant 设备工具",
+    "enable": true,
+    "headers": [
+      ["Authorization", "Bearer 你的API令牌"]
+    ]
+  },
+  "url": "http://设备IP:11434/mcp"
+}
+```
+
+导入后在“助手设置 → MCP 服务器”中勾选它；对会改动设备状态的工具建议
+开启“需要审批”。
+
+### 5.5 验证是否接上
+
+连接后先问外部 Agent 一句：“你有哪些工具？”它应该能列出 Lociant 的
+`runtime_status`、`ui_*`、`sensor_*`、`camera_capture` 等工具。也可以在
+电脑上跑官方探测脚本做完整验证：
+
+```bash
+python scripts/lociant_test.py full \
+  --base-url http://设备IP:11434 \
+  --api-key 你的API令牌 \
+  --expect-auth
+```
+
+工具清单、调用参数等接口细节见 [Agent 接入文档](agent-integration.md)。
 
 ---
 
