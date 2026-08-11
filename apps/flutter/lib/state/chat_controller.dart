@@ -58,7 +58,10 @@ class ChatController extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> _loadToolManifest() async {
     if (_toolManifest.isNotEmpty) return _toolManifest;
     try {
-      final data = await api.get('/api/v1/tools');
+      // Loading the tool manifest can be slow on nodes with many peer
+      // adapters (each peer's tools are fetched over the LAN); never block
+      // sending a chat on it.
+      final data = await api.get('/api/v1/tools').timeout(const Duration(seconds: 2));
       final list = (data is Map && data['data'] is List) ? data['data'] as List : const [];
       final next = list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       if (next.isNotEmpty) _toolManifest = next;

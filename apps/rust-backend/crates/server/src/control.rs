@@ -171,7 +171,12 @@ pub async fn list_tools(State(state): State<AppState>, _: RequireAuth) -> Json<V
         .and_then(Value::as_str)
         .unwrap_or("action")
         .to_owned();
-    Json(json!({ "data": state.tools.visible(&exposure) }))
+    if let Some(cached) = state.tools_cached(&exposure) {
+        return Json(json!({ "data": cached }));
+    }
+    let tools = state.tools.visible(&exposure);
+    state.set_tools_cache(&exposure, tools.clone());
+    Json(json!({ "data": tools }))
 }
 
 pub async fn call_tool(

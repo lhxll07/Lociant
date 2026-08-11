@@ -222,6 +222,7 @@ async fn main() -> anyhow::Result<()> {
         peers,
         baby,
         baby_cache: Arc::new(Mutex::new(HashMap::new())),
+        tools_cache: Arc::new(Mutex::new(None)),
     };
 
     if let Some(peers) = peers_for_start {

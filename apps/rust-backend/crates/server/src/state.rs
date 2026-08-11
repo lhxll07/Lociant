@@ -29,6 +29,7 @@ pub struct AppState {
     pub peers: Option<Arc<PeerManager>>,
     pub baby: Option<Arc<BabyService>>,
     pub baby_cache: Arc<Mutex<HashMap<String, (std::time::Instant, Value)>>>,
+    pub tools_cache: Arc<Mutex<Option<(std::time::Instant, serde_json::Value)>>>,
 }
 
 impl AppState {
@@ -51,6 +52,25 @@ impl AppState {
     pub fn set_baby_cache(&self, node_id: &str, body: Value) {
         let mut cache = self.baby_cache.lock().expect("baby cache lock");
         cache.insert(node_id.to_owned(), (std::time::Instant::now(), body));
+    }
+
+    /// Cached tool list (5s TTL): building it fetches every adapter's tools,
+    /// including peers over the LAN, which is slow on isolated links.
+    pub fn tools_cached(&self, _exposure: &str) -> Option<serde_json::Value> {
+        let cache = self.tools_cache.lock().expect("tools cache lock");
+        cache.as_ref().and_then(|(at, body)| {
+            if at.elapsed() < std::time::Duration::from_secs(5) {
+                Some(body.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn set_tools_cache(&self, _exposure: &str, tools: Vec<lociant_core::ToolDescriptor>) {
+        let mut cache = self.tools_cache.lock().expect("tools cache lock");
+        let body = serde_json::to_value(tools).unwrap_or_default();
+        cache.replace((std::time::Instant::now(), body));
     }
 
     pub fn auth_token(&self) -> String {
