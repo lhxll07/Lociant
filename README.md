@@ -1,19 +1,31 @@
-# Lociant
+# Lociant —— 把身边每一台设备，都变成你的 Agent
 
-让一台设备（安卓手机，或 Linux 桌面 / RK3576 开发板）成为一个真正能干活的本地 Agent：本地运行模型、读取屏幕、操作界面、感知环境，也可以通过 MCP 或 OpenAI 兼容接口被电脑上的 Agent 调用。
+> 你的下一台 AI 设备，可能不是新电脑，而是抽屉里那台旧手机。
 
-它适合把旧手机重新利用起来：手机负责模型和实际操作，电脑只负责对话、规划和编排。数据默认留在本地，能力由你在手机里逐项授权。
+Lociant 让一台普通设备（旧手机、Linux 电脑、RK 开发板）成为真正能干活的
+本地 Agent：它自己跑模型、自己看屏幕、自己动手操作，还能与你的其他设备
+自动互联，并被 Claude、Codex 等 Agent 调用。数据默认留在本地，能力由你
+逐项授权。
 
-## 能做什么
+## 它能帮你做什么
 
-- **本地模型**：在手机上运行 LLM / VLM 模型，直接对话和图片理解，断网也能用；开发板支持通过 RKLLM 走 NPU 推理。
-- **看屏幕、动手操作**：读取界面、点击、滑动、返回、打开 App，把内容写进任意输入框或粘贴到剪贴板。
-- **感知环境**：读取光线、距离、加速度、陀螺仪等传感器，让 Agent 知道手机是在口袋、桌面上还是被拿起，环境是亮是暗、手机在不在动。
-- **摄像头与视觉**：拍照、连续画面分析，识别视野里的物体。
-- **接入任何 Agent**：通过 MCP 给 Claude、Codex、OpenCode 等使用，也支持 OpenAI 兼容 API；可以在 CPU 和 GPU（OpenCL / Vulkan）推理后端之间切换。
-- **云端大脑（可选）**：配置一个 OpenAI 兼容的云端模型后，手机可以直接用它思考和规划，再调用自己的工具——本地优先，云端按需开启。
+- **把旧手机变成 7×24 的私人助理**：打开 App、查未读消息、点按钮、填表单——它真的会“动手”，不是只会聊天。
+- **断网也能用**：模型跑在本地（手机 MNN、板子 NPU），不是套壳的在线聊天。
+- **一台不够就组网**：手机、电脑、开发板同一局域网自动互联，互借模型和工具——手机可以直接用板子上的大模型。
+- **接入任何 Agent**：Claude、Codex、OpenCode 通过 MCP 调用它的设备能力；也提供 OpenAI 兼容接口。
+- **感知真实世界**：光线、距离、传感器、相机、屏幕状态——让 Agent 知道它“在哪里、在干什么”。
+- **云端大脑（可选）**：配一个 OpenAI 兼容的云端模型，本地优先、云端按需，两不耽误。
 
-例如：让 Agent 打开 QQ 看未读消息、总结 B 站动态、查一个 App 里的信息、在输入框里帮你填好一段文字，或者先"感觉"一下手机现在是在口袋里还是桌上，再决定要不要亮屏操作。
+比如：让 Agent 打开 QQ 看谁发了消息、总结 B 站动态、帮你把表单填好；或者
+先“感觉”一下手机现在在口袋里还是桌上，再决定要不要亮屏动手。
+
+## 三种玩法
+
+| 设备 | 玩法 |
+|---|---|
+| 安卓手机 | 完整 Agent：云端/本地模型 + 手机工具（看屏、点击、传感器、相机） |
+| Linux 桌面（x86_64） | 一个压缩包开箱即用：Flutter UI + 内置 Rust 后端 |
+| RK 开发板（Armbian） | 无头常驻 + RKLLM NPU 推理 + 终端 TUI，7×24 低功耗 |
 
 ## 快速开始
 
@@ -29,7 +41,8 @@
 当前发布包：
 
 [下载 Lociant v2.0.0 APK（Android arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-arm64-v8a-release.apk) ·
-[下载 Lociant v2.0.0 Linux（x86_64）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-x86_64.tar.gz)
+[下载 Lociant v2.0.0 Linux（x86_64 桌面）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-x86_64.tar.gz) ·
+[下载 Lociant v2.0.0 Linux（aarch64 开发板）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-aarch64.tar.gz)
 
 ## 架构
 

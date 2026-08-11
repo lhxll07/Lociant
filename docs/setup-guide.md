@@ -94,6 +94,10 @@ sudo pacman -S gtk3
 sudo apt install libgtk3-0
 ```
 
+> ARM64 设备（如 RK 开发板）没有桌面 UI，请改用 **aarch64 发布包**——
+> 它包含 `lociant-server`、`lociant-tui` 和部署脚本，见
+> [第三章](#三rk-开发板无头模式--rkllm)。
+
 ### 2.2 启动后
 
 桌面 App 打开时会自动拉起内置的 Rust 后端（sidecar，端口 `11434`，监听
@@ -122,19 +126,32 @@ cd apps/flutter && flutter run -d linux    # UI
 ### 3.1 你需要的
 
 - 一台装好 Armbian 的开发板（SSH 可达，2GB 内存以上）
-- 一台 PC（Linux），装有 Rust 工具链和 `aarch64-linux-gnu-gcc`
+- 一台 PC（Linux）用于上传文件（自己改代码编译时才需要 Rust 工具链和
+  `aarch64-linux-gnu-gcc`，见 3.2）
 - 一个 `.rkllm` 模型文件（转换方法见 3.4）
 
-PC 上先装交叉编译工具链：
+### 3.2 获取后端和 TUI
+
+**推荐：直接下载 aarch64 发布包**（已按板子架构编译好，含 server、TUI
+和部署脚本）：
+
+[下载 Lociant v2.0.0 Linux aarch64](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-aarch64.tar.gz)
+
+```bash
+tar -xzf lociant-2.0.0-linux-aarch64.tar.gz
+cd lociant-2.0.0-linux-aarch64
+```
+
+改了源码需要自己编译时，在 PC 上先装交叉编译工具链：
 
 ```bash
 rustup target add aarch64-unknown-linux-gnu
 # Arch: sudo pacman -S aarch64-linux-gnu-gcc
 ```
 
-### 3.2 交叉编译后端和 TUI
-
-进入 `apps/rust-backend` 执行：
+然后进入 `apps/rust-backend` 编译，产物在
+`target/aarch64-unknown-linux-gnu/release/` 下（`lociant-server` 和
+`lociant-tui`）：
 
 ```bash
 CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
@@ -142,22 +159,13 @@ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
 cargo build --release --target aarch64-unknown-linux-gnu
 ```
 
-产物：
-
-```text
-target/aarch64-unknown-linux-gnu/release/lociant-server
-target/aarch64-unknown-linux-gnu/release/lociant-tui
-```
-
 ### 3.3 上传并安装服务
 
 把二进制和安装脚本传到板子：
 
 ```bash
-cd ../..
-scp apps/rust-backend/target/aarch64-unknown-linux-gnu/release/lociant-server \
-    apps/rust-backend/target/aarch64-unknown-linux-gnu/release/lociant-tui \
-    deploy/install.sh 用户@板子IP:/tmp/
+# 从发布包目录执行（自己编译的话，把路径换成 target/.../release 下的产物）
+scp lociant-server lociant-tui deploy/install.sh 用户@板子IP:/tmp/
 ```
 
 SSH 到板子上安装（自动注册 systemd 服务并启动）：
