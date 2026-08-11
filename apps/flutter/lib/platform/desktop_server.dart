@@ -36,7 +36,9 @@ class DesktopServerProcess {
       binary,
       const [],
       environment: {
-        'LOCIANT_HOST': Platform.environment['LOCIANT_HOST'] ?? '127.0.0.1',
+        // Listen on all interfaces so peers (phone/board) can reach this
+        // desktop node over the LAN; access is guarded by the API token.
+        'LOCIANT_HOST': Platform.environment['LOCIANT_HOST'] ?? '0.0.0.0',
         'LOCIANT_PORT': Platform.environment['LOCIANT_PORT'] ?? '11434',
         ...Platform.environment,
       },
