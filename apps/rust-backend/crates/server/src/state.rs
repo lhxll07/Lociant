@@ -11,8 +11,9 @@ use serde_json::Value;
 use crate::catalog::CatalogEntry;
 use crate::baby::BabyService;
 use crate::device::IpcDeviceAdapter;
-use crate::models::InstallJob;
+#[cfg(not(target_os = "android"))]
 use crate::peers::PeerManager;
+use crate::models::InstallJob;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -26,6 +27,7 @@ pub struct AppState {
     pub models_dir: PathBuf,
     pub installs: Arc<Mutex<HashMap<String, InstallJob>>>,
     pub rkllm: Option<Arc<Rkllm>>,
+    #[cfg(not(target_os = "android"))]
     pub peers: Option<Arc<PeerManager>>,
     pub baby: Option<Arc<BabyService>>,
 }

@@ -50,6 +50,7 @@ pub async fn list_peer_models(
 }
 
 /// `/api/v1/nodes` — this node plus every discovered peer, for the UI.
+#[cfg(not(target_os = "android"))]
 pub async fn list_nodes(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
     let settings = state.settings_snapshot();
     let mut nodes = vec![json!({

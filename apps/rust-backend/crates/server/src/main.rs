@@ -8,6 +8,7 @@ mod init;
 mod mcp;
 mod models;
 mod peer;
+#[cfg(not(target_os = "android"))]
 mod peers;
 mod rkllm_backend;
 mod state;
@@ -155,6 +156,7 @@ async fn main() -> anyhow::Result<()> {
         None => Arc::new(ToolRegistry::new(Box::new(NoopDevice))),
     };
 
+    #[cfg(not(target_os = "android"))]
     let peers = match settings
         .get("peerToken")
         .and_then(Value::as_str)
@@ -192,6 +194,7 @@ async fn main() -> anyhow::Result<()> {
         }
         None => None,
     };
+    #[cfg(not(target_os = "android"))]
     let peers_for_start = peers.clone();
 
     let baby = settings
@@ -214,10 +217,12 @@ async fn main() -> anyhow::Result<()> {
         models_dir,
         installs: Arc::new(Mutex::new(HashMap::new())),
         rkllm,
+        #[cfg(not(target_os = "android"))]
         peers,
         baby,
     };
 
+    #[cfg(not(target_os = "android"))]
     if let Some(peers) = peers_for_start {
         let bind_ip = host;
         // mDNS advertises a concrete address; 0.0.0.0 means "any interface",
@@ -261,12 +266,15 @@ async fn main() -> anyhow::Result<()> {
             post(peer::call_peer_tool),
         )
         .route("/api/v1/peer/models", get(peer::list_peer_models))
-        .route("/api/v1/nodes", get(peer::list_nodes))
         .route("/api/v1/baby/state", get(peer::baby_state))
         .route("/mcp", post(mcp::handle))
         .route("/v1/models", get(models::openai_models))
-        .route("/v1/chat/completions", post(chat::chat_completions))
-        .with_state(state);
+        .route("/v1/chat/completions", post(chat::chat_completions));
+
+    #[cfg(not(target_os = "android"))]
+    let app = app.route("/api/v1/nodes", get(peer::list_nodes));
+
+    let app = app.with_state(state);
 
     let addr = SocketAddr::new(host, port);
     tracing::info!("lociant-server listening on {addr}");
@@ -276,26 +284,11 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn local_lan_ip() -> Option<std::net::IpAddr> {
-    // Pick the first private IPv4 on a real interface, skipping loopback,
-    // link-local and adb/container virtual ranges (e.g. 198.18.x.x).
-    if_addrs::get_if_addrs()
-        .ok()?
-        .into_iter()
-        .filter(|iface| !iface.is_loopback())
-        .filter_map(|iface| match iface.ip() {
-            std::net::IpAddr::V4(ip) => Some(ip),
-            _ => None,
-        })
-        .filter(|ip| {
-            !ip.is_unspecified()
-                && !ip.is_link_local()
-                && !(ip.octets()[0] == 198 && ip.octets()[1] == 18)
-                && (ip.octets()[0] == 10
-                    || (ip.octets()[0] == 172 && (16..=31).contains(&ip.octets()[1]))
-                    || ip.octets()[0] == 192)
-        })
-        .map(std::net::IpAddr::V4)
-        .next()
+    use std::net::UdpSocket;
+    // Learn the outbound interface address without sending anything.
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("192.168.1.1:9").ok()?;
+    socket.local_addr().ok().map(|addr| addr.ip())
 }
 
 fn load_headless_config(mut settings: Value) -> Value {
