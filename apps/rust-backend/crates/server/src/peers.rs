@@ -361,15 +361,14 @@ impl PeerManager {
     pub fn peer_models(&self) -> Vec<Value> {
         let mut models = Vec::new();
         for node in self.nodes() {
-            let Ok(response) = self
-                .client
-                .get(format!(
-                    "http://{}:{}/api/v1/peer/models",
-                    node.host, node.port
-                ))
-                .bearer_auth(&self.token)
-                .send()
-            else {
+            let mut request = self.client.get(format!(
+                "http://{}:{}/api/v1/peer/models",
+                node.host, node.port
+            ));
+            if !self.token.is_empty() {
+                request = request.bearer_auth(&self.token);
+            }
+            let Ok(response) = request.send() else {
                 tracing::warn!("peer models fetch failed for {}", node.id);
                 continue;
             };
@@ -450,10 +449,14 @@ impl DeviceAdapter for HttpPeerAdapter {
     }
 
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError> {
-        let response = self
-            .client
-            .post(format!("{}/api/v1/peer/tools/{name}/calls", self.base_url))
-            .bearer_auth(&self.token)
+        let mut request = self.client.post(format!(
+            "{}/api/v1/peer/tools/{name}/calls",
+            self.base_url
+        ));
+        if !self.token.is_empty() {
+            request = request.bearer_auth(&self.token);
+        }
+        let response = request
             .json(&json!({ "arguments": arguments }))
             .send()
             .map_err(|error| ToolError::Adapter(format!("peer {name} call failed: {error}")))?;
@@ -486,12 +489,13 @@ impl HttpPeerAdapter {
     }
 
     fn fetch_tools(&self) -> Option<Vec<ToolDescriptor>> {
-        let Ok(response) = self
+        let mut request = self
             .client
-            .get(format!("{}/api/v1/peer/tools", self.base_url))
-            .bearer_auth(&self.token)
-            .send()
-        else {
+            .get(format!("{}/api/v1/peer/tools", self.base_url));
+        if !self.token.is_empty() {
+            request = request.bearer_auth(&self.token);
+        }
+        let Ok(response) = request.send() else {
             return None;
         };
         let Ok(body) = response.json::<Value>() else {

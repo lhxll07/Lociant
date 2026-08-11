@@ -155,35 +155,50 @@ async fn main() -> anyhow::Result<()> {
         None => Arc::new(ToolRegistry::new(Box::new(NoopDevice))),
     };
 
-    let peers = match settings
-        .get("peerToken")
-        .and_then(Value::as_str)
-        .filter(|token| !token.is_empty())
-    {
-        Some(token) => {
-            let self_id = settings
-                .get("peerId")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-                .unwrap_or_else(|| {
-                    std::env::var("HOSTNAME")
-                        .or_else(|_| std::env::var("HOST"))
-                        .unwrap_or_else(|_| "lociant-node".to_owned())
-                });
-            let self_name = settings
-                .get("peerName")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-                .unwrap_or_else(|| self_id.clone());
-            Some(Arc::new(peers::PeerManager::new(
-                tools.clone(),
-                self_id,
-                self_name,
-                token.to_owned(),
-                port,
-            )))
-        }
-        None => None,
+    // Peer networking is always enabled: without a peer token the plane is
+    // open (like the control plane), so trusted LAN devices interconnect
+    // out of the box. Setting `peerToken` on every node adds a shared secret.
+    let peers = {
+        let self_id = settings
+            .get("peerId")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                // A stable, unique peer id matters: discovery drops packets
+                // whose id equals our own, so a shared default would make
+                // every node ignore every other node. Prefer the host name
+                // (or /etc/hostname on Android) plus the platform.
+                let host = std::env::var("HOSTNAME")
+                    .or_else(|_| std::env::var("HOST"))
+                    .unwrap_or_default();
+                let host = if host.is_empty() || host == "localhost" {
+                    std::fs::read_to_string("/etc/hostname")
+                        .ok()
+                        .map(|s| s.trim().to_owned())
+                        .filter(|s| !s.is_empty() && s != "localhost")
+                        .unwrap_or_else(|| "lociant-node".to_owned())
+                } else {
+                    host
+                };
+                format!("{host}-{}", std::env::consts::OS)
+            });
+        let self_name = settings
+            .get("peerName")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| self_id.clone());
+        let peer_token = settings
+            .get("peerToken")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+        Some(Arc::new(peers::PeerManager::new(
+            tools.clone(),
+            self_id,
+            self_name,
+            peer_token,
+            port,
+        )))
     };
     let peers_for_start = peers.clone();
     let manual_peers = settings

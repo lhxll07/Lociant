@@ -157,8 +157,9 @@ fn supplied_token(parts: &axum::http::request::Parts) -> Option<String> {
         })
 }
 
-/// Peer-plane guard: accepts only the configured peer token, so nodes can
-/// call each other's tools/models without gaining control-plane access.
+/// Peer-plane guard: accepts the configured peer token. When no peer token
+/// is configured the plane is open, matching the control-plane behavior, so
+/// nodes on a trusted LAN interconnect out of the box.
 pub struct RequirePeerAuth;
 
 impl FromRequestParts<AppState> for RequirePeerAuth {
@@ -175,10 +176,7 @@ impl FromRequestParts<AppState> for RequirePeerAuth {
             .unwrap_or("")
             .to_owned();
         if peer_token.is_empty() {
-            return Err(Box::new(Problem::forbidden(
-                "peer networking is not enabled on this node",
-                "/api/v1/peer",
-            )));
+            return Ok(Self);
         }
         if supplied_token(parts).as_deref() == Some(peer_token.as_str()) {
             Ok(Self)
