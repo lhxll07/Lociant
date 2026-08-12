@@ -273,7 +273,7 @@ pub async fn delete_model(
         ));
     }
     let dir = state.models_dir.join(&model_id);
-    let removed_dir = tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         if dir.exists() {
             std::fs::remove_dir_all(&dir).map_err(|error| error.to_string())?;
         }
@@ -282,7 +282,6 @@ pub async fn delete_model(
     .await
     .map_err(|error| Problem::internal(error.to_string()))?
     .map_err(Problem::internal)?;
-    let _ = removed_dir;
     state
         .store
         .delete_model(&model_id)

@@ -343,7 +343,9 @@ class _ServerPanelState extends State<_ServerPanel> {
     final state = AppScope.maybeOf(context)?.runtime.state;
     _port = TextEditingController(text: '${state?.port ?? 11434}');
     _tokens = TextEditingController(text: '${state?.maxOutputTokens ?? 512}');
-    _token = TextEditingController(text: state?.authToken ?? '');
+    _token = TextEditingController(
+      text: AppScope.maybeOf(context)?.runtime.api.authToken ?? '',
+    );
     _peerToken = TextEditingController();
   }
 
@@ -396,13 +398,16 @@ class _ServerPanelState extends State<_ServerPanel> {
                     Row(
                       children: [
                         FilledButton.tonal(
-                          onPressed: () => runtime.updateSettings({'authToken': _token.text.trim()}),
+                          onPressed: () => runtime.updateSettings({
+                            'authToken': _token.text.trim(),
+                          }),
                           child: Text(l10n.commonSave),
                         ),
                         TextButton(
-                          onPressed: () => runtime.updateSettings({
-                            'generateAuthToken': true,
-                          }),
+                          onPressed: () async {
+                            await runtime.generateAuthToken();
+                            _token.text = runtime.api.authToken;
+                          },
                           child: Text(l10n.settingsGenerate),
                         ),
                         TextButton(
@@ -452,9 +457,9 @@ class _ServerPanelState extends State<_ServerPanel> {
             _copyRow(l10n.connectionMcpUrl, '${state?.baseUrl ?? ''}/mcp'),
             _copyRow(
               l10n.connectionAuthHeader,
-              (state?.authToken ?? '').isEmpty
+              runtime.api.authToken.isEmpty
                   ? l10n.connectionAuthDisabled
-                  : l10n.connectionAuthHeaderValue(state!.authToken),
+                  : l10n.connectionAuthHeaderValue(runtime.api.authToken),
             ),
           ],
         );
@@ -755,7 +760,7 @@ class _AdvancedPanel extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: Text(l10n.aboutTitle),
-                subtitle: Text(l10n.aboutVersionLine('2.0.0')),
+              subtitle: Text(l10n.aboutVersionLine('2.0.1')),
             ),
           ],
         );

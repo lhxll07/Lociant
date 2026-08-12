@@ -136,6 +136,9 @@ def warn(name: str, detail: str) -> None:
 
 
 def tool_name(item: dict[str, Any]) -> str:
+    direct = item.get("name")
+    if isinstance(direct, str) and direct:
+        return direct
     function = item.get("function") if isinstance(item.get("function"), dict) else {}
     return str(function.get("name") or "")
 
@@ -159,7 +162,7 @@ def list_tools(base_url: str, headers: dict[str, str], timeout: int) -> tuple[li
         fail(f"/api/v1/tools missing data list: {data}")
     tools = [item for item in items if isinstance(item, dict)]
     names = [tool_name(item) for item in tools if tool_name(item)]
-    levels = sorted({str(item.get("x_lociant_level", "")) for item in tools if item.get("x_lociant_level")})
+    levels = sorted({str(item.get("exposure") or item.get("x_lociant_level") or "") for item in tools if item.get("exposure") or item.get("x_lociant_level")})
     ok("tools", f"{result.elapsed_ms}ms count={len(names)} levels={','.join(levels)}")
     return tools, names
 

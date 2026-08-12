@@ -48,8 +48,7 @@ class HttpPlatformService implements PlatformService {
         final details = _map(await api.get('/api/v1/sessions/$id'));
         return {'session': details};
       case 'updateRuntimeSettings':
-        await api.put('/api/v1/settings', payload);
-        return _map(await api.get('/api/v1/runtime'));
+        return _map(await api.put('/api/v1/settings', payload));
       case 'releaseRuntimeModel':
         return _map(await api.get('/api/v1/runtime'));
       case 'startRuntime':

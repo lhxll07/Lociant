@@ -16,7 +16,9 @@ import 'state/theme_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const useMock = bool.fromEnvironment('LOCIANT_MOCK');
+  final prefs = await SharedPreferences.getInstance();
   final api = ApiClient();
+  api.authToken = prefs.getString('api_auth_token') ?? '';
   final server = DesktopServerProcess(api: api);
   // Desktop bundles ship the Rust backend as a sidecar; start it before the
   // UI connects (no-op when pointing at a remote backend or when the server
@@ -32,7 +34,7 @@ Future<void> main() async {
   } else {
     platform = HttpPlatformService(api);
   }
-  final runtime = RuntimeController(platform, api);
+  final runtime = RuntimeController(platform, api, prefs);
   final chat = ChatController(
     runtime,
     api,
@@ -40,7 +42,6 @@ Future<void> main() async {
   );
   final locale = LocaleController();
   final theme = ThemeController();
-  final prefs = await SharedPreferences.getInstance();
   final onboardingDone = prefs.getBool('onboarding_done') ?? false;
   runApp(
     LociantApp(

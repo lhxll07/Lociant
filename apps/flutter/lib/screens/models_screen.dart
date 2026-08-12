@@ -122,6 +122,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
         }
       }
     }
+
     poll();
   }
 
@@ -474,10 +475,11 @@ class _CloudViewState extends State<_CloudView> {
   }
 
   void _save() {
+    final apiKey = _apiKey.text.trim();
     AppScope.of(context).runtime.updateSettings({
       'cloudEnabled': _enabled,
       'cloudBaseUrl': _baseUrl.text.trim(),
-      'cloudApiKey': _apiKey.text.trim(),
+      if (apiKey.isNotEmpty) 'cloudApiKey': apiKey,
       'cloudModel': _model.text.trim(),
       'cloudMaxOutputTokens': int.tryParse(_tokens.text) ?? 0,
       'cloudContextWindow': int.tryParse(_context.text) ?? 131072,
@@ -504,6 +506,15 @@ class _CloudViewState extends State<_CloudView> {
         _field(l10n.settingsCloudHistoryLimit, _history, numeric: true),
         const SizedBox(height: 12),
         FilledButton(onPressed: _save, child: Text(l10n.commonSave)),
+        TextButton(
+          onPressed: () {
+            _apiKey.clear();
+            AppScope.of(
+              context,
+            ).runtime.updateSettings({'clearCloudApiKey': true});
+          },
+          child: Text(l10n.settingsClear),
+        ),
       ],
     );
   }

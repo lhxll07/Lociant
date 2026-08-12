@@ -1,6 +1,7 @@
 //! Control-plane error handling: RFC 7807 problem+json responses and the
 //! bearer-token guard shared by every control/data route.
 
+use axum::extract::connect_info::ConnectInfo;
 use axum::extract::FromRequestParts;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
@@ -116,6 +117,9 @@ impl FromRequestParts<AppState> for RequireAuth {
         parts: &mut axum::http::request::Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        if is_loopback_request(parts) {
+            return Ok(Self);
+        }
         let token = state.auth_token();
         if token.is_empty() {
             return Ok(Self);
@@ -139,6 +143,13 @@ impl FromRequestParts<AppState> for RequireAuth {
             Err(Box::new(Problem::unauthorized("")))
         }
     }
+}
+
+pub fn is_loopback_request(parts: &axum::http::request::Parts) -> bool {
+    parts
+        .extensions
+        .get::<ConnectInfo<std::net::SocketAddr>>()
+        .is_some_and(|ConnectInfo(address)| address.ip().is_loopback())
 }
 
 fn supplied_token(parts: &axum::http::request::Parts) -> Option<String> {

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api_client.dart';
 import '../core/models.dart';
@@ -13,12 +15,13 @@ import '../platform/platform_service.dart';
 /// arrives. The API client base URL and auth token follow the state so the
 /// rest of the app never has to know where the server lives.
 class RuntimeController extends ChangeNotifier {
-  RuntimeController(this.platform, this.api) {
+  RuntimeController(this.platform, this.api, this.prefs) {
     _subscription = platform.events().listen(_onEvent);
   }
 
   final PlatformService platform;
   final ApiClient api;
+  final SharedPreferences prefs;
 
   RuntimeUiState? state;
   bool chatInFlight = false;
@@ -48,10 +51,10 @@ class RuntimeController extends ChangeNotifier {
         next.remove('sessions');
       }
       final parsed = RuntimeUiState.fromJson(next);
+      await _adoptLocalToken(parsed.authToken);
       if (state == null || _changed(state!, parsed)) {
         state = parsed;
         api.baseUrl = parsed.baseUrl;
-        api.authToken = parsed.authToken;
         notifyListeners();
       }
     } catch (error) {
@@ -71,10 +74,10 @@ class RuntimeController extends ChangeNotifier {
         map.remove('sessions');
       }
       final parsed = RuntimeUiState.fromJson(map);
+      unawaited(_adoptLocalToken(parsed.authToken));
       if (state == null || _changed(state!, parsed)) {
         state = parsed;
         api.baseUrl = parsed.baseUrl;
-        api.authToken = parsed.authToken;
         notifyListeners();
       }
     } else if (type == 'modelInstallResult') {
@@ -85,6 +88,12 @@ class RuntimeController extends ChangeNotifier {
   Map<String, dynamic> _stringMap(Map payload) => {
     for (final entry in payload.entries) '${entry.key}': entry.value,
   };
+
+  Future<void> _adoptLocalToken(String token) async {
+    if (token.isEmpty || token == api.authToken) return;
+    api.authToken = token;
+    await prefs.setString('api_auth_token', token);
+  }
 
   bool _changed(RuntimeUiState before, RuntimeUiState after) {
     return before.raw.toString() != after.raw.toString();
@@ -102,8 +111,29 @@ class RuntimeController extends ChangeNotifier {
 
   Future<void> startRuntime() => callAndRefresh('startRuntime');
   Future<void> stopRuntime() => callAndRefresh('stopRuntime');
-  Future<void> updateSettings(Map<String, dynamic> payload) =>
-      callAndRefresh('updateRuntimeSettings', payload);
+  Future<void> updateSettings(Map<String, dynamic> payload) async {
+    final nextToken = payload['authToken'];
+    await platform.call('updateRuntimeSettings', payload);
+    if (nextToken is String) {
+      api.authToken = nextToken.trim();
+      if (api.authToken.isEmpty) {
+        await prefs.remove('api_auth_token');
+      } else {
+        await prefs.setString('api_auth_token', api.authToken);
+      }
+    }
+    await refresh();
+  }
+
+  Future<void> generateAuthToken() async {
+    final random = Random.secure();
+    final token = List<int>.generate(
+      32,
+      (_) => random.nextInt(256),
+    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    await updateSettings({'authToken': token});
+  }
+
   Future<void> releaseModel() => callAndRefresh('releaseRuntimeModel');
   Future<void> createSession() => callAndRefresh('createSession');
   Future<void> selectSession(String sessionId) =>

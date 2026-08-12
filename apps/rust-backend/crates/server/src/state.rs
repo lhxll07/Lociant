@@ -38,6 +38,10 @@ impl AppState {
         self.settings.lock().expect("settings lock").clone()
     }
 
+    pub fn public_settings_snapshot(&self) -> Value {
+        redact_settings(self.settings_snapshot())
+    }
+
     /// Cached peer baby snapshot (1s TTL).
     pub fn baby_cache(&self, node_id: &str) -> Option<Value> {
         let cache = self.baby_cache.lock().expect("baby cache lock");
@@ -88,13 +92,7 @@ impl AppState {
     /// and persists the result to SQLite before returning it.
     pub fn merge_settings(&self, patch: &Value) -> Value {
         let mut current = self.settings.lock().expect("settings lock");
-        if let (Some(current_obj), Some(patch_obj)) = (current.as_object_mut(), patch.as_object()) {
-            for (key, value) in patch_obj {
-                current_obj.insert(key.clone(), value.clone());
-            }
-        } else if patch.is_object() {
-            *current = patch.clone();
-        }
+        merge_settings_value(&mut current, patch);
         let next = current.clone();
         drop(current);
         if let Err(error) = self.store.set_json("settings", &next) {
@@ -110,5 +108,73 @@ impl AppState {
         let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
         socket.connect("8.8.8.8:80").ok()?;
         socket.local_addr().ok().map(|addr| addr.ip())
+    }
+}
+
+fn merge_settings_value(current: &mut Value, patch: &Value) {
+    let (Some(current_obj), Some(patch_obj)) = (current.as_object_mut(), patch.as_object()) else {
+        return;
+    };
+    let clear_cloud_key = patch_obj
+        .get("clearCloudApiKey")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    for (key, value) in patch_obj {
+        if key == "clearCloudApiKey" || key == "generateAuthToken" {
+            continue;
+        }
+        if key == "cloudApiKey" && value.as_str() == Some("") && !clear_cloud_key {
+            continue;
+        }
+        current_obj.insert(key.clone(), value.clone());
+    }
+    if clear_cloud_key {
+        current_obj.insert("cloudApiKey".to_owned(), Value::String(String::new()));
+    }
+}
+
+fn redact_settings(mut settings: Value) -> Value {
+    if let Some(object) = settings.as_object_mut() {
+        for key in ["authToken", "peerToken", "cloudApiKey"] {
+            if object.contains_key(key) {
+                object.insert(key.to_owned(), Value::String(String::new()));
+            }
+        }
+    }
+    settings
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{merge_settings_value, redact_settings};
+    use serde_json::json;
+
+    #[test]
+    fn public_settings_never_expose_secrets() {
+        let settings = redact_settings(json!({
+            "authToken": "api-secret",
+            "peerToken": "peer-secret",
+            "cloudApiKey": "cloud-secret",
+            "cloudModel": "model",
+        }));
+        assert_eq!(settings["authToken"], "");
+        assert_eq!(settings["peerToken"], "");
+        assert_eq!(settings["cloudApiKey"], "");
+        assert_eq!(settings["cloudModel"], "model");
+    }
+
+    #[test]
+    fn blank_cloud_key_preserves_secret_until_explicit_clear() {
+        let mut settings = json!({ "cloudApiKey": "secret", "cloudModel": "old" });
+        merge_settings_value(
+            &mut settings,
+            &json!({ "cloudApiKey": "", "cloudModel": "new" }),
+        );
+        assert_eq!(settings["cloudApiKey"], "secret");
+        assert_eq!(settings["cloudModel"], "new");
+
+        merge_settings_value(&mut settings, &json!({ "clearCloudApiKey": true }));
+        assert_eq!(settings["cloudApiKey"], "");
+        assert!(settings.get("clearCloudApiKey").is_none());
     }
 }

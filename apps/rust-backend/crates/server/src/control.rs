@@ -1,3 +1,4 @@
+use axum::extract::connect_info::ConnectInfo;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -9,6 +10,7 @@ use crate::error::{Problem, RequireAuth};
 use crate::state::AppState;
 
 pub async fn runtime(
+    ConnectInfo(address): ConnectInfo<std::net::SocketAddr>,
     State(state): State<AppState>,
     _: RequireAuth,
 ) -> Result<Json<lociant_core::RuntimeState>, Problem> {
@@ -37,7 +39,11 @@ pub async fn runtime(
         .lan_ip()
         .map(|ip| format!("http://{ip}:{}", state.port))
         .unwrap_or_default();
-    rt.auth_token = state.auth_token();
+    rt.auth_token = if address.ip().is_loopback() {
+        state.auth_token()
+    } else {
+        String::new()
+    };
     rt.model_id = model_id;
     rt.model_loaded = cloud_enabled && !cloud_model.is_empty();
     rt.inference_backend = settings
@@ -52,11 +58,7 @@ pub async fn runtime(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_owned();
-    rt.cloud_api_key = settings
-        .get("cloudApiKey")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_owned();
+    rt.cloud_api_key = String::new();
     rt.cloud_max_output_tokens = settings
         .get("cloudMaxOutputTokens")
         .and_then(Value::as_u64)
@@ -86,7 +88,7 @@ pub async fn runtime(
 }
 
 pub async fn get_settings(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
-    Json(state.settings_snapshot())
+    Json(state.public_settings_snapshot())
 }
 
 pub async fn put_settings(
@@ -94,7 +96,8 @@ pub async fn put_settings(
     _: RequireAuth,
     Json(patch): Json<Value>,
 ) -> Json<Value> {
-    Json(state.merge_settings(&patch))
+    state.merge_settings(&patch);
+    Json(state.public_settings_snapshot())
 }
 
 pub async fn list_sessions(

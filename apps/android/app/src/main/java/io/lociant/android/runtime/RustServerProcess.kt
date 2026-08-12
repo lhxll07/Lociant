@@ -11,8 +11,8 @@ import java.util.zip.ZipFile
  *
  * The binary ships in jniLibs; Android forbids executing from the native
  * library directory directly, so it is copied to private storage first. Data
- * lives under `filesDir/lociant/rust-data`. Port 11435 keeps it side by side
- * with the Kotlin server (11434) during the transition.
+ * lives under `filesDir/lociant/rust-data`. It listens on port 11434 for both
+ * the local Flutter UI and authenticated peers on the LAN.
  */
 object RustServerProcess {
     private const val TAG = "LociantRustServer"
@@ -38,6 +38,7 @@ object RustServerProcess {
             val dataDir = File(context.filesDir, "lociant/rust-data").apply { mkdirs() }
             val builder = ProcessBuilder(binary.absolutePath)
             builder.environment()["LOCIANT_DATA_DIR"] = dataDir.absolutePath
+            builder.environment()["LOCIANT_HOST"] = "0.0.0.0"
             builder.environment()["LOCIANT_PORT"] = PORT.toString()
             builder.environment()["LOCIANT_MODELS_DIR"] =
                 File(context.getExternalFilesDir(null), "models").absolutePath
