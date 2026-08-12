@@ -1,0 +1,24 @@
+[Unit]
+Description=Lociant headless agent node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lociant
+Group=lociant
+StateDirectory=lociant
+Environment=LOCIANT_DATA_DIR=%S/lociant
+Environment=LOCIANT_MODELS_DIR=%S/lociant/models
+Environment=LOCIANT_HOST=127.0.0.1
+Environment=LOCIANT_CONFIG=/etc/lociant/config.json
+ExecStart=/usr/bin/lociant-server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

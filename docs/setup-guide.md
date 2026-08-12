@@ -22,7 +22,7 @@
 
 下载最新 APK 并安装（Android 8.0+，`arm64-v8a`）：
 
-[下载 Lociant v2.0.0 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-arm64-v8a-release.apk)
+[下载 Lociant v2.0.1 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
 
 安装时系统提示“允许安装未知来源应用”，按提示允许即可。
 
@@ -77,11 +77,18 @@ http://手机IP:11434
 
 ### 2.1 安装
 
-下载并解压（包内已内置 Rust 后端，无需额外安装服务）：
+Debian / Ubuntu 推荐直接安装 DEB：
 
 ```bash
-tar -xzf lociant-2.0.0-linux-x86_64.tar.gz
-cd lociant-2.0.0-linux-x86_64
+sudo apt install ./lociant_2.0.1_amd64.deb
+lociant
+```
+
+其他发行版下载并解压（包内已内置 Rust 后端，无需额外安装服务）：
+
+```bash
+tar -xzf lociant-2.0.1-linux-x86_64.tar.gz
+cd lociant-2.0.1-linux-x86_64
 ./lociant_flutter
 ```
 
@@ -135,11 +142,11 @@ cd apps/flutter && flutter run -d linux    # UI
 **推荐：直接下载 aarch64 发布包**（已按板子架构编译好，含 server、TUI
 和部署脚本）：
 
-[下载 Lociant v2.0.0 Linux aarch64](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-aarch64.tar.gz)
+[下载 Lociant v2.0.1 Linux aarch64](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
 
 ```bash
-tar -xzf lociant-2.0.0-linux-aarch64.tar.gz
-cd lociant-2.0.0-linux-aarch64
+tar -xzf lociant-2.0.1-linux-aarch64.tar.gz
+cd lociant-2.0.1-linux-aarch64
 ```
 
 改了源码需要自己编译时，在 PC 上先装交叉编译工具链：
@@ -159,6 +166,17 @@ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
 cargo build --release --target aarch64-unknown-linux-gnu
 ```
 
+也可在 Debian / Ubuntu / Armbian 上直接安装无头节点包：
+
+```bash
+sudo apt install ./lociant-node_2.0.1_arm64.deb
+sudo systemctl status lociant
+```
+
+DEB 默认仅监听 `127.0.0.1`。需要从局域网访问时，在
+`/etc/lociant/config.json` 中加入 `"host": "0.0.0.0"`，设置 API 令牌后
+重启服务。模型建议放在 `/var/lib/lociant/models/`。
+
 ### 3.3 上传并安装服务
 
 把二进制和安装脚本传到板子：
@@ -176,9 +194,8 @@ sudo bash /tmp/install.sh /tmp/lociant-server
 sudo cp /tmp/lociant-tui /usr/local/bin/
 ```
 
-> 注意：`deploy/lociant.service` 里 `User/Group` 默认是 `lhx`。用户名不同
-> 的话，先编辑它（或运行 `sudo systemctl edit lociant` 覆盖），并确保
-> `/home/你的用户名/lociant/data` 目录存在。
+> 安装脚本会使用执行 `sudo` 的当前用户运行服务，并自动写入对应的数据目录，
+> 不需要手动修改 service 文件里的用户占位符。
 
 ### 3.4 初始化配置
 

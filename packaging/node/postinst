@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+if ! getent group lociant >/dev/null 2>&1; then
+    addgroup --system lociant
+fi
+if ! getent passwd lociant >/dev/null 2>&1; then
+    adduser --system --ingroup lociant --home /var/lib/lociant \
+        --no-create-home --disabled-login lociant
+fi
+install -d -o lociant -g lociant -m 0750 /var/lib/lociant /var/lib/lociant/models
+chown root:lociant /etc/lociant/config.json
+chmod 0640 /etc/lociant/config.json
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload || true
+    systemctl enable lociant.service || true
+    systemctl restart lociant.service || true
+fi
+
+exit 0

@@ -40,9 +40,13 @@ Lociant 让一台普通设备（旧手机、Linux 电脑、RK 开发板）成为
 
 当前发布包：
 
-[下载 Lociant v2.0.0 APK（Android arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-arm64-v8a-release.apk) ·
-[下载 Lociant v2.0.0 Linux（x86_64 桌面）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-x86_64.tar.gz) ·
-[下载 Lociant v2.0.0 Linux（aarch64 开发板）](https://github.com/lhxll07/Lociant/releases/download/v2.0.0/lociant-2.0.0-linux-aarch64.tar.gz)
+[下载 Lociant v2.0.1 APK（Android arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk) ·
+[下载 Linux x86_64 桌面版](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz) ·
+[下载 Linux aarch64 开发板版](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
+
+Debian / Ubuntu 也可直接安装
+[x86_64 桌面 DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb) 或
+[arm64 无头节点 DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb)。
 
 ## 架构
 
