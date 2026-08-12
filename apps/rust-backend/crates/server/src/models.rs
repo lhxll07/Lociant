@@ -272,14 +272,21 @@ pub async fn delete_model(
             &format!("/api/v1/models/{model_id}"),
         ));
     }
+    let dir = state.models_dir.join(&model_id);
+    let removed_dir = tokio::task::spawn_blocking(move || {
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).map_err(|error| error.to_string())?;
+        }
+        Ok::<_, String>(())
+    })
+    .await
+    .map_err(|error| Problem::internal(error.to_string()))?
+    .map_err(Problem::internal)?;
+    let _ = removed_dir;
     state
         .store
         .delete_model(&model_id)
         .map_err(|e| Problem::internal(e.to_string()))?;
-    let dir = state.models_dir.join(&model_id);
-    if dir.exists() {
-        std::fs::remove_dir_all(&dir).map_err(|e| Problem::internal(e.to_string()))?;
-    }
     if let Ok(mut installs) = state.installs.lock() {
         installs.remove(&model_id);
     }
@@ -364,7 +371,7 @@ async fn run_install(state: AppState, entry: CatalogEntry) {
     update_job(&state, &entry.id, Some(0.0), "Starting", true, "installing");
     let files = match &entry.files {
         Some(files) if !files.is_empty() => files.clone(),
-        _ => match catalog::repo_files(&state.http, &entry.repo).await {
+        _ => match catalog::repo_files(&state.download_http, &entry.repo).await {
             Ok(files) if !files.is_empty() => files,
             Ok(_) => {
                 fail_install(
@@ -417,7 +424,7 @@ async fn run_install(state: AppState, entry: CatalogEntry) {
             "Downloading {}",
             file.path.rsplit('/').next().unwrap_or(&file.path)
         );
-        match download_to_file(&state.http, &url, &out, &file.sha256, |delta| {
+        match download_to_file(&state.download_http, &url, &out, &file.sha256, |delta| {
             downloaded += delta;
             let progress = if total > 0 {
                 Some((downloaded as f64 / total as f64).clamp(0.0, 0.99))

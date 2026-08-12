@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 #[cfg(feature = "slumberguard")]
-use std::sync::Mutex;
+use std::sync::RwLock;
 #[cfg(feature = "slumberguard")]
 use std::time::Duration;
 
@@ -23,7 +23,7 @@ use slumberguard_source::linux::{FfmpegMotionSource, MicEnergySource, NoopSemant
 
 #[cfg(feature = "slumberguard")]
 pub struct BabyService {
-    runtime: Arc<Mutex<MonitorRuntime<FfmpegMotionSource, MicEnergySource, NoopSemanticJudge>>>,
+    snapshot: Arc<RwLock<Value>>,
 }
 
 #[cfg(feature = "slumberguard")]
@@ -38,48 +38,66 @@ impl BabyService {
             BabyStateEngine::new(EngineConfig::default()),
             MonitorConfig::default(),
         );
+        let snapshot = Arc::new(RwLock::new(json!({
+            "state": "Idle",
+            "latest": Value::Null,
+            "audioError": Value::Null,
+            "events": [],
+        })));
         let service = Arc::new(Self {
-            runtime: Arc::new(Mutex::new(runtime)),
+            snapshot: snapshot.clone(),
         });
-        let runtime = service.runtime.clone();
-        std::thread::spawn(move || loop {
-            if let Ok(mut runtime) = runtime.lock() {
+        std::thread::spawn(move || {
+            let mut runtime = runtime;
+            loop {
                 let _ = runtime.step_once();
+                let value = snapshot_value(&runtime);
+                if let Ok(mut current) = snapshot.write() {
+                    *current = value;
+                }
+                std::thread::sleep(Duration::from_millis(500));
             }
-            std::thread::sleep(Duration::from_millis(500));
         });
         tracing::info!("baby monitor started (camera: {camera_device})");
         service
     }
 
     fn snapshot_value(&self) -> Value {
-        let runtime = self.runtime.lock().expect("baby runtime lock");
-        let (state, latest, events) =
-            (runtime.state(), runtime.latest(), runtime.recent_events(20));
-        let latest_json = latest.map(|event| {
-            json!({
-                "state": format!("{state:?}"),
-                "action": format!("{:?}", event.decision.action),
-                "reason": event.decision.reason,
-                "motion": event.evidence.visual.motion_strength,
-                "audio": format!("{:?}", event.evidence.audio),
-            })
-        });
-        let audio_error = runtime.audio_error();
+        self.snapshot
+            .read()
+            .map(|snapshot| snapshot.clone())
+            .unwrap_or_else(|_| json!({ "error": "baby monitor unavailable" }))
+    }
+}
+
+#[cfg(feature = "slumberguard")]
+fn snapshot_value(
+    runtime: &MonitorRuntime<FfmpegMotionSource, MicEnergySource, NoopSemanticJudge>,
+) -> Value {
+    let (state, latest, events) = (runtime.state(), runtime.latest(), runtime.recent_events(20));
+    let latest_json = latest.map(|event| {
         json!({
             "state": format!("{state:?}"),
-            "latest": latest_json,
-            "audioError": audio_error,
-            "events": events.iter().map(|event| json!({
-                "state": format!("{:?}", event.decision.state),
-                "action": format!("{:?}", event.decision.action),
-                "reason": event.decision.reason,
-                "motion": event.evidence.visual.motion_strength,
-                "audio": format!("{:?}", event.evidence.audio),
-                "timestamp": event.evidence.timestamp,
-            })).collect::<Vec<_>>(),
+            "action": format!("{:?}", event.decision.action),
+            "reason": event.decision.reason,
+            "motion": event.evidence.visual.motion_strength,
+            "audio": format!("{:?}", event.evidence.audio),
         })
-    }
+    });
+    let audio_error = runtime.audio_error();
+    json!({
+        "state": format!("{state:?}"),
+        "latest": latest_json,
+        "audioError": audio_error,
+        "events": events.iter().map(|event| json!({
+            "state": format!("{:?}", event.decision.state),
+            "action": format!("{:?}", event.decision.action),
+            "reason": event.decision.reason,
+            "motion": event.evidence.visual.motion_strength,
+            "audio": format!("{:?}", event.evidence.audio),
+            "timestamp": event.evidence.timestamp,
+        })).collect::<Vec<_>>(),
+    })
 }
 
 #[cfg(feature = "slumberguard")]

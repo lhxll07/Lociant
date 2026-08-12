@@ -224,6 +224,10 @@ async fn main() -> anyhow::Result<()> {
         port,
         http: reqwest::Client::builder()
             .connect_timeout(std::time::Duration::from_secs(15))
+            .timeout(std::time::Duration::from_secs(15))
+            .build()?,
+        download_http: reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(15))
             .timeout(std::time::Duration::from_secs(600))
             .build()?,
         tools,
@@ -249,7 +253,9 @@ async fn main() -> anyhow::Result<()> {
                     continue;
                 };
                 let name = item.get("name").and_then(Value::as_str).map(str::to_owned);
-                peers.add_manual_peer(host.to_owned(), port as u16, name);
+                if let Err(error) = peers.add_manual_peer(host.to_owned(), port as u16, name) {
+                    tracing::warn!(%error, "ignoring invalid persisted manual peer");
+                }
             }
         }
         peers.start(peer_discovery);

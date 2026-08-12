@@ -19,7 +19,6 @@ object LociantRuntime {
 
     fun localStore(context: Context): LocalStore = get(context).localStore
 
-    fun serviceState(context: Context) = get(context).server.serviceState()
 
     fun runtimeSummary(context: Context) = get(context).server.runtimeSummary()
 

@@ -20,6 +20,7 @@ pub struct AppState {
     pub settings: Arc<Mutex<Value>>,
     pub port: u16,
     pub http: reqwest::Client,
+    pub download_http: reqwest::Client,
     pub tools: Arc<ToolRegistry>,
     pub device: Option<Arc<IpcDeviceAdapter>>,
     pub catalog: Arc<Vec<CatalogEntry>>,

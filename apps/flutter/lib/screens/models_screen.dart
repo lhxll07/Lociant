@@ -20,6 +20,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
   String _query = '';
   String? _installingId;
   Timer? _pollTimer;
+  bool _polling = false;
 
   @override
   void dispose() {
@@ -87,9 +88,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
     final scope = AppScope.of(context);
     _pollTimer?.cancel();
     var retries = 0;
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 800), (
-      timer,
-    ) async {
+    Future<void> poll() async {
+      if (_polling) return;
+      _polling = true;
       try {
         final data = await scope.runtime.api.get(
           '/api/v1/model-installations/${Uri.encodeComponent(jobId)}',
@@ -104,18 +105,24 @@ class _ModelsScreenState extends State<ModelsScreen> {
           _pendingProgress = progress;
         });
         if (progress.state == 'done' || progress.state == 'error') {
-          timer.cancel();
+          _pollTimer?.cancel();
           _pendingProgress = null;
           await _loadModels();
         }
       } catch (_) {
         retries++;
         if (retries >= 20) {
-          timer.cancel();
+          _pollTimer?.cancel();
           if (mounted) setState(() => _installingId = null);
         }
+      } finally {
+        _polling = false;
+        if (mounted && _installingId != null) {
+          _pollTimer = Timer(const Duration(milliseconds: 800), poll);
+        }
       }
-    });
+    }
+    poll();
   }
 
   InstallProgress? _pendingProgress;

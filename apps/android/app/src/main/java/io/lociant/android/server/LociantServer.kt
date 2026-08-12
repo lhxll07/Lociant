@@ -87,7 +87,6 @@ class LociantServer(
     }
 
     fun state(): JSONObject = buildStateJson("api.server.state", includeSensitive = true)
-    fun serviceState(): JSONObject = buildStateJson(null, includeSensitive = true)
     fun uiState(): JSONObject = buildStateJson(null, includeSensitive = true)
     fun runtimeSummary(): JSONObject = buildStateJson(null)
 
@@ -196,13 +195,6 @@ class LociantServer(
             .put("authToken", authToken)
             .put("toolExposure", toolExposure.id)
             .put("autoStart", autoStart).put("currentSessionId", currentSessionId))
-    }
-
-    private fun settingsFrom(payload: JSONObject): JSONObject {
-        val saved = localStore.getObject(SETTINGS_NAMESPACE, SETTINGS_KEY)
-        val merged = JSONObject(saved.toString())
-        payload.keys().forEach { key -> merged.put(key, payload.opt(key)) }
-        return merged
     }
 
     private fun applySettings(settings: JSONObject) {

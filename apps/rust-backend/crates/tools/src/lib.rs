@@ -155,13 +155,8 @@ impl ToolRegistry {
         arguments: Value,
         exposure: &str,
     ) -> Result<ToolResult, ToolError> {
-        let adapter = self
-            .adapter_for(name)
-            .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
-        let tool = adapter
-            .tools()
-            .into_iter()
-            .find(|tool| tool.name == name)
+        let (adapter, tool) = self
+            .adapter_and_tool(name)
             .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
         if !tool.remote_allowed {
             return Err(ToolError::NotAllowed(format!(
@@ -184,13 +179,8 @@ impl ToolRegistry {
         arguments: Value,
         exposure: &str,
     ) -> Result<ToolResult, ToolError> {
-        let adapter = self
-            .adapter_for(name)
-            .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
-        let tool = adapter
-            .tools()
-            .into_iter()
-            .find(|tool| tool.name == name)
+        let (adapter, tool) = self
+            .adapter_and_tool(name)
             .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
         if !exposure_allows(exposure, &tool.exposure) {
             return Err(ToolError::NotAllowed(format!(
@@ -200,12 +190,15 @@ impl ToolRegistry {
         adapter.call(name, arguments)
     }
 
-    fn adapter_for(&self, name: &str) -> Option<Arc<dyn DeviceAdapter>> {
+    fn adapter_and_tool(&self, name: &str) -> Option<(Arc<dyn DeviceAdapter>, ToolDescriptor)> {
         let adapters = self.adapters.read().ok()?;
-        adapters
-            .iter()
-            .find(|adapter| adapter.tools().iter().any(|tool| tool.name == name))
-            .cloned()
+        adapters.iter().find_map(|adapter| {
+            adapter
+                .tools()
+                .into_iter()
+                .find(|tool| tool.name == name)
+                .map(|tool| (adapter.clone(), tool))
+        })
     }
 }
 

@@ -3,6 +3,7 @@
 //! returning descriptors and enforces policy on every call.
 
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
@@ -89,9 +90,12 @@ pub async fn add_peer(
     State(state): State<AppState>,
     _: RequireAuth,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
     let Some(peers) = &state.peers else {
-        return Json(json!({ "error": "peer networking not enabled (set peerToken in config)" }));
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": "peer networking not enabled (set peerToken in config)" })),
+        );
     };
     let host = body
         .get("host")
@@ -100,12 +104,17 @@ pub async fn add_peer(
         .to_owned();
     let port = body.get("port").and_then(Value::as_u64).unwrap_or(0) as u16;
     if host.is_empty() || port == 0 {
-        return Json(json!({ "error": "host and port are required" }));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "host and port are required" })),
+        );
     }
     let name = body.get("name").and_then(Value::as_str).map(str::to_owned);
-    peers.add_manual_peer(host, port, name);
+    if let Err(error) = peers.add_manual_peer(host, port, name) {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "error": error })));
+    }
     persist_manual_peers(&state);
-    Json(json!({ "ok": true }))
+    (StatusCode::OK, Json(json!({ "ok": true })))
 }
 
 /// `DELETE /api/v1/peers/{node_id}` — 移除一个节点。

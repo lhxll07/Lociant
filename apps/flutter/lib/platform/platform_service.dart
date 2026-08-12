@@ -145,10 +145,10 @@ class AndroidPlatformService extends HttpPlatformService {
     return raw == null || raw.isEmpty ? const {} : _decode(raw);
   }
 
-  Map<String, dynamic> _decode(String raw) =>
-      jsonDecode(raw) is Map<String, dynamic>
-      ? jsonDecode(raw) as Map<String, dynamic>
-      : const {};
+  Map<String, dynamic> _decode(String raw) {
+    final decoded = jsonDecode(raw);
+    return decoded is Map<String, dynamic> ? decoded : const {};
+  }
 }
 
 /// No-op platform service used when no native host is present (e.g. tests).

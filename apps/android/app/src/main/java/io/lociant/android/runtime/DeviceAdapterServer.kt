@@ -92,7 +92,7 @@ class DeviceAdapterServer(
                         ))
                     request.optString("method") == "models.list" ->
                         respond(client, JSONObject().put("ok", true)
-                            .put("models", JSONArray(server.modelManager().listModelsJson(refresh = true))))
+                            .put("models", JSONArray(server.modelManager().listModelsJson(refresh = false))))
                     request.optString("method") == "chat.invoke" ->
                         handleChat(client, request)
                     else -> respond(client, JSONObject().put("ok", false).put("error", "unknown method"))

@@ -182,21 +182,6 @@ impl PeerManager {
         } else {
             tracing::info!("peer discovery disabled; manual peers remain available");
         }
-
-        // Background refresher: keep every peer's tool metadata warm so the
-        // request path only ever hits the cache. Primes immediately, then
-        // runs every TTL. Blocking I/O lives in this dedicated thread.
-        let peers = self.clone();
-        std::thread::spawn(move || loop {
-            let adapters = {
-                let adapters = peers.adapters.lock().expect("adapters lock");
-                adapters.values().cloned().collect::<Vec<_>>()
-            };
-            for adapter in adapters {
-                adapter.refresh_tools();
-            }
-            std::thread::sleep(PEER_TOOLS_TTL);
-        });
     }
 
     fn handle_discovery_packet(&self, addr: SocketAddr, payload: Value) {
@@ -322,14 +307,19 @@ impl PeerManager {
 
     /// Manually registers a peer (host:port) without mDNS, so nodes on any
     /// platform can join by address.
-    pub fn add_manual_peer(&self, host: String, port: u16, name: Option<String>) {
+    pub fn add_manual_peer(
+        &self,
+        host: String,
+        port: u16,
+        name: Option<String>,
+    ) -> Result<(), String> {
         let id = format!("{host}:{port}");
         if id == format!("{}:{}", self.self_id, self.port) {
-            return;
+            return Err("cannot add this node as its own peer".to_owned());
         }
         let host_ip = host
             .parse::<IpAddr>()
-            .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+            .map_err(|_| format!("invalid peer host: {host}"))?;
         let node = PeerNode {
             id: id.clone(),
             name: name.unwrap_or_else(|| id.clone()),
@@ -340,6 +330,7 @@ impl PeerManager {
         };
         self.upsert_peer(node);
         tracing::info!("peer added manually: {id}");
+        Ok(())
     }
 
     pub fn node(&self, id: &str) -> Option<PeerNode> {
@@ -532,7 +523,9 @@ mod tests {
     #[test]
     fn manual_peer_is_available_without_discovery() {
         let manager = manager("self");
-        manager.add_manual_peer("192.0.2.10".to_owned(), 11434, Some("test".to_owned()));
+        manager
+            .add_manual_peer("192.0.2.10".to_owned(), 11434, Some("test".to_owned()))
+            .unwrap();
         let node = manager.node("192.0.2.10:11434").expect("manual peer");
         assert_eq!(node.platform, "manual");
         assert_eq!(node.name, "test");
@@ -540,5 +533,15 @@ mod tests {
             manager.peer_base_url(&node.id).expect("peer URL").0,
             "http://192.0.2.10:11434/v1"
         );
+    }
+
+    #[test]
+    fn invalid_manual_peer_host_is_rejected() {
+        let manager = manager("self");
+        let error = manager
+            .add_manual_peer("board.local".to_owned(), 11434, None)
+            .expect_err("invalid host should not fall back to localhost");
+        assert!(error.contains("invalid peer host"));
+        assert!(manager.nodes().is_empty());
     }
 }

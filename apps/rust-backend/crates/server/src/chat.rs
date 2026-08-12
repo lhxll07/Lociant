@@ -125,6 +125,14 @@ pub async fn chat_completions(
         .and_then(Value::as_str)
         .unwrap_or("rkllm")
         .to_owned();
+    let device_has_model = if let Some(device) = state.device.clone() {
+        let model_id = request.model.clone();
+        tokio::task::spawn_blocking(move || device.has_model(&model_id))
+            .await
+            .unwrap_or(false)
+    } else {
+        false
+    };
     let backend: Arc<dyn ChatBackend> = {
         // Node ids may contain a colon (manual peers are "host:port"), so
         // split from the right — model names rarely contain colons.
@@ -164,6 +172,7 @@ pub async fn chat_completions(
                 &cloud_base,
                 &cloud_api_key,
                 enable_thinking,
+                device_has_model,
                 &mut local_model,
             )?
         }
@@ -326,6 +335,7 @@ fn select_local_backend(
     cloud_base: &str,
     cloud_api_key: &str,
     enable_thinking: bool,
+    device_has_model: bool,
     local_model: &mut bool,
 ) -> Result<Arc<dyn ChatBackend>, Problem> {
     if let Some(rkllm) = &state.rkllm {
@@ -345,8 +355,8 @@ fn select_local_backend(
             model: cloud_model.to_owned(),
         }));
     }
-    if let Some(device) = &state.device {
-        if device.has_model(&request.model) {
+    if device_has_model {
+        if let Some(device) = &state.device {
             *local_model = true;
             return Ok(Arc::new(IpcChatBackend {
                 port: device.port,

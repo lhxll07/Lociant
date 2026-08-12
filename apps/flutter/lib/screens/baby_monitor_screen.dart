@@ -20,12 +20,13 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
   Map<String, dynamic>? _data;
   String? _error;
   Timer? _timer;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _load());
+    _scheduleNextLoad();
   }
 
   @override
@@ -35,6 +36,8 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
   }
 
   Future<void> _load() async {
+    if (_loading) return;
+    _loading = true;
     final api = AppScope.of(context).runtime.api;
     try {
       final path = widget.nodeId == null
@@ -49,7 +52,15 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString());
+    } finally {
+      _loading = false;
+      if (mounted) _scheduleNextLoad();
     }
+  }
+
+  void _scheduleNextLoad() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 2), _load);
   }
 
   @override
