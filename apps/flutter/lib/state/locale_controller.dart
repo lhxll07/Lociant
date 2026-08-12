@@ -16,10 +16,10 @@ class LocaleController extends ChangeNotifier {
 
   /// null means "follow the system locale".
   Locale? get locale => switch (_mode) {
-        'zh' => const Locale('zh'),
-        'en' => const Locale('en'),
-        _ => null,
-      };
+    'zh' => const Locale('zh'),
+    'en' => const Locale('en'),
+    _ => null,
+  };
 
   Future<void> _load() async {
     try {

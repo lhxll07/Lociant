@@ -278,8 +278,8 @@ lociant-tui --connect http://板子IP:11434 --token 你的令牌   # 从任意�
 ## 四、多节点互联
 
 手机、电脑、板子在同一局域网，且配置**相同的 `peerToken`**，即可自动发现
-彼此（UDP 广播，无需手动配置）。节点令牌不同或网络隔离时，可以在“节点”页
-手动添加（主机:端口）。
+彼此（UDP 广播，无需手动配置）。节点令牌为空时发现仍可用，但不提供额外认证；
+节点令牌不同或网络隔离时，可以在“节点”页手动添加（主机:端口）。
 
 - **看节点**：UI 的“节点”页，或 `curl http://节点IP:11434/api/v1/nodes`。
 - **互借模型**：其他节点的模型会以 `peer:节点id:模型id` 出现在“模型”页，
@@ -301,8 +301,9 @@ http://设备IP:11434/mcp
 
 ### 5.1 准备工作
 
-1. **设置 API 令牌**：手机/电脑在“设置”里生成或填写 API 令牌；板子改
-   `/etc/lociant/config.json` 的 `authToken`（见 3.4）。
+1. **设置 API 令牌（推荐）**：手机/电脑在“设置”里填写并保存 API 令牌；板子改
+   `/etc/lociant/config.json` 的 `authToken`（见 3.4）。留空时接口对可信局域网开放，
+   不要把这种模式暴露到公网。
 2. **选择工具暴露级别**（“设置 → 远程工具”）：
    - `读取`：只读状态和模型信息，最安全；
    - `传感器`：加上传感器和屏幕上下文；
@@ -310,71 +311,14 @@ http://设备IP:11434/mcp
 3. **确认设备地址**：手机/板子的 IP 在“设置”或 Wi-Fi 详情里看（界面上的
    `lanUrl` 就是）。电脑用 `http://127.0.0.1:11434` 或局域网 IP。
 
-### 5.2 通用配置（任意支持 MCP 的客户端）
+### 5.2 客户端配置
 
-以 Claude Desktop 等支持 `mcpServers` 的客户端为例，把下面这段加入客户端
-配置，替换 `设备IP` 和 `你的API令牌`：
+OpenCode、RikkaHub 和其他 MCP 客户端所需的完整 JSON 配置统一维护在
+[Agent 与 HTTP API 文档](agent-integration.md#mcp-configuration)。连接地址使用
+上面的 MCP 入口；配置了 API 令牌时，发送
+`Authorization: Bearer 你的API令牌`。
 
-```json
-{
-  "mcpServers": {
-    "lociant": {
-      "type": "streamable-http",
-      "url": "http://设备IP:11434/mcp",
-      "headers": { "Authorization": "Bearer 你的API令牌" }
-    }
-  }
-}
-```
-
-### 5.3 OpenCode（电脑）
-
-在 `opencode.json` 中加入（`remote` 是固定类型）：
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "lociant": {
-      "type": "remote",
-      "url": "http://设备IP:11434/mcp",
-      "enabled": true,
-      "timeout": 120000,
-      "headers": {
-        "Authorization": "Bearer 你的API令牌",
-        "Accept": "application/json, text/event-stream"
-      }
-    }
-  }
-}
-```
-
-> `timeout` 必须调大：Lociant 的本地工具（如 `llm_chat`、
-> `ui_screen_state`）经常超过 OpenCode 默认的 5 秒超时。
-
-### 5.4 RikkaHub（手机）
-
-设置 → MCP → 导入，粘贴以下 JSON（`streamable_http` 的 `headers` 是
-`[名称, 值]` 对数组）：
-
-```json
-{
-  "type": "streamable_http",
-  "commonOptions": {
-    "name": "Lociant 设备工具",
-    "enable": true,
-    "headers": [
-      ["Authorization", "Bearer 你的API令牌"]
-    ]
-  },
-  "url": "http://设备IP:11434/mcp"
-}
-```
-
-导入后在“助手设置 → MCP 服务器”中勾选它；对会改动设备状态的工具建议
-开启“需要审批”。
-
-### 5.5 验证是否接上
+### 5.3 验证是否接上
 
 连接后先问外部 Agent 一句：“你有哪些工具？”它应该能列出 Lociant 的
 `runtime_status`、`ui_*`、`sensor_*`、`camera_capture` 等工具。也可以在
@@ -393,14 +337,16 @@ python scripts/lociant_test.py full \
 
 ## 安全提醒
 
-Lociant 面向局域网使用，接口为 HTTP。请务必设置 API 令牌，不要把 `11434`
-端口直接暴露到公网，也不要向不信任的客户端提供令牌。
+节点发现默认通过 UDP 广播启用。设置配置项 `peerDiscovery` 为 `false` 可关闭
+自动发现和广播；手动配置的节点仍然可用。
+
+Lociant 面向局域网使用，接口为 HTTP。空 API 令牌只适用于可信局域网；要把
+服务绑定到非可信网络前，请设置 API 令牌，不要把 `11434` 端口直接暴露到公网。
 
 ---
 
 ## 开发者与接口参考
 
 - [架构](architecture.md)
-- [Agent 与 MCP 接入](agent-integration.md)
-- [控制 API](control-api.md)
+- [Agent 与 HTTP API](agent-integration.md)
 - [Android 开发说明](../apps/android/README.md)

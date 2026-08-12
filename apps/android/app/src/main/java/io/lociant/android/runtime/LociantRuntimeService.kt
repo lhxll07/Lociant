@@ -60,7 +60,6 @@ class LociantRuntimeService : Service(), LifecycleOwner {
         visionController?.let { VisionRuntime.detach(it) }
         visionController?.close()
         visionController = null
-        runCatching { LociantRuntime.server(this).stopForService() }
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         super.onDestroy()
     }
@@ -115,7 +114,6 @@ class LociantRuntimeService : Service(), LifecycleOwner {
         deviceAdapter?.stop()
         deviceAdapter = null
         RustServerProcess.stop()
-        runCatching { LociantRuntime.server(this).stopForService() }
         stopForegroundCompat()
         stopSelf()
     }

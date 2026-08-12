@@ -78,8 +78,8 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
               ),
             )
           : _data == null
-              ? const Center(child: CircularProgressIndicator())
-              : _buildBody(l10n),
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(l10n),
     );
   }
 
@@ -101,7 +101,9 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
           const SizedBox(height: 16),
           Text(
             l10n.babyEvents,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           if (events.isEmpty)
@@ -109,7 +111,9 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 l10n.babyNoEvents,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
               ),
             )
           else
@@ -118,7 +122,8 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   children: [
-                    for (final event in events.take(15)) _EventRow(event: event, l10n: l10n),
+                    for (final event in events.take(15))
+                      _EventRow(event: event, l10n: l10n),
                   ],
                 ),
               ),
@@ -185,7 +190,8 @@ class _StateCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: motion.clamp(0.0, 1.0),
                       minHeight: 8,
-                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                      backgroundColor:
+                          theme.colorScheme.surfaceContainerHighest,
                     ),
                   ),
                 ),
@@ -230,7 +236,9 @@ class _EventRow extends StatelessWidget {
       subtitle: Text(event['reason'] as String? ?? ''),
       trailing: Text(
         _formatTime(timestamp),
-        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.outline,
+        ),
       ),
     );
   }
@@ -247,17 +255,41 @@ class _StateInfo {
 _StateInfo _stateInfo(String state, AppLocalizations l10n) {
   switch (state) {
     case 'Candidate':
-      return _StateInfo(l10n.babyStateCandidate, Colors.orange, Icons.visibility_outlined);
+      return _StateInfo(
+        l10n.babyStateCandidate,
+        Colors.orange,
+        Icons.visibility_outlined,
+      );
     case 'Soothing1':
-      return _StateInfo(l10n.babyStateSoothing1, Colors.lightBlue, Icons.volume_up_outlined);
+      return _StateInfo(
+        l10n.babyStateSoothing1,
+        Colors.lightBlue,
+        Icons.volume_up_outlined,
+      );
     case 'Soothing2':
-      return _StateInfo(l10n.babyStateSoothing2, Colors.indigo, Icons.volume_up);
+      return _StateInfo(
+        l10n.babyStateSoothing2,
+        Colors.indigo,
+        Icons.volume_up,
+      );
     case 'NotifyParent':
-      return _StateInfo(l10n.babyStateNotify, Colors.red, Icons.notification_important_outlined);
+      return _StateInfo(
+        l10n.babyStateNotify,
+        Colors.red,
+        Icons.notification_important_outlined,
+      );
     case 'Cooldown':
-      return _StateInfo(l10n.babyStateCooldown, Colors.blueGrey, Icons.timer_outlined);
+      return _StateInfo(
+        l10n.babyStateCooldown,
+        Colors.blueGrey,
+        Icons.timer_outlined,
+      );
     default:
-      return _StateInfo(l10n.babyStateIdle, Colors.green, Icons.child_care_outlined);
+      return _StateInfo(
+        l10n.babyStateIdle,
+        Colors.green,
+        Icons.child_care_outlined,
+      );
   }
 }
 

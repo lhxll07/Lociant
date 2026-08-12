@@ -4,6 +4,14 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["slumberguard"]
+slumberguard = [
+    "dep:slumberguard-core",
+    "dep:slumberguard-runtime",
+    "dep:slumberguard-source",
+]
+
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
@@ -18,9 +26,9 @@ lociant-tools = { path = "../tools" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-slumberguard-core = { path = "../../../../../slumberguard/crates/core" }
-slumberguard-runtime = { path = "../../../../../slumberguard/crates/runtime" }
-slumberguard-source = { path = "../../../../../slumberguard/crates/source" }
+slumberguard-core = { path = "../../vendor/slumberguard/crates/core", optional = true }
+slumberguard-runtime = { path = "../../vendor/slumberguard/crates/runtime", optional = true }
+slumberguard-source = { path = "../../vendor/slumberguard/crates/source", optional = true }
 socket2.workspace = true
 sha2 = "0.10"
 hex = "0.4"

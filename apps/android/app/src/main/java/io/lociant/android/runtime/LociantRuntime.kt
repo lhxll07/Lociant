@@ -58,6 +58,6 @@ object LociantRuntime {
         val chatCapability: ChatCapability,
         val server: LociantServer,
     ) {
-        fun close() { server.close(); mnnRuntime.close() }
+        fun close() { mnnRuntime.close() }
     }
 }

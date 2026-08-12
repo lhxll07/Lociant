@@ -51,7 +51,10 @@ pub fn collect_models(state: &AppState) -> Vec<Value> {
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_owned();
-            if !models.iter().any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str())) {
+            if !models
+                .iter()
+                .any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str()))
+            {
                 models.push(model);
             }
         }
@@ -63,11 +66,7 @@ pub fn collect_models(state: &AppState) -> Vec<Value> {
 /// peer plane so sibling calls can never recurse back into discovery.
 pub fn collect_local_models(state: &AppState) -> Vec<Value> {
     let mut models = Vec::new();
-    for installed in state
-        .store
-        .list_models()
-        .unwrap_or_default()
-    {
+    for installed in state.store.list_models().unwrap_or_default() {
         let json = match catalog::find(&state.catalog, &installed.id) {
             Some(entry) => catalog::installed_json(entry),
             None => json!({
@@ -114,7 +113,7 @@ pub fn collect_local_models(state: &AppState) -> Vec<Value> {
             }));
         }
     }
-    if let Some(cloud) = cloud_model(&state) {
+    if let Some(cloud) = cloud_model(state) {
         models.push(cloud);
     }
     if state.rkllm.is_some() {
@@ -124,7 +123,10 @@ pub fn collect_local_models(state: &AppState) -> Vec<Value> {
             .and_then(Value::as_str)
             .unwrap_or("rkllm")
             .to_owned();
-        if !models.iter().any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str())) {
+        if !models
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str()))
+        {
             models.push(json!({
                 "id": id,
                 "name": id,

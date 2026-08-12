@@ -45,7 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // channel; only restore the last conversation once it is available.
         if (!_loaded && runtime.state != null) {
           _loaded = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _restoreConversation());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _restoreConversation(),
+          );
         }
         final state = runtime.state;
         final sessionTitle = _sessionTitle(state);
@@ -62,16 +64,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: ListView(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       children: [
-                        if (chat.messages.isEmpty && !chat.streaming && chat.lastError == null)
+                        if (chat.messages.isEmpty &&
+                            !chat.streaming &&
+                            chat.lastError == null)
                           const _EmptyChatHint()
                         else
                           ..._buildMessages(chat, context),
                       ],
                     ),
                   ),
-                  if (chat.streaming || chat.runStatus.isNotEmpty) _RunStatus(chat: chat),
+                  if (chat.streaming || chat.runStatus.isNotEmpty)
+                    _RunStatus(chat: chat),
                   _AttachmentPreview(
                     imageDataUrl: _imageDataUrl,
                     onRemove: () => setState(() => _imageDataUrl = null),
@@ -102,7 +110,10 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       }
     }
-    return found?.title ?? (sessions.isNotEmpty ? sessions.first.title : AppLocalizations.of(context)!.homeNewChat);
+    return found?.title ??
+        (sessions.isNotEmpty
+            ? sessions.first.title
+            : AppLocalizations.of(context)!.homeNewChat);
   }
 
   List<Widget> _buildMessages(ChatController chat, BuildContext context) {
@@ -112,16 +123,20 @@ class _HomeScreenState extends State<HomeScreen> {
       final isAssistant = item.role == 'assistant';
       final displayText = isAssistant && item.text.trim().isEmpty
           ? (chat.streaming && item.reasoning.isNotEmpty
-              ? ''
-              : (item.isError
-                  ? l10n.errorApiRequest
-                  : (item.tools.isNotEmpty ? l10n.homeToolRunDone : l10n.homeEmptyReply)))
+                ? ''
+                : (item.isError
+                      ? l10n.errorApiRequest
+                      : (item.tools.isNotEmpty
+                            ? l10n.homeToolRunDone
+                            : l10n.homeEmptyReply)))
           : item.text;
       widgets.add(
         Align(
           alignment: isAssistant ? Alignment.centerLeft : Alignment.centerRight,
           child: Container(
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.86),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.86,
+            ),
             margin: const EdgeInsets.symmetric(vertical: 4),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
@@ -144,22 +159,30 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 10.5,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.85),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.85),
                             ),
                           ),
                         ),
                       if (item.reasoning.isNotEmpty ||
-                          (chat.streaming && item.text.trim().isEmpty && !item.isError))
+                          (chat.streaming &&
+                              item.text.trim().isEmpty &&
+                              !item.isError))
                         _ReasoningView(
                           reasoning: item.reasoning,
                           thinking: chat.streaming && item.text.trim().isEmpty,
                           expanded: item.reasoningExpanded,
-                          onToggle: () =>
-                              setState(() => item.reasoningExpanded = !item.reasoningExpanded),
+                          onToggle: () => setState(
+                            () => item.reasoningExpanded =
+                                !item.reasoningExpanded,
+                          ),
                         ),
                       ChatMarkdown(data: displayText, isError: item.isError),
                       if (item.tools.isNotEmpty)
-                        ...item.tools.map((bubble) => ToolBubbleView(bubble: bubble)),
+                        ...item.tools.map(
+                          (bubble) => ToolBubbleView(bubble: bubble),
+                        ),
                     ],
                   )
                 : Column(
@@ -168,7 +191,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (item.imageDataUrl != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(base64Decode(_dataUrlBase64(item.imageDataUrl!)), width: 180),
+                          child: Image.memory(
+                            base64Decode(_dataUrlBase64(item.imageDataUrl!)),
+                            width: 180,
+                          ),
                         ),
                       if (item.text.isNotEmpty)
                         SelectableText(item.text)
@@ -179,7 +205,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             l10n.homeImageAttached,
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -192,7 +220,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return widgets;
   }
 
-  String _dataUrlBase64(String dataUrl) => dataUrl.substringAfter('base64,', dataUrl);
+  String _dataUrlBase64(String dataUrl) =>
+      dataUrl.substringAfter('base64,', dataUrl);
 
   Future<void> _attachImage() async {
     try {
@@ -207,21 +236,29 @@ class _HomeScreenState extends State<HomeScreen> {
           imageQuality: 82,
         );
       } else {
-        file = await openFile(acceptedTypeGroups: const [
-          XTypeGroup(
-            label: 'images',
-            extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-          ),
-        ]);
+        file = await openFile(
+          acceptedTypeGroups: const [
+            XTypeGroup(
+              label: 'images',
+              extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+            ),
+          ],
+        );
       }
       if (file == null) return;
       final bytes = await file.readAsBytes();
       if (!mounted) return;
-      setState(() => _imageDataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}');
+      setState(
+        () => _imageDataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}',
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.toastImagePickerUnavailable)),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.toastImagePickerUnavailable,
+          ),
+        ),
       );
     }
   }
@@ -315,7 +352,10 @@ class _Composer extends StatelessWidget {
               maxLines: 4,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(hintText: l10n.homePlaceholder, isDense: true),
+              decoration: InputDecoration(
+                hintText: l10n.homePlaceholder,
+                isDense: true,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -330,7 +370,10 @@ class _Composer extends StatelessWidget {
 }
 
 class _AttachmentPreview extends StatelessWidget {
-  const _AttachmentPreview({required this.imageDataUrl, required this.onRemove});
+  const _AttachmentPreview({
+    required this.imageDataUrl,
+    required this.onRemove,
+  });
 
   final String? imageDataUrl;
   final VoidCallback onRemove;
@@ -385,9 +428,14 @@ class _RunStatus extends StatelessWidget {
     String text;
     if (chat.runStatus.startsWith('tool:')) {
       final parts = chat.runStatus.split(':');
-      text = l10n.homeRunStatusTool(parts[1], parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0);
+      text = l10n.homeRunStatusTool(
+        parts[1],
+        parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0,
+      );
     } else if (chat.runStatus.startsWith('round:')) {
-      text = l10n.homeRunStatusRound(int.tryParse(chat.runStatus.substring(6)) ?? 0);
+      text = l10n.homeRunStatusRound(
+        int.tryParse(chat.runStatus.substring(6)) ?? 0,
+      );
     } else if (chat.runStatus == 'retry') {
       text = l10n.homeRunStatusRetry;
     } else {
@@ -479,7 +527,11 @@ class _ReasoningView extends StatelessWidget {
             ),
             child: SelectableText(
               reasoning,
-              style: TextStyle(fontSize: 12.5, height: 1.45, color: scheme.onSurfaceVariant),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
       ],
@@ -488,7 +540,11 @@ class _ReasoningView extends StatelessWidget {
 }
 
 class _ChatContextHeader extends StatelessWidget {
-  const _ChatContextHeader({required this.title, required this.model, required this.state});
+  const _ChatContextHeader({
+    required this.title,
+    required this.model,
+    required this.state,
+  });
 
   final String title;
   final String model;
@@ -503,7 +559,9 @@ class _ChatContextHeader extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainer,
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.35),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.35),
           ),
         ),
       ),
@@ -513,8 +571,20 @@ class _ChatContextHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                Text(model, style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  model,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -527,10 +597,14 @@ class _ChatContextHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              running ? AppLocalizations.of(context)!.statusRunning : AppLocalizations.of(context)!.statusStopped,
+              running
+                  ? AppLocalizations.of(context)!.statusRunning
+                  : AppLocalizations.of(context)!.statusStopped,
               style: TextStyle(
                 fontSize: 11.5,
-                color: running ? context.status.success : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: running
+                    ? context.status.success
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -549,9 +623,16 @@ class _EmptyChatHint extends StatelessWidget {
       padding: const EdgeInsets.only(top: 80),
       child: Column(
         children: [
-          Icon(Icons.bolt, size: 42, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.bolt,
+            size: 42,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 10),
-          Text(AppLocalizations.of(context)!.homePlaceholder, textAlign: TextAlign.center),
+          Text(
+            AppLocalizations.of(context)!.homePlaceholder,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

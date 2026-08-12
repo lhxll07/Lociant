@@ -25,9 +25,11 @@ class RuntimeController extends ChangeNotifier {
   Timer? _pollTimer;
   StreamSubscription<Map<String, dynamic>>? _subscription;
   bool _refreshing = false;
-  final _modelInstallEvents = StreamController<Map<String, dynamic>>.broadcast();
+  final _modelInstallEvents =
+      StreamController<Map<String, dynamic>>.broadcast();
 
-  Stream<Map<String, dynamic>> get modelInstallEvents => _modelInstallEvents.stream;
+  Stream<Map<String, dynamic>> get modelInstallEvents =>
+      _modelInstallEvents.stream;
 
   void startPolling() {
     _pollTimer ??= Timer.periodic(const Duration(seconds: 2), (_) => refresh());
@@ -81,8 +83,8 @@ class RuntimeController extends ChangeNotifier {
   }
 
   Map<String, dynamic> _stringMap(Map payload) => {
-        for (final entry in payload.entries) '${entry.key}': entry.value,
-      };
+    for (final entry in payload.entries) '${entry.key}': entry.value,
+  };
 
   bool _changed(RuntimeUiState before, RuntimeUiState after) {
     return before.raw.toString() != after.raw.toString();
@@ -90,32 +92,46 @@ class RuntimeController extends ChangeNotifier {
 
   // ---- Platform actions ----
 
-  Future<void> callAndRefresh(String method, [Map<String, dynamic>? payload]) async {
+  Future<void> callAndRefresh(
+    String method, [
+    Map<String, dynamic>? payload,
+  ]) async {
     await platform.call(method, payload);
     await refresh();
   }
 
   Future<void> startRuntime() => callAndRefresh('startRuntime');
   Future<void> stopRuntime() => callAndRefresh('stopRuntime');
-  Future<void> updateSettings(Map<String, dynamic> payload) => callAndRefresh('updateRuntimeSettings', payload);
+  Future<void> updateSettings(Map<String, dynamic> payload) =>
+      callAndRefresh('updateRuntimeSettings', payload);
   Future<void> releaseModel() => callAndRefresh('releaseRuntimeModel');
   Future<void> createSession() => callAndRefresh('createSession');
-  Future<void> selectSession(String sessionId) => callAndRefresh('selectSession', {'sessionId': sessionId});
-  Future<void> deleteSession(String sessionId) => callAndRefresh('deleteSession', {'sessionId': sessionId});
-  Future<void> startVision([Map<String, dynamic>? payload]) => callAndRefresh('startVision', payload);
+  Future<void> selectSession(String sessionId) =>
+      callAndRefresh('selectSession', {'sessionId': sessionId});
+  Future<void> deleteSession(String sessionId) =>
+      callAndRefresh('deleteSession', {'sessionId': sessionId});
+  Future<void> startVision([Map<String, dynamic>? payload]) =>
+      callAndRefresh('startVision', payload);
   Future<void> stopVision() => callAndRefresh('stopVision');
   Future<void> showWindow() => callAndRefresh('showRuntimeWindow');
   Future<void> hideWindow() => callAndRefresh('hideRuntimeWindow');
-  Future<void> updateWindow(Map<String, dynamic> payload) => callAndRefresh('updateRuntimeWindow', payload);
+  Future<void> updateWindow(Map<String, dynamic> payload) =>
+      callAndRefresh('updateRuntimeWindow', payload);
   Future<void> requestCamera() => callAndRefresh('requestCameraPermission');
-  Future<void> requestNotification() => callAndRefresh('requestNotificationPermission');
+  Future<void> requestNotification() =>
+      callAndRefresh('requestNotificationPermission');
   Future<void> requestOverlay() => callAndRefresh('requestOverlayPermission');
-  Future<void> requestBattery() => callAndRefresh('requestBatteryOptimizationExemption');
-  Future<void> requestAccessibility() => callAndRefresh('requestAccessibilityPermission');
+  Future<void> requestBattery() =>
+      callAndRefresh('requestBatteryOptimizationExemption');
+  Future<void> requestAccessibility() =>
+      callAndRefresh('requestAccessibilityPermission');
   Future<void> openAppSettings() => callAndRefresh('openAppSettings');
-  Future<void> openExternalUrl(String url) => callAndRefresh('openExternalUrl', {'url': url});
-  Future<void> openPermissionSettings(String kind) => callAndRefresh('openPermissionSettings', {'kind': kind});
-  Future<void> openModelPackagePicker() => callAndRefresh('installModelPackage');
+  Future<void> openExternalUrl(String url) =>
+      callAndRefresh('openExternalUrl', {'url': url});
+  Future<void> openPermissionSettings(String kind) =>
+      callAndRefresh('openPermissionSettings', {'kind': kind});
+  Future<void> openModelPackagePicker() =>
+      callAndRefresh('installModelPackage');
 
   Future<Map<String, dynamic>> sessionDetails(String sessionId) async {
     return platform.call('sessionDetails', {'sessionId': sessionId});

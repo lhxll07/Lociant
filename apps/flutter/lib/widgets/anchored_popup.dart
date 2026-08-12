@@ -51,10 +51,11 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final maxWidth = (_anchorRect == null
-            ? widget.popupWidth
-            : (MediaQuery.sizeOf(context).width - _anchorRect!.left - 12))
-        .clamp(180.0, widget.popupWidth);
+    final maxWidth =
+        (_anchorRect == null
+                ? widget.popupWidth
+                : (MediaQuery.sizeOf(context).width - _anchorRect!.left - 12))
+            .clamp(180.0, widget.popupWidth);
     return OverlayPortal(
       controller: _controller,
       overlayChildBuilder: (_) => Stack(
@@ -79,7 +80,9 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withValues(alpha: 0.4),
                   ),
                 ),
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -95,10 +98,12 @@ class _AnchoredOverlayState extends State<AnchoredOverlay> {
       ),
       child: CompositedTransformTarget(
         link: _link,
-        child: Builder(builder: (targetContext) {
-          _targetContext = targetContext;
-          return widget.builder(targetContext, _toggle);
-        }),
+        child: Builder(
+          builder: (targetContext) {
+            _targetContext = targetContext;
+            return widget.builder(targetContext, _toggle);
+          },
+        ),
       ),
     );
   }

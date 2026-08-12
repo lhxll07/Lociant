@@ -86,11 +86,6 @@ class LociantServer(
         return response.optJSONObject("result") ?: response
     }
 
-    // Lifecycle is owned by the Rust backend now; the service wiring still
-    // calls these, so they stay as harmless no-ops.
-    fun stopForService() = Unit
-    fun close() = Unit
-
     fun state(): JSONObject = buildStateJson("api.server.state", includeSensitive = true)
     fun serviceState(): JSONObject = buildStateJson(null, includeSensitive = true)
     fun uiState(): JSONObject = buildStateJson(null, includeSensitive = true)

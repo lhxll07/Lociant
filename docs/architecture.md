@@ -38,7 +38,7 @@ The backend implements the documented contract exactly once, in Rust:
 - `/mcp` — MCP Streamable HTTP (stateless JSON responses);
 - `/health` — the only public endpoint.
 
-The contract is documented in `agent-integration.md` and `control-api.md`.
+The complete external contract is documented in `agent-integration.md`.
 The Flutter UI and external agents only speak this contract.
 
 ### Device IPC
@@ -125,13 +125,15 @@ size alone does not distinguish the two (both are ~1.3 GB).
   board.
 - [x] Board local inference: RKLLM runtime integrated in-process
   (`crates/rkllm`, libloading, W4A16 verified).
-- [x] Peer networking: mDNS discovery (`_lociant._tcp.local.`), shared peer
+- [x] Peer networking: optional UDP broadcast discovery (`11435`,
+  `peerDiscovery`, enabled by default), shared peer
   token, remote tools over `/api/v1/peer/*` (provider enforces its own
   exposure), peer model forwarding (`peer:<node>:<model>`) via the OpenAI
-  plane, `/api/v1/nodes` for the UI.
+  plane, `/api/v1/nodes` for the UI. Manual peers remain available when
+  discovery is disabled.
 - [ ] Desktop local inference (llama.cpp, x86_64 machines without RKLLM).
 - [ ] Desktop device adapter (filesystem/process/camera tools).
-- [ ] Bundle the Rust server as a sidecar in the Flutter desktop app.
+- [x] Bundle the Rust server as a sidecar in the Flutter desktop app.
 
 ## Run
 

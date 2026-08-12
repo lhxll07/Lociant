@@ -52,11 +52,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
     _pages = [
-      _PageData(Icons.smart_toy_outlined, l10n.onboardingWelcomeTitle, l10n.onboardingWelcomeBody),
-      _PageData(Icons.cloud_outlined, l10n.onboardingCloudTitle, l10n.onboardingCloudBody),
-      _PageData(Icons.touch_app_outlined, l10n.onboardingPermissionTitle, l10n.onboardingPermissionBody),
-      _PageData(Icons.hub_outlined, l10n.onboardingNodesTitle, l10n.onboardingNodesBody),
-      _PageData(Icons.check_circle_outline, l10n.onboardingReadyTitle, l10n.onboardingReadyBody),
+      _PageData(
+        Icons.smart_toy_outlined,
+        l10n.onboardingWelcomeTitle,
+        l10n.onboardingWelcomeBody,
+      ),
+      _PageData(
+        Icons.cloud_outlined,
+        l10n.onboardingCloudTitle,
+        l10n.onboardingCloudBody,
+      ),
+      _PageData(
+        Icons.touch_app_outlined,
+        l10n.onboardingPermissionTitle,
+        l10n.onboardingPermissionBody,
+      ),
+      _PageData(
+        Icons.hub_outlined,
+        l10n.onboardingNodesTitle,
+        l10n.onboardingNodesBody,
+      ),
+      _PageData(
+        Icons.check_circle_outline,
+        l10n.onboardingReadyTitle,
+        l10n.onboardingReadyBody,
+      ),
     ];
     final isLast = _page == _pages.length - 1;
     return Scaffold(
@@ -95,9 +115,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         const SizedBox(height: 16),
                         Text(
                           data.body,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
+                          style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(color: scheme.onSurfaceVariant),
                           textAlign: TextAlign.center,
                         ),
@@ -138,7 +156,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   padding: const EdgeInsets.all(16),
                   child: FilledButton(
                     onPressed: _next,
-                    child: Text(isLast ? l10n.onboardingStart : l10n.onboardingNext),
+                    child: Text(
+                      isLast ? l10n.onboardingStart : l10n.onboardingNext,
+                    ),
                   ),
                 ),
               ],

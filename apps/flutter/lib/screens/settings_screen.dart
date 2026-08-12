@@ -26,14 +26,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _view == 'home'
               ? l10n.settingsTitle
               : _view == 'runtime'
-                  ? l10n.settingsRuntimeTitle
-                  : _view == 'server'
-                      ? l10n.settingsServerTitle
-                      : _view == 'model'
-                          ? l10n.settingsModelTitle
-                          : _view == 'agent'
-                              ? l10n.settingsAgentTitle
-                              : l10n.settingsAdvancedTitle,
+              ? l10n.settingsRuntimeTitle
+              : _view == 'server'
+              ? l10n.settingsServerTitle
+              : _view == 'model'
+              ? l10n.settingsModelTitle
+              : _view == 'agent'
+              ? l10n.settingsAgentTitle
+              : l10n.settingsAdvancedTitle,
         ),
         leading: _view == 'home'
             ? null
@@ -64,9 +64,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.settingsTheme, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  l10n.settingsTheme,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 4),
-                Text(l10n.settingsThemeSub, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  l10n.settingsThemeSub,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 10),
                 SegmentedButton<String>(
                   segments: [
@@ -82,7 +88,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                   selected: {theme.mode},
-                  onSelectionChanged: (selection) => theme.setMode(selection.first),
+                  onSelectionChanged: (selection) =>
+                      theme.setMode(selection.first),
                 ),
               ],
             ),
@@ -94,28 +101,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.settingsLanguage, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  l10n.settingsLanguage,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 4),
-                Text(l10n.settingsLanguageSub, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  l10n.settingsLanguageSub,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 10),
                 SegmentedButton<String>(
                   segments: [
-                    ButtonSegment(value: 'system', label: Text(l10n.settingsFollowSystem)),
+                    ButtonSegment(
+                      value: 'system',
+                      label: Text(l10n.settingsFollowSystem),
+                    ),
                     const ButtonSegment(value: 'zh', label: Text('中文')),
                     const ButtonSegment(value: 'en', label: Text('EN')),
                   ],
                   selected: {locale.mode},
-                  onSelectionChanged: (selection) => locale.setMode(selection.first),
+                  onSelectionChanged: (selection) =>
+                      locale.setMode(selection.first),
                 ),
               ],
             ),
           ),
         ),
-        _tile(l10n.settingsRuntimeTitle, l10n.settingsRuntimeSub, Icons.play_circle_outline, 'runtime'),
-        _tile(l10n.settingsServerTitle, l10n.settingsServerSub, Icons.dns_outlined, 'server'),
-        _tile(l10n.settingsModelTitle, l10n.settingsModelSub, Icons.tune_outlined, 'model'),
-        _tile(l10n.settingsAgentTitle, l10n.settingsAgentSub, Icons.psychology_outlined, 'agent'),
-        _tile(l10n.settingsAdvancedTitle, l10n.settingsAdvancedSub, Icons.insights_outlined, 'advanced'),
+        _tile(
+          l10n.settingsRuntimeTitle,
+          l10n.settingsRuntimeSub,
+          Icons.play_circle_outline,
+          'runtime',
+        ),
+        _tile(
+          l10n.settingsServerTitle,
+          l10n.settingsServerSub,
+          Icons.dns_outlined,
+          'server',
+        ),
+        _tile(
+          l10n.settingsModelTitle,
+          l10n.settingsModelSub,
+          Icons.tune_outlined,
+          'model',
+        ),
+        _tile(
+          l10n.settingsAgentTitle,
+          l10n.settingsAgentSub,
+          Icons.psychology_outlined,
+          'agent',
+        ),
+        _tile(
+          l10n.settingsAdvancedTitle,
+          l10n.settingsAdvancedSub,
+          Icons.insights_outlined,
+          'advanced',
+        ),
         Card(
           child: ListTile(
             leading: const Icon(Icons.travel_explore_outlined),
@@ -124,9 +166,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => OnboardingScreen(
-                  onDone: () => Navigator.of(context).pop(),
-                ),
+                builder: (_) =>
+                    OnboardingScreen(onDone: () => Navigator.of(context).pop()),
               ),
             ),
           ),
@@ -160,7 +201,8 @@ class _RuntimePanel extends StatelessWidget {
       listenable: runtime,
       builder: (context, _) {
         final state = runtime.state;
-        final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+        final isAndroid =
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
         return _SettingsList(
           children: [
             Card(
@@ -175,10 +217,10 @@ class _RuntimePanel extends StatelessWidget {
                 onChanged: !isAndroid && state?.starting == true
                     ? null
                     : isAndroid
-                        ? (_) => (state?.running ?? false)
-                            ? runtime.stopRuntime()
-                            : runtime.startRuntime()
-                        : null,
+                    ? (_) => (state?.running ?? false)
+                          ? runtime.stopRuntime()
+                          : runtime.startRuntime()
+                    : null,
               ),
             ),
             Card(
@@ -236,7 +278,11 @@ class _RuntimePanel extends StatelessWidget {
                     onPressed: () => (state?.vision['running'] == true)
                         ? runtime.stopVision()
                         : runtime.startVision(),
-                    child: Text(state?.vision['running'] == true ? l10n.commonStop : l10n.commonStart),
+                    child: Text(
+                      state?.vision['running'] == true
+                          ? l10n.commonStop
+                          : l10n.commonStart,
+                    ),
                   ),
                 ),
               ),
@@ -254,9 +300,18 @@ class _RuntimePanel extends StatelessWidget {
                 trailing: _Dropdown(
                   value: state?.toolExposure ?? 'action',
                   items: [
-                    DropdownMenuItem(value: 'read', child: Text(l10n.settingsToolRead)),
-                    DropdownMenuItem(value: 'sensor', child: Text(l10n.settingsToolSensor)),
-                    DropdownMenuItem(value: 'action', child: Text(l10n.settingsToolAction)),
+                    DropdownMenuItem(
+                      value: 'read',
+                      child: Text(l10n.settingsToolRead),
+                    ),
+                    DropdownMenuItem(
+                      value: 'sensor',
+                      child: Text(l10n.settingsToolSensor),
+                    ),
+                    DropdownMenuItem(
+                      value: 'action',
+                      child: Text(l10n.settingsToolAction),
+                    ),
                   ],
                   onChanged: (v) => runtime.updateSettings({'toolExposure': v}),
                 ),
@@ -312,9 +367,20 @@ class _ServerPanelState extends State<_ServerPanel> {
       builder: (context, _) {
         return _SettingsList(
           children: [
-            _numberField(l10n.settingsPort, _port, 1024, 65535, (v) => runtime.updateSettings({'port': v})),
-            _numberField(l10n.settingsOutputTokens, _tokens, 1, state?.hardMaxOutputTokens ?? 32768,
-                (v) => runtime.updateSettings({'maxOutputTokens': v})),
+            _numberField(
+              l10n.settingsPort,
+              _port,
+              1024,
+              65535,
+              (v) => runtime.updateSettings({'port': v}),
+            ),
+            _numberField(
+              l10n.settingsOutputTokens,
+              _tokens,
+              1,
+              state?.hardMaxOutputTokens ?? 32768,
+              (v) => runtime.updateSettings({'maxOutputTokens': v}),
+            ),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -329,8 +395,14 @@ class _ServerPanelState extends State<_ServerPanel> {
                     ),
                     Row(
                       children: [
+                        FilledButton.tonal(
+                          onPressed: () => runtime.updateSettings({'authToken': _token.text.trim()}),
+                          child: Text(l10n.commonSave),
+                        ),
                         TextButton(
-                          onPressed: () => runtime.updateSettings({'generateAuthToken': true}),
+                          onPressed: () => runtime.updateSettings({
+                            'generateAuthToken': true,
+                          }),
                           child: Text(l10n.settingsGenerate),
                         ),
                         TextButton(
@@ -365,8 +437,9 @@ class _ServerPanelState extends State<_ServerPanel> {
                     Row(
                       children: [
                         TextButton(
-                          onPressed: () => runtime
-                              .updateSettings({'peerToken': _peerToken.text.trim()}),
+                          onPressed: () => runtime.updateSettings({
+                            'peerToken': _peerToken.text.trim(),
+                          }),
                           child: Text(l10n.settingsPeerTokenSave),
                         ),
                       ],
@@ -432,7 +505,9 @@ class _ServerPanelState extends State<_ServerPanel> {
             await Clipboard.setData(ClipboardData(text: value));
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppLocalizations.of(context)!.toastCopied)),
+                SnackBar(
+                  content: Text(AppLocalizations.of(context)!.toastCopied),
+                ),
               );
             }
           },
@@ -463,8 +538,8 @@ class _ModelPanel extends StatelessWidget {
               threads <= maxThreads ~/ 3
                   ? 'eco'
                   : threads >= (maxThreads * 0.75).ceil()
-                      ? 'fast'
-                      : 'balanced',
+                  ? 'fast'
+                  : 'balanced',
               {
                 'eco': l10n.settingsPerformanceEco,
                 'balanced': l10n.settingsPerformanceBalanced,
@@ -474,8 +549,8 @@ class _ModelPanel extends StatelessWidget {
                 'cpuThreads': mode == 'eco'
                     ? maxThreads ~/ 3
                     : mode == 'fast'
-                        ? maxThreads
-                        : maxThreads ~/ 2,
+                    ? maxThreads
+                    : maxThreads ~/ 2,
               }),
             ),
             _selectRow(
@@ -510,7 +585,11 @@ class _ModelPanel extends StatelessWidget {
               },
               (v) => runtime.updateSettings({
                 'contextProfile': v,
-                'historyLimit': v == 'light' ? 16 : v == 'deep' ? 128 : 64,
+                'historyLimit': v == 'light'
+                    ? 16
+                    : v == 'deep'
+                    ? 128
+                    : 64,
               }),
             ),
             Card(
@@ -528,7 +607,12 @@ class _ModelPanel extends StatelessWidget {
     );
   }
 
-  Widget _selectRow(String label, String value, Map<String, String> options, void Function(String) onChanged) {
+  Widget _selectRow(
+    String label,
+    String value,
+    Map<String, String> options,
+    void Function(String) onChanged,
+  ) {
     return Card(
       child: ListTile(
         title: Text(label),
@@ -564,7 +648,10 @@ class _AgentPanel extends StatelessWidget {
           children: [
             Card(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -583,10 +670,18 @@ class _AgentPanel extends StatelessWidget {
                       width: 110,
                       child: TextField(
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        decoration: InputDecoration(isDense: true, hintText: '${state?.agentMaxRounds ?? 32}'),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: '${state?.agentMaxRounds ?? 32}',
+                        ),
                         onSubmitted: (raw) {
-                          final value = (int.tryParse(raw) ?? 32).clamp(min, max);
+                          final value = (int.tryParse(raw) ?? 32).clamp(
+                            min,
+                            max,
+                          );
                           runtime.updateSettings({'agentMaxRounds': value});
                         },
                       ),
@@ -633,26 +728,34 @@ class _AdvancedPanel extends StatelessWidget {
                 ),
               ),
             ),
-            ...sessions.map((session) => Card(
-                  child: ListTile(
-                    dense: true,
-                    title: Text(session.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${session.modelId} · ${session.messageCount}'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      onPressed: () => runtime.deleteSession(session.id),
-                    ),
-                    onTap: () async {
-                      await runtime.selectSession(session.id);
-                      await chat.loadSession(session.id);
-                    },
+            ...sessions.map(
+              (session) => Card(
+                child: ListTile(
+                  dense: true,
+                  title: Text(
+                    session.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                )),
+                  subtitle: Text(
+                    '${session.modelId} · ${session.messageCount}',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    onPressed: () => runtime.deleteSession(session.id),
+                  ),
+                  onTap: () async {
+                    await runtime.selectSession(session.id);
+                    await chat.loadSession(session.id);
+                  },
+                ),
+              ),
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: Text(l10n.aboutTitle),
-              subtitle: Text(l10n.aboutVersionLine('1.1.1')),
+                subtitle: Text(l10n.aboutVersionLine('2.0.0')),
             ),
           ],
         );
@@ -700,9 +803,7 @@ class _Dropdown extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -736,8 +837,8 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -765,7 +866,10 @@ class _PermissionTile extends StatelessWidget {
         title: Text(label),
         trailing: granted
             ? Icon(Icons.check_circle, color: context.status.success, size: 20)
-            : FilledButton.tonal(onPressed: onGrant, child: Text(l10n.settingsGrant)),
+            : FilledButton.tonal(
+                onPressed: onGrant,
+                child: Text(l10n.settingsGrant),
+              ),
       ),
     );
   }

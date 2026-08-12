@@ -133,8 +133,9 @@ class _LociantAppState extends State<LociantApp> {
         debugShowCheckedModeBanner: false,
         theme: buildLociantPinkTheme(),
         darkTheme: buildLociantDarkTheme(),
-        themeMode:
-            widget.theme.mode == 'pink' ? ThemeMode.light : ThemeMode.dark,
+        themeMode: widget.theme.mode == 'pink'
+            ? ThemeMode.light
+            : ThemeMode.dark,
         locale: widget.locale.locale,
         supportedLocales: const [Locale('en'), Locale('zh')],
         localizationsDelegates: const [

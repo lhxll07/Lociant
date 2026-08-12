@@ -5,6 +5,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val releasePassword = System.getenv("LOCIANT_KEYSTORE_PASSWORD")
+
 android {
     namespace = "io.lociant.android"
     compileSdk = 36
@@ -18,12 +20,10 @@ android {
     }
 
     signingConfigs {
-        create("release") {
+        if (!releasePassword.isNullOrBlank()) create("release") {
             // Keystore lives outside the repo (~/keys/lociant-release.jks).
             // Password comes from LOCIANT_KEYSTORE_PASSWORD so it never
             // lands in git; point LOCIANT_KEYSTORE elsewhere to override.
-            val releasePassword: String = System.getenv("LOCIANT_KEYSTORE_PASSWORD")
-                ?: error("LOCIANT_KEYSTORE_PASSWORD is not set")
             storeFile = file(
                 System.getenv("LOCIANT_KEYSTORE")
                     ?: "${System.getProperty("user.home")}/keys/lociant-release.jks",
@@ -43,7 +43,10 @@ android {
             }
         }
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Debug builds and unit tests must not require release secrets.
+            // A release build still fails clearly below when signing is not
+            // configured, before an unsigned artifact can be published.
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             // 与 debug 一致：仅 arm64-v8a（Rust server 只交叉编译该 ABI，
             // 且能显著减小 APK 体积）。
@@ -92,9 +95,16 @@ android {
     }
 }
 
-dependencies {
-    val ktorVersion = "3.4.3"
+tasks.matching { it.name.startsWith("assembleRelease") || it.name.startsWith("bundleRelease") }
+    .configureEach {
+        doFirst {
+            check(!releasePassword.isNullOrBlank()) {
+                "LOCIANT_KEYSTORE_PASSWORD is required for release builds"
+            }
+        }
+    }
 
+dependencies {
     implementation(project(":flutter"))
     implementation(project(":core"))
     implementation(project(":data"))
@@ -103,9 +113,6 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.0")
-    implementation("io.ktor:ktor-server-core:$ktorVersion")
-    implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 }
 
 // ---- Rust server (unified backend) ----

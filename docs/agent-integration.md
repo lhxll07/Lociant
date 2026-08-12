@@ -1,4 +1,4 @@
-# Agent Integration (MCP + OpenAI API)
+# Agent Integration And HTTP API
 
 Lociant is a local agent runtime. Planning and long-lived orchestration stay
 in the external agent; Lociant provides model inference and explicit device
@@ -10,7 +10,7 @@ capabilities through one HTTP surface served by the Rust backend on port
 1. Use MCP Streamable HTTP at `http://HOST:11434/mcp` for tools.
 2. Use OpenAI Chat Completions at `http://HOST:11434/v1` for direct model
    inference.
-3. Use `/api/v1` only for management resources (see `control-api.md`).
+3. Use `/api/v1` only for management resources (documented below).
 
 Do not scrape the app UI or depend on the Android method channel; the channel
 is an internal UI boundary, not a remote integration contract.
@@ -203,27 +203,91 @@ pass an existing session id as `sessionId` in the request body (or the
 `X-Lociant-Session-Id` header). Unknown IDs return `404`. Omitting a session
 runs a stateless request.
 
-## Async Requests
-
-`"async": true` returns `202` and a request id; inspect it via
-`GET /api/v1/chat-requests/{requestId}`.
-
 ## Errors
 
 OpenAI endpoint errors use an OpenAI error object; HTTP status remains
-authoritative. Control errors use `application/problem+json`
-(see `control-api.md`).
+authoritative. Control errors use `application/problem+json`.
 
 ## Removed Interfaces
 
 Lociant does not implement Ollama `/api/chat`, old session headers, or
 product-control routes under `/v1`.
 
+## Control API
+
+The control plane manages Lociant-owned resources under `/api/v1`. It uses
+the same optional token authentication as MCP and OpenAI endpoints.
+
+### Errors
+
+Failures use `application/problem+json` with `type`, `title`, HTTP `status`,
+`detail`, stable `code`, and request `instance`. Successful responses do not
+add a redundant top-level `ok`; tool calls retain their execution envelope
+because tool failure is domain output.
+
+### Runtime And Settings
+
+```text
+GET /api/v1/runtime
+GET /api/v1/settings
+PUT /api/v1/settings
+```
+
+Runtime reports server, model and device state. Start/stop is intentionally
+absent: Android's foreground service owns the process, while desktop keeps
+the sidecar running. `PUT settings` merges supplied fields. Changing `port`
+takes effect on the next service start.
+
+Common settings include `modelId`, `maxOutputTokens`, `inferenceBackend`,
+cloud provider fields, session limits, `agentMaxRounds`, `authToken`,
+`toolExposure`, peer settings and `currentSessionId`.
+
+### Model Management
+
+```text
+GET    /api/v1/models?refresh=false
+DELETE /api/v1/models/{modelId}
+GET    /api/v1/catalog/models?q=QUERY&refresh=false
+POST   /api/v1/model-installations
+GET    /api/v1/model-installations/{jobId}
+```
+
+Installation accepts `{"modelId":"MODEL_ID"}` and returns `202` with a job
+ID. Progress includes `state`, `active`, `progress`, and `message`; terminal
+states are `done` and `error`. `refresh=true` is reserved for changes made
+outside Lociant because normal install/delete operations invalidate snapshots.
+
+### Sessions
+
+```text
+GET    /api/v1/sessions
+POST   /api/v1/sessions
+GET    /api/v1/sessions/{sessionId}
+DELETE /api/v1/sessions/{sessionId}
+```
+
+Creation returns `201`. Valid IDs contain 1-96 ASCII letters, digits, dots,
+underscores or hyphens. Reads and deletes never generate or normalize IDs;
+an unknown valid ID returns `404`.
+
+### Direct Tool Calls
+
+```text
+GET  /api/v1/tools
+POST /api/v1/tools/{name}/calls
+```
+
+Call body: `{"arguments":{"package":"com.example.app"}}`. These routes use
+the same registry and policy as MCP and OpenAI tool execution. Streaming chat
+uses SSE directly; there is no `/api/v1/chat-requests` queue resource.
+
 ## Authentication And Network
 
-Only `/health` is public. Configure a non-empty token before binding Lociant
-to an untrusted LAN. MCP, OpenAI and control requests accept bearer auth or
-`X-Lociant-Token`.
+`/health` is always public. When `authToken` is empty, the control, MCP and
+chat surfaces are intentionally open for trusted local-network development;
+configure a non-empty token before binding Lociant to an untrusted LAN.
+With a token configured, MCP, OpenAI and control requests accept bearer auth
+or `X-Lociant-Token`.
 
 Lociant uses cleartext HTTP for local-network interoperability. Treat the
 local network and token as security boundaries; do not expose the port

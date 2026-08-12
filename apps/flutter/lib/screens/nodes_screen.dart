@@ -63,13 +63,15 @@ class _NodesScreenState extends State<NodesScreen> {
                     children: [
                       Text(
                         l10n.nodesTitle,
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       Text(
                         l10n.nodesSubtitle,
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -94,67 +96,73 @@ class _NodesScreenState extends State<NodesScreen> {
           ),
           Expanded(
             child: _error != null
-                    ? _Message(text: l10n.nodesError(_error!), onRetry: _load)
-                    : _nodes == null
-                        ? const Center(child: CircularProgressIndicator())
-                        : _nodes!.isEmpty
-                            ? _NodesGuide(
-                                onOpenSettings: () => homeShellKey.currentState?.switchTo(3),
-                                onRefresh: _load,
-                              )
-                            : RefreshIndicator(
-                            onRefresh: _load,
-                            child: ListView(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                              children: [
-                                Card(
-                                  child: ListTile(
-                                    leading: const Icon(Icons.child_care),
-                                    title: Text(
-                                      l10n.babyTitle,
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                    subtitle: Text(l10n.babySubtitle),
-                                    trailing: const Icon(Icons.chevron_right),
-                                    onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const BabyMonitorScreen(),
+                ? _Message(text: l10n.nodesError(_error!), onRetry: _load)
+                : _nodes == null
+                ? const Center(child: CircularProgressIndicator())
+                : _nodes!.isEmpty
+                ? _NodesGuide(
+                    onOpenSettings: () =>
+                        homeShellKey.currentState?.switchTo(3),
+                    onRefresh: _load,
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      children: [
+                        Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.child_care),
+                            title: Text(
+                              l10n.babyTitle,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(l10n.babySubtitle),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const BabyMonitorScreen(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final node in _nodes!)
+                          _NodeCard(
+                            node: node,
+                            onMonitor: node['self'] == true
+                                ? null
+                                : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => BabyMonitorScreen(
+                                        nodeId: node['id'] as String,
                                       ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                                for (final node in _nodes!)
-                                  _NodeCard(
-                                    node: node,
-                                    onMonitor: node['self'] == true
-                                        ? null
-                                        : () => Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => BabyMonitorScreen(
-                                                nodeId: node['id'] as String,
-                                              ),
-                                            ),
-                                          ),
-                                    onDelete: node['self'] == true
-                                        ? null
-                                        : () => _deleteNode(node['id'] as String),
-                                    onChat: node['self'] == true
-                                        ? null
-                                        : () => _showChatModelPicker(node['id'] as String),
+                            onDelete: node['self'] == true
+                                ? null
+                                : () => _deleteNode(node['id'] as String),
+                            onChat: node['self'] == true
+                                ? null
+                                : () => _showChatModelPicker(
+                                    node['id'] as String,
                                   ),
-                                const SizedBox(height: 8),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    l10n.nodesPeersHint,
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(color: theme.colorScheme.outline),
-                                  ),
-                                ),
-                              ],
+                          ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            l10n.nodesPeersHint,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.outline,
                             ),
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -250,7 +258,11 @@ class _NodesScreenState extends State<NodesScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(context)!.nodesDeleteFailed}: $error')),
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context)!.nodesDeleteFailed}: $error',
+            ),
+          ),
         );
       }
     }
@@ -271,7 +283,9 @@ class _NodesScreenState extends State<NodesScreen> {
     if (peerModels.isEmpty || !mounted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.nodesChatNoModel)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.nodesChatNoModel),
+          ),
         );
       }
       return;
@@ -359,15 +373,19 @@ class _NodeCard extends StatelessWidget {
                       if (isSelf) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             l10n.nodesSelf,
-                            style: theme.textTheme.labelSmall
-                                ?.copyWith(color: theme.colorScheme.onPrimaryContainer),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
                           ),
                         ),
                       ],
@@ -376,8 +394,9 @@ class _NodeCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '$host:$port${platform.isEmpty ? '' : '  ·  $platform'}',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -395,7 +414,10 @@ class _NodeCard extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onMonitor,
                     icon: const Icon(Icons.child_care, size: 16),
-                    label: Text(l10n.babyTitle, style: const TextStyle(fontSize: 12)),
+                    label: Text(
+                      l10n.babyTitle,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 if (onDelete != null)
                   IconButton(
@@ -519,16 +541,18 @@ class _GuideHeader extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               l10n.nodesGuideTitle,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 6),
         Text(
           l10n.nodesGuideBody,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
         for (var i = 0; i < steps.length; i++) ...[

@@ -15,7 +15,9 @@ class ToolBubbleView extends StatelessWidget {
     final status = context.status;
     final done = bubble.status == 'done' || bubble.status == 'completed';
     final error = bubble.status == 'error' || bubble.status == 'failed';
-    final color = error ? status.danger : (done ? status.success : scheme.primary);
+    final color = error
+        ? status.danger
+        : (done ? status.success : scheme.primary);
     return Container(
       margin: const EdgeInsets.only(top: 6, bottom: 2),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -35,7 +37,11 @@ class ToolBubbleView extends StatelessWidget {
               children: [
                 Text(
                   bubble.name,
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: scheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
                 ),
                 if (bubble.arguments.trim().isNotEmpty)
                   Padding(
@@ -44,7 +50,11 @@ class ToolBubbleView extends StatelessWidget {
                       bubble.arguments,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant, fontFamily: 'monospace'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                        fontFamily: 'monospace',
+                      ),
                     ),
                   ),
               ],
@@ -52,7 +62,9 @@ class ToolBubbleView extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Icon(
-            error ? Icons.error_outline : (done ? Icons.check_circle_outline : Icons.more_horiz),
+            error
+                ? Icons.error_outline
+                : (done ? Icons.check_circle_outline : Icons.more_horiz),
             size: 15,
             color: color,
           ),

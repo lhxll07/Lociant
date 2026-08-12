@@ -30,20 +30,38 @@ class _ModelsScreenState extends State<ModelsScreen> {
   Future<void> _loadModels({bool refresh = false}) async {
     final scope = AppScope.of(context);
     try {
-      final data = await scope.runtime.api.get('/api/v1/models${refresh ? '?refresh=true' : ''}');
-      final list = data is Map && data['models'] is List ? data['models'] as List : const [];
+      final data = await scope.runtime.api.get(
+        '/api/v1/models${refresh ? '?refresh=true' : ''}',
+      );
+      final list = data is Map && data['models'] is List
+          ? data['models'] as List
+          : const [];
       if (!mounted) return;
-      setState(() => _models = list.whereType<Map>().map((e) => ModelInfo.fromJson(Map<String, dynamic>.from(e))).toList());
+      setState(
+        () => _models = list
+            .whereType<Map>()
+            .map((e) => ModelInfo.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+      );
     } catch (_) {}
   }
 
   Future<void> _loadMarket() async {
     final scope = AppScope.of(context);
     try {
-      final data = await scope.runtime.api.get('/api/v1/catalog/models${_query.isEmpty ? '' : '?q=${Uri.encodeQueryComponent(_query)}'}');
-      final list = data is Map && data['models'] is List ? data['models'] as List : const [];
+      final data = await scope.runtime.api.get(
+        '/api/v1/catalog/models${_query.isEmpty ? '' : '?q=${Uri.encodeQueryComponent(_query)}'}',
+      );
+      final list = data is Map && data['models'] is List
+          ? data['models'] as List
+          : const [];
       if (!mounted) return;
-      setState(() => _market = list.whereType<Map>().map((e) => MarketModel.fromJson(Map<String, dynamic>.from(e))).toList());
+      setState(
+        () => _market = list
+            .whereType<Map>()
+            .map((e) => MarketModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList(),
+      );
     } catch (_) {}
   }
 
@@ -52,8 +70,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
     if (_installingId != null) return;
     setState(() => _installingId = model.id);
     try {
-      final data = await scope.runtime.api.post('/api/v1/model-installations', {'modelId': model.id});
-      final jobId = (data is Map ? data['jobId'] : null)?.toString() ?? model.id;
+      final data = await scope.runtime.api.post('/api/v1/model-installations', {
+        'modelId': model.id,
+      });
+      final jobId =
+          (data is Map ? data['jobId'] : null)?.toString() ?? model.id;
       _pollInstall(jobId);
     } catch (_) {
       if (!mounted) return;
@@ -66,11 +87,17 @@ class _ModelsScreenState extends State<ModelsScreen> {
     final scope = AppScope.of(context);
     _pollTimer?.cancel();
     var retries = 0;
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) async {
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 800), (
+      timer,
+    ) async {
       try {
-        final data = await scope.runtime.api.get('/api/v1/model-installations/${Uri.encodeComponent(jobId)}');
+        final data = await scope.runtime.api.get(
+          '/api/v1/model-installations/${Uri.encodeComponent(jobId)}',
+        );
         if (data is! Map) return;
-        final progress = InstallProgress.fromJson(Map<String, dynamic>.from(data));
+        final progress = InstallProgress.fromJson(
+          Map<String, dynamic>.from(data),
+        );
         if (!mounted) return;
         setState(() {
           _installingId = progress.active ? progress.modelId : null;
@@ -102,12 +129,12 @@ class _ModelsScreenState extends State<ModelsScreen> {
           _view == 'home'
               ? l10n.modelsTitle
               : _view == 'local'
-                  ? l10n.modelsLocalTitle
-                  : _view == 'market'
-                      ? l10n.modelsMarketTitle
-                      : _view == 'cloud'
-                          ? l10n.modelsCloudTitle
-                          : l10n.modelsRuntimeTitle,
+              ? l10n.modelsLocalTitle
+              : _view == 'market'
+              ? l10n.modelsMarketTitle
+              : _view == 'cloud'
+              ? l10n.modelsCloudTitle
+              : l10n.modelsRuntimeTitle,
         ),
         leading: _view == 'home'
             ? null
@@ -125,7 +152,8 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 IconButton(
                   tooltip: l10n.modelsImport,
                   icon: const Icon(Icons.file_open_outlined),
-                  onPressed: () => AppScope.of(context).runtime.openModelPackagePicker(),
+                  onPressed: () =>
+                      AppScope.of(context).runtime.openModelPackagePicker(),
                 ),
               ]
             : null,
@@ -146,26 +174,56 @@ class _ModelsScreenState extends State<ModelsScreen> {
     return ListView(
       padding: const EdgeInsets.all(14),
       children: [
-        _tile(l10n.modelsLocalTitle, l10n.modelsLocalSub, '$readyCount', Icons.folder_outlined, () {
-          setState(() => _view = 'local');
-          _loadModels();
-        }),
-        _tile(l10n.modelsMarketTitle, l10n.modelsMarketSub, l10n.modelsMarketSub, Icons.storefront_outlined, () {
-          setState(() => _view = 'market');
-          _loadMarket();
-        }),
-        _tile(l10n.modelsRuntimeTitle, l10n.modelsRuntimeSub, state?.modelId ?? '--', Icons.bolt_outlined, () {
-          setState(() => _view = 'runtime');
-          _loadModels();
-        }),
-        _tile(l10n.modelsCloudTitle, l10n.modelsCloudSub, state?.cloudModel ?? '--', Icons.cloud_outlined, () {
-          setState(() => _view = 'cloud');
-        }),
+        _tile(
+          l10n.modelsLocalTitle,
+          l10n.modelsLocalSub,
+          '$readyCount',
+          Icons.folder_outlined,
+          () {
+            setState(() => _view = 'local');
+            _loadModels();
+          },
+        ),
+        _tile(
+          l10n.modelsMarketTitle,
+          l10n.modelsMarketSub,
+          l10n.modelsMarketSub,
+          Icons.storefront_outlined,
+          () {
+            setState(() => _view = 'market');
+            _loadMarket();
+          },
+        ),
+        _tile(
+          l10n.modelsRuntimeTitle,
+          l10n.modelsRuntimeSub,
+          state?.modelId ?? '--',
+          Icons.bolt_outlined,
+          () {
+            setState(() => _view = 'runtime');
+            _loadModels();
+          },
+        ),
+        _tile(
+          l10n.modelsCloudTitle,
+          l10n.modelsCloudSub,
+          state?.cloudModel ?? '--',
+          Icons.cloud_outlined,
+          () {
+            setState(() => _view = 'cloud');
+          },
+        ),
       ],
     );
   }
 
-  Widget _tile(String title, String sub, String state, IconData icon, VoidCallback onTap) {
+  Widget _tile(
+    String title,
+    String sub,
+    String state,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
@@ -190,7 +248,10 @@ class _ModelsScreenState extends State<ModelsScreen> {
       itemCount: _models.length,
       itemBuilder: (context, index) {
         final model = _models[index];
-        final tags = [model.runtime, model.type].where((t) => t.isNotEmpty).join(' · ');
+        final tags = [
+          model.runtime,
+          model.type,
+        ].where((t) => t.isNotEmpty).join(' · ');
         return Card(
           child: ListTile(
             title: Text(model.name),
@@ -198,7 +259,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
             trailing: model.installed
                 ? TextButton(
                     onPressed: () async {
-                      await AppScope.of(context).runtime.api.delete('/api/v1/models/${Uri.encodeComponent(model.id)}');
+                      await AppScope.of(context).runtime.api.delete(
+                        '/api/v1/models/${Uri.encodeComponent(model.id)}',
+                      );
                       await _loadModels();
                     },
                     child: Text(l10n.modelsDelete),
@@ -220,7 +283,10 @@ class _ModelsScreenState extends State<ModelsScreen> {
             children: [
               Expanded(
                 child: TextField(
-                  decoration: const InputDecoration(isDense: true, hintText: ''),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: '',
+                  ),
                   onSubmitted: (value) {
                     _query = value.trim();
                     _loadMarket();
@@ -238,7 +304,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: LinearProgressIndicator(
-              value: progress.progress == null ? null : (progress.progress! / 100).clamp(0, 1),
+              value: progress.progress == null
+                  ? null
+                  : (progress.progress! / 100).clamp(0, 1),
             ),
           ),
         if (progress != null)
@@ -260,7 +328,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
                     final installing = _installingId == model.id;
                     return Card(
                       child: ListTile(
-                        title: Text(model.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        title: Text(
+                          model.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         subtitle: Text(
                           model.description,
                           maxLines: 2,
@@ -269,8 +341,14 @@ class _ModelsScreenState extends State<ModelsScreen> {
                         trailing: model.installed
                             ? Text(l10n.modelsInstalled)
                             : FilledButton.tonal(
-                                onPressed: installing ? null : () => _install(model),
-                                child: Text(installing ? l10n.modelsInstalling : l10n.modelsInstall),
+                                onPressed: installing
+                                    ? null
+                                    : () => _install(model),
+                                child: Text(
+                                  installing
+                                      ? l10n.modelsInstalling
+                                      : l10n.modelsInstall,
+                                ),
                               ),
                       ),
                     );
@@ -288,16 +366,18 @@ class _ModelsScreenState extends State<ModelsScreen> {
     if (cloud != null && cloud.cloudEnabled && cloud.cloudModel.isNotEmpty) {
       final cloudId = ModelManagerNormalizer.normalize(cloud.cloudModel);
       if (!ready.any((m) => m.id == cloudId)) {
-        ready.add(ModelInfo(
-          id: cloudId.isEmpty ? cloud.cloudModel : cloudId,
-          name: cloud.cloudModel,
-          runtime: 'cloud',
-          type: 'chat',
-          ready: true,
-          installed: true,
-          missingFiles: const [],
-          cloud: true,
-        ));
+        ready.add(
+          ModelInfo(
+            id: cloudId.isEmpty ? cloud.cloudModel : cloudId,
+            name: cloud.cloudModel,
+            runtime: 'cloud',
+            type: 'chat',
+            ready: true,
+            installed: true,
+            missingFiles: const [],
+            cloud: true,
+          ),
+        );
       }
     }
     return ListView.builder(
@@ -309,7 +389,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
         return Card(
           child: RadioGroup<String>(
             groupValue: selected ? model.id : null,
-            onChanged: (_) => AppScope.of(context).runtime.updateSettings({'modelId': model.id}),
+            onChanged: (_) => AppScope.of(
+              context,
+            ).runtime.updateSettings({'modelId': model.id}),
             child: RadioListTile<String>(
               value: model.id,
               title: Text(model.name),
@@ -322,7 +404,9 @@ class _ModelsScreenState extends State<ModelsScreen> {
   }
 
   void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -359,9 +443,15 @@ class _CloudViewState extends State<_CloudView> {
     _baseUrl = TextEditingController(text: state?.cloudBaseUrl ?? '');
     _apiKey = TextEditingController(text: state?.cloudApiKey ?? '');
     _model = TextEditingController(text: state?.cloudModel ?? '');
-    _tokens = TextEditingController(text: '${state?.cloudMaxOutputTokens ?? 0}');
-    _context = TextEditingController(text: '${state?.cloudContextWindow ?? 131072}');
-    _history = TextEditingController(text: '${state?.cloudHistoryLimit ?? 256}');
+    _tokens = TextEditingController(
+      text: '${state?.cloudMaxOutputTokens ?? 0}',
+    );
+    _context = TextEditingController(
+      text: '${state?.cloudContextWindow ?? 131072}',
+    );
+    _history = TextEditingController(
+      text: '${state?.cloudHistoryLimit ?? 256}',
+    );
     _enabled = state?.cloudEnabled ?? false;
   }
 
@@ -411,7 +501,12 @@ class _CloudViewState extends State<_CloudView> {
     );
   }
 
-  Widget _field(String label, TextEditingController controller, {bool obscure = false, bool numeric = false}) {
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    bool obscure = false,
+    bool numeric = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(

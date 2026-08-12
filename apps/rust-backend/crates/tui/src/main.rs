@@ -159,50 +159,44 @@ impl App {
                 body["model"] = json!(model);
             }
             let outcome = match client.post(url).headers(headers).json(&body).send() {
-                Ok(response) if response.status().is_success() => {
-                    match response.json::<Value>() {
-                        Ok(parsed) => ChatOutcome {
-                            ok: true,
-                            text: parsed
-                                .pointer("/choices/0/message/content")
-                                .and_then(Value::as_str)
-                                .unwrap_or("")
-                                .to_owned(),
-                            notice: String::new(),
-                        },
-                        Err(error) => ChatOutcome {
-                            ok: false,
-                            text: String::new(),
-                            notice: format!("响应解析失败: {error}"),
-                        },
-                    }
-                }
-                Ok(response) => {
-                    match response.json::<Value>() {
-                        Ok(parsed) => ChatOutcome {
-                            ok: false,
-                            text: String::new(),
-                            notice: parsed
-                                .get("error")
-                                .and_then(|e| e.get("message"))
-                                .and_then(Value::as_str)
-                                .unwrap_or("unknown error")
-                                .to_owned(),
-                        },
-                        Err(error) => ChatOutcome {
-                            ok: false,
-                            text: String::new(),
-                            notice: format!("响应解析失败: {error}"),
-                        },
-                    }
-                }
-                Err(error) => {
-                    ChatOutcome {
+                Ok(response) if response.status().is_success() => match response.json::<Value>() {
+                    Ok(parsed) => ChatOutcome {
+                        ok: true,
+                        text: parsed
+                            .pointer("/choices/0/message/content")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_owned(),
+                        notice: String::new(),
+                    },
+                    Err(error) => ChatOutcome {
                         ok: false,
                         text: String::new(),
-                        notice: format!("请求失败: {error}"),
-                    }
-                }
+                        notice: format!("响应解析失败: {error}"),
+                    },
+                },
+                Ok(response) => match response.json::<Value>() {
+                    Ok(parsed) => ChatOutcome {
+                        ok: false,
+                        text: String::new(),
+                        notice: parsed
+                            .get("error")
+                            .and_then(|e| e.get("message"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("unknown error")
+                            .to_owned(),
+                    },
+                    Err(error) => ChatOutcome {
+                        ok: false,
+                        text: String::new(),
+                        notice: format!("响应解析失败: {error}"),
+                    },
+                },
+                Err(error) => ChatOutcome {
+                    ok: false,
+                    text: String::new(),
+                    notice: format!("请求失败: {error}"),
+                },
             };
             let _ = tx.send(outcome);
         });
@@ -215,7 +209,8 @@ impl App {
             .unwrap_or((raw, ""));
         match command {
             "/help" => {
-                self.notice = "/help /models /model <id> /nodes /clear /quit — 输入文本直接聊天".to_owned();
+                self.notice =
+                    "/help /models /model <id> /nodes /clear /quit — 输入文本直接聊天".to_owned();
             }
             "/models" => {
                 self.refresh();
@@ -224,7 +219,8 @@ impl App {
                 } else {
                     self.models.join("\n")
                 };
-                self.messages.push(("system".to_owned(), format!("可用模型:\n{list}")));
+                self.messages
+                    .push(("system".to_owned(), format!("可用模型:\n{list}")));
             }
             "/model" => {
                 if arg.is_empty() {
@@ -256,7 +252,8 @@ impl App {
                     })
                     .collect::<Vec<_>>()
                     .join("\n");
-                self.messages.push(("system".to_owned(), format!("节点:\n{list}")));
+                self.messages
+                    .push(("system".to_owned(), format!("节点:\n{list}")));
             }
             "/clear" => {
                 self.messages.clear();
@@ -450,10 +447,22 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         Span::styled("○ 离线", Style::default().fg(Color::Red))
     };
-    let model = format!("模型: {}", if app.model.is_empty() { "未选择" } else { &app.model });
+    let model = format!(
+        "模型: {}",
+        if app.model.is_empty() {
+            "未选择"
+        } else {
+            &app.model
+        }
+    );
     let nodes = format!("节点: {}", app.nodes.len());
     let line = Line::from(vec![
-        Span::styled(" Lociant TUI ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Lociant TUI ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
         status,
         Span::raw("  |  "),
         Span::raw(model),
@@ -509,12 +518,9 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_input(frame: &mut Frame, area: Rect, app: &App) {
-    let input = Paragraph::new(Line::from(vec![
-        Span::raw("> "),
-        Span::raw(&app.input),
-    ]))
-    .block(Block::default().borders(Borders::ALL).title("输入"))
-    .wrap(Wrap { trim: true });
+    let input = Paragraph::new(Line::from(vec![Span::raw("> "), Span::raw(&app.input)]))
+        .block(Block::default().borders(Borders::ALL).title("输入"))
+        .wrap(Wrap { trim: true });
     frame.render_widget(input, area);
     frame.set_cursor_position((
         area.x + 2 + UnicodeWidthStr::width(app.input.as_str()) as u16,
@@ -541,7 +547,10 @@ fn draw_hint(frame: &mut Frame, area: Rect, app: &App) {
 mod tests {
     use super::*;
 
+    /// Live peer-model smoke test. It is intentionally ignored in the default
+    /// unit suite because it requires the external fixture documented below.
     #[test]
+    #[ignore = "requires a Lociant peer fixture on 127.0.0.1:12001"]
     fn chat_outcome_reaches_channel() {
         // Requires a local node on :12001 (test fixture):
         //   LOCIANT_CONFIG=/tmp/peer-local/config.json ... lociant-server

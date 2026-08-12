@@ -33,18 +33,24 @@ Future<void> main() async {
     platform = HttpPlatformService(api);
   }
   final runtime = RuntimeController(platform, api);
-  final chat = ChatController(runtime, api, streamer: useMock ? MockChatStreamer() : null);
+  final chat = ChatController(
+    runtime,
+    api,
+    streamer: useMock ? MockChatStreamer() : null,
+  );
   final locale = LocaleController();
   final theme = ThemeController();
   final prefs = await SharedPreferences.getInstance();
   final onboardingDone = prefs.getBool('onboarding_done') ?? false;
-  runApp(LociantApp(
-    runtime: runtime,
-    chat: chat,
-    locale: locale,
-    theme: theme,
-    server: server,
-    onboardingDone: onboardingDone,
-    prefs: prefs,
-  ));
+  runApp(
+    LociantApp(
+      runtime: runtime,
+      chat: chat,
+      locale: locale,
+      theme: theme,
+      server: server,
+      onboardingDone: onboardingDone,
+      prefs: prefs,
+    ),
+  );
 }

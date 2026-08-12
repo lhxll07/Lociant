@@ -28,18 +28,14 @@ pub fn run() -> anyhow::Result<()> {
     };
     println!();
 
-    let backend = prompt(
-        "推理后端（none=无 / cloud=云端 / rkllm=本地 NPU）",
-        "none",
-    )
-    .trim()
-    .to_ascii_lowercase();
+    let backend = prompt("推理后端（none=无 / cloud=云端 / rkllm=本地 NPU）", "none")
+        .trim()
+        .to_ascii_lowercase();
     let mut cloud_enabled = false;
     let mut local_model = false;
     let mut rkllm_model_path = String::new();
     let mut rkllm_lib_path = String::new();
     let mut rkllm_model_name = String::new();
-    let peer_token: String;
     let mut peer_name = String::new();
     let mut cloud_base_url = String::new();
     let mut cloud_api_key = String::new();
@@ -57,22 +53,23 @@ pub fn run() -> anyhow::Result<()> {
                 "RKLLM 模型文件路径（.rkllm）",
                 "/home/lhx/qwen3.5-0.8b-w4a16-g128-opt0.rkllm",
             );
-            rkllm_lib_path = prompt(
-                "librkllmrt.so 路径（回车用系统默认搜索）",
-                "",
-            );
+            rkllm_lib_path = prompt("librkllmrt.so 路径（回车用系统默认搜索）", "");
             rkllm_model_name = prompt("模型名称（API 中显示）", "qwen3.5-0.8b");
         }
         _ => {}
     }
     println!();
 
-    peer_token = prompt(
+    let peer_token = prompt(
         "节点互联令牌（局域网内其他 Lociant 节点共享，回车不启用）",
         "",
     )
     .trim()
     .to_owned();
+    let peer_discovery = prompt("启用 UDP 自动发现？（true/false）", "true")
+        .trim()
+        .parse::<bool>()
+        .unwrap_or(true);
     if !peer_token.is_empty() {
         let default_name = std::env::var("HOSTNAME")
             .or_else(|_| std::env::var("HOST"))
@@ -92,6 +89,7 @@ pub fn run() -> anyhow::Result<()> {
         "rkllmLibPath": rkllm_lib_path,
         "rkllmModelName": rkllm_model_name,
         "peerToken": peer_token,
+        "peerDiscovery": peer_discovery,
         "peerName": peer_name,
         "cloudBaseUrl": cloud_base_url,
         "cloudApiKey": cloud_api_key,
@@ -115,12 +113,15 @@ pub fn run() -> anyhow::Result<()> {
         println!("云端模型：{} @ {}", cloud_model, cloud_base_url);
     }
     if !peer_token.is_empty() {
-        println!("节点互联：已启用（令牌 {}）", "***");
+        println!("节点互联：已启用（令牌 ***）");
     }
     println!();
     println!("下一步（按你的部署方式选择）：");
     println!("  systemd：sudo systemctl restart lociant");
-    println!("  前台调试：LOCIANT_CONFIG={} lociant-server", config_path.display());
+    println!(
+        "  前台调试：LOCIANT_CONFIG={} lociant-server",
+        config_path.display()
+    );
     Ok(())
 }
 
@@ -130,7 +131,11 @@ fn prompt(label: &str, default: &str) -> String {
     let mut line = String::new();
     let _ = io::stdin().lock().read_line(&mut line);
     let value = line.trim().to_string();
-    if value.is_empty() { default.to_string() } else { value }
+    if value.is_empty() {
+        default.to_string()
+    } else {
+        value
+    }
 }
 
 pub fn random_token() -> String {

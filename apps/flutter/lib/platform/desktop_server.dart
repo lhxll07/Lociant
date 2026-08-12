@@ -88,7 +88,9 @@ class DesktopServerProcess {
     if (override != null && File(override).existsSync()) return override;
     // Release bundle layout: <bundle>/lociant_flutter, <bundle>/bin/lociant-server
     final appDir = File(Platform.resolvedExecutable).parent;
-    final bundled = File('${appDir.path}${Platform.pathSeparator}bin${Platform.pathSeparator}lociant-server');
+    final bundled = File(
+      '${appDir.path}${Platform.pathSeparator}bin${Platform.pathSeparator}lociant-server',
+    );
     if (bundled.existsSync()) return bundled.path;
     // Debug/dev layout: flutter run from apps/flutter.
     final dev = File(

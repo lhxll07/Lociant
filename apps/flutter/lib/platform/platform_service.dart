@@ -8,7 +8,10 @@ import '../core/api_client.dart';
 /// [LociantPlatformChannel]; on desktop it is [HttpPlatformService] talking to
 /// the local Rust backend's control plane with the same method names.
 abstract class PlatformService {
-  Future<Map<String, dynamic>> call(String method, [Map<String, dynamic>? payload]);
+  Future<Map<String, dynamic>> call(
+    String method, [
+    Map<String, dynamic>? payload,
+  ]);
 
   Stream<Map<String, dynamic>> events();
 }
@@ -23,7 +26,10 @@ class HttpPlatformService implements PlatformService {
   final ApiClient api;
 
   @override
-  Future<Map<String, dynamic>> call(String method, [Map<String, dynamic>? payload]) async {
+  Future<Map<String, dynamic>> call(
+    String method, [
+    Map<String, dynamic>? payload,
+  ]) async {
     switch (method) {
       case 'runtimeState':
         return _map(await api.get('/api/v1/runtime'));
@@ -82,7 +88,9 @@ class HttpPlatformService implements PlatformService {
 class AndroidPlatformService extends HttpPlatformService {
   AndroidPlatformService(super.api);
 
-  static const MethodChannel _methods = MethodChannel('io.lociant.android/platform');
+  static const MethodChannel _methods = MethodChannel(
+    'io.lociant.android/platform',
+  );
 
   static const Set<String> _androidOnly = {
     'startRuntime',
@@ -104,7 +112,10 @@ class AndroidPlatformService extends HttpPlatformService {
   };
 
   @override
-  Future<Map<String, dynamic>> call(String method, [Map<String, dynamic>? payload]) async {
+  Future<Map<String, dynamic>> call(
+    String method, [
+    Map<String, dynamic>? payload,
+  ]) async {
     if (method == 'runtimeState') {
       // Rust core state + Kotlin device fields, so window/permission/vision
       // status stays accurate while the server core lives in Rust.
@@ -123,20 +134,30 @@ class AndroidPlatformService extends HttpPlatformService {
   // is not consulted so its parallel (stale) server state can't leak in.
   Stream<Map<String, dynamic>> events() => const Stream.empty();
 
-  Future<Map<String, dynamic>> _invoke(String method, [Map<String, dynamic>? payload]) async {
-    final raw =
-        await _methods.invokeMethod<String>(method, payload == null ? null : jsonEncode(payload));
+  Future<Map<String, dynamic>> _invoke(
+    String method, [
+    Map<String, dynamic>? payload,
+  ]) async {
+    final raw = await _methods.invokeMethod<String>(
+      method,
+      payload == null ? null : jsonEncode(payload),
+    );
     return raw == null || raw.isEmpty ? const {} : _decode(raw);
   }
 
   Map<String, dynamic> _decode(String raw) =>
-      jsonDecode(raw) is Map<String, dynamic> ? jsonDecode(raw) as Map<String, dynamic> : const {};
+      jsonDecode(raw) is Map<String, dynamic>
+      ? jsonDecode(raw) as Map<String, dynamic>
+      : const {};
 }
 
 /// No-op platform service used when no native host is present (e.g. tests).
 class HeadlessPlatformService implements PlatformService {
   @override
-  Future<Map<String, dynamic>> call(String method, [Map<String, dynamic>? payload]) async => const {};
+  Future<Map<String, dynamic>> call(
+    String method, [
+    Map<String, dynamic>? payload,
+  ]) async => const {};
 
   @override
   Stream<Map<String, dynamic>> events() => const Stream.empty();

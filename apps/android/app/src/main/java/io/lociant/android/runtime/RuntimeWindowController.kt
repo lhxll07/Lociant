@@ -207,7 +207,6 @@ class RuntimeWindowController private constructor(
     private fun toggleRuntime() {
         val runtime = LociantRuntime.runtimeSummary(context)
         if (runtime.optBoolean("running") || runtime.optBoolean("starting")) {
-            runCatching { LociantRuntime.server(context).stopForService() }
             LociantRuntimeService.stopRuntime(context)
         } else {
             LociantRuntimeService.startRuntime(context)

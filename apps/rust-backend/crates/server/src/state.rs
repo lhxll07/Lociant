@@ -3,16 +3,16 @@ use std::net::{IpAddr, UdpSocket};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use lociant_store::Store;
 use lociant_rkllm::Rkllm;
+use lociant_store::Store;
 use lociant_tools::ToolRegistry;
 use serde_json::Value;
 
+use crate::baby::BabyMonitor;
 use crate::catalog::CatalogEntry;
-use crate::baby::BabyService;
 use crate::device::IpcDeviceAdapter;
-use crate::peers::PeerManager;
 use crate::models::InstallJob;
+use crate::peers::PeerManager;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -27,7 +27,7 @@ pub struct AppState {
     pub installs: Arc<Mutex<HashMap<String, InstallJob>>>,
     pub rkllm: Option<Arc<Rkllm>>,
     pub peers: Option<Arc<PeerManager>>,
-    pub baby: Option<Arc<BabyService>>,
+    pub baby: Option<Arc<dyn BabyMonitor>>,
     pub baby_cache: Arc<Mutex<HashMap<String, (std::time::Instant, Value)>>>,
     pub tools_cache: Arc<Mutex<HashMap<String, (std::time::Instant, serde_json::Value)>>>,
 }

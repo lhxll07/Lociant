@@ -59,8 +59,7 @@ UI 是 Flutter，服务端是 Rust（`apps/rust-backend`），Android 是设备�
 - [架构](docs/architecture.md)
 - [配置指南（从零开始）](docs/setup-guide.md)
 - [Android 开发说明](apps/android/README.md)
-- [Agent 与 MCP 接入（含 OpenAI 兼容 API）](docs/agent-integration.md)
-- [控制 API](docs/control-api.md)
+- [Agent 与 HTTP API（MCP、OpenAI、控制接口）](docs/agent-integration.md)
 
 ## 许可证
 

@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=lhx
-Group=lhx
-Environment=LOCIANT_DATA_DIR=/home/lhx/lociant/data
+User=@LOCIANT_USER@
+Group=@LOCIANT_GROUP@
+Environment=LOCIANT_DATA_DIR=@LOCIANT_DATA_DIR@
 Environment=LOCIANT_HOST=0.0.0.0
 Environment=LOCIANT_CONFIG=/etc/lociant/config.json
 ExecStart=/usr/local/bin/lociant-server

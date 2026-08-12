@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     }
     if std::env::args().any(|arg| arg == "--rkllm-test") {
         let prompt = std::env::args()
-            .last()
+            .next_back()
             .unwrap_or_else(|| "你好".to_owned());
         let config_path = std::env::var("LOCIANT_CONFIG")
             .unwrap_or_else(|_| "/etc/lociant/config.json".to_owned());
@@ -112,10 +112,7 @@ async fn main() -> anyhow::Result<()> {
                 .and_then(|value| value.parse::<IpAddr>().ok())
         })
         .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
-    let rkllm = match settings
-        .get("rkllmModelPath")
-        .and_then(Value::as_str)
-    {
+    let rkllm = match settings.get("rkllmModelPath").and_then(Value::as_str) {
         Some(path) => {
             let lib_path = settings
                 .get("rkllmLibPath")
@@ -201,6 +198,7 @@ async fn main() -> anyhow::Result<()> {
         )))
     };
     let peers_for_start = peers.clone();
+    let peer_discovery = peer_discovery_enabled(&settings);
     let manual_peers = settings
         .get("manualPeers")
         .cloned()
@@ -210,14 +208,14 @@ async fn main() -> anyhow::Result<()> {
         .get("babyCamera")
         .and_then(Value::as_str)
         .filter(|device| !device.is_empty())
-        .map(|device| {
+        .and_then(|device| {
             let mic = settings
                 .get("babyMic")
                 .and_then(Value::as_str)
                 .filter(|s| !s.is_empty())
                 .unwrap_or("default")
                 .to_owned();
-            crate::baby::BabyService::start(device, &mic)
+            crate::baby::start(device, &mic)
         });
 
     let state = AppState {
@@ -254,7 +252,7 @@ async fn main() -> anyhow::Result<()> {
                 peers.add_manual_peer(host.to_owned(), port as u16, name);
             }
         }
-        peers.start();
+        peers.start(peer_discovery);
     }
 
     let app = Router::new()
@@ -310,7 +308,6 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-
 fn load_headless_config(mut settings: Value) -> Value {
     let path = match std::env::var("LOCIANT_CONFIG") {
         Ok(path) if !path.is_empty() => path,
@@ -339,10 +336,35 @@ fn load_headless_config(mut settings: Value) -> Value {
     settings
 }
 
+fn peer_discovery_enabled(settings: &Value) -> bool {
+    settings
+        .get("peerDiscovery")
+        .and_then(Value::as_bool)
+        .unwrap_or(true)
+}
+
 async fn health() -> axum::Json<Value> {
     axum::Json(serde_json::json!({
         "status": "ok",
         "service": "lociant-server",
         "version": env!("CARGO_PKG_VERSION"),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::peer_discovery_enabled;
+    use serde_json::json;
+
+    #[test]
+    fn peer_discovery_config_is_boolean_and_defaults_on() {
+        for (settings, expected) in [
+            (json!({}), true),
+            (json!({ "peerDiscovery": true }), true),
+            (json!({ "peerDiscovery": false }), false),
+            (json!({ "peerDiscovery": "false" }), true),
+        ] {
+            assert_eq!(peer_discovery_enabled(&settings), expected);
+        }
+    }
 }

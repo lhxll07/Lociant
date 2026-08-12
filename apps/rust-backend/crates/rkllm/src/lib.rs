@@ -220,8 +220,7 @@ pub const RUN_ERROR: u32 = 3;
 
 #[repr(C)]
 pub struct Callback {
-    pub result_callback:
-        Option<unsafe extern "C" fn(*mut RkllmResult, *mut c_void, u32) -> c_int>,
+    pub result_callback: Option<unsafe extern "C" fn(*mut RkllmResult, *mut c_void, u32) -> c_int>,
     pub result_userdata: *mut c_void,
     pub tokenizer_callback: *const c_void,
     pub tokenizer_userdata: *mut c_void,
@@ -229,19 +228,12 @@ pub struct Callback {
     pub embed_userdata: *mut c_void,
 }
 
-type InitFn =
-    unsafe extern "C" fn(*mut LLMHandle, *mut Param, *mut Callback) -> c_int;
-type RunFn = unsafe extern "C" fn(
-    LLMHandle,
-    *mut Input,
-    *mut InferParam,
-    *mut c_void,
-) -> c_int;
+type InitFn = unsafe extern "C" fn(*mut LLMHandle, *mut Param, *mut Callback) -> c_int;
+type RunFn = unsafe extern "C" fn(LLMHandle, *mut Input, *mut InferParam, *mut c_void) -> c_int;
 type DestroyFn = unsafe extern "C" fn(LLMHandle) -> c_int;
 type AbortFn = unsafe extern "C" fn(LLMHandle) -> c_int;
 type IsRunningFn = unsafe extern "C" fn(LLMHandle) -> c_int;
-type ClearKvCacheFn =
-    unsafe extern "C" fn(LLMHandle, c_int, *mut c_int, *mut c_int) -> c_int;
+type ClearKvCacheFn = unsafe extern "C" fn(LLMHandle, c_int, *mut c_int, *mut c_int) -> c_int;
 
 /// A loaded RKLLM model. Only one inference runs at a time (NPU is
 /// single-task); the inner mutex serializes calls.
@@ -274,31 +266,35 @@ impl Rkllm {
     /// Loads the runtime library and initializes the model. `lib_path` may be
     /// empty to let the loader search default paths.
     pub fn load(model_path: &str, lib_path: Option<&str>) -> Result<Self> {
-        let model_c = CString::new(model_path)
-            .map_err(|_| anyhow!("model path contains NUL byte"))?;
+        let model_c =
+            CString::new(model_path).map_err(|_| anyhow!("model path contains NUL byte"))?;
         unsafe {
             let lib = match lib_path {
                 Some(path) if !path.is_empty() => libloading::Library::new(path),
                 _ => libloading::Library::new("librkllmrt.so"),
             }
             .with_context(|| "failed to load librkllmrt.so")?;
-            let init: libloading::Symbol<InitFn> =
-                lib.get(b"rkllm_init").context("rkllm_init symbol missing")?;
+            let init: libloading::Symbol<InitFn> = lib
+                .get(b"rkllm_init")
+                .context("rkllm_init symbol missing")?;
             let run: libloading::Symbol<RunFn> =
                 lib.get(b"rkllm_run").context("rkllm_run symbol missing")?;
-            let destroy: libloading::Symbol<DestroyFn> =
-                lib.get(b"rkllm_destroy").context("rkllm_destroy symbol missing")?;
-            let abort: libloading::Symbol<AbortFn> =
-                lib.get(b"rkllm_abort").context("rkllm_abort symbol missing")?;
+            let destroy: libloading::Symbol<DestroyFn> = lib
+                .get(b"rkllm_destroy")
+                .context("rkllm_destroy symbol missing")?;
+            let abort: libloading::Symbol<AbortFn> = lib
+                .get(b"rkllm_abort")
+                .context("rkllm_abort symbol missing")?;
             let init_fn = *init;
             let run_fn = *run;
             let destroy_fn = *destroy;
             let abort_fn = *abort;
-            let is_running: libloading::Symbol<IsRunningFn> =
-                lib.get(b"rkllm_is_running").context("rkllm_is_running missing")?;
-            let clear_kv: libloading::Symbol<ClearKvCacheFn> =
-                lib.get(b"rkllm_clear_kv_cache")
-                    .context("rkllm_clear_kv_cache missing")?;
+            let is_running: libloading::Symbol<IsRunningFn> = lib
+                .get(b"rkllm_is_running")
+                .context("rkllm_is_running missing")?;
+            let clear_kv: libloading::Symbol<ClearKvCacheFn> = lib
+                .get(b"rkllm_clear_kv_cache")
+                .context("rkllm_clear_kv_cache missing")?;
             let is_running_fn = *is_running;
             let clear_kv_fn = *clear_kv;
 
@@ -323,14 +319,14 @@ impl Rkllm {
                 ignore_eos_token: false,
                 is_async: false,
                 extend_param: ExtendParam {
-                // RK3576/RK3588: run on the four big cores (CPU4-7) and keep
-                // the embedding table in flash to save RAM, matching the
-                // official rkllm_server demo.
-                embed_flash: 1,
-                enabled_cpus_num: 4,
-                enabled_cpus_mask: 0xF0,
-                n_batch: 1,
-                ..Default::default()
+                    // RK3576/RK3588: run on the four big cores (CPU4-7) and keep
+                    // the embedding table in flash to save RAM, matching the
+                    // official rkllm_server demo.
+                    embed_flash: 1,
+                    enabled_cpus_num: 4,
+                    enabled_cpus_mask: 0xF0,
+                    n_batch: 1,
+                    ..Default::default()
                 },
             };
             let mut callback = Callback {
@@ -374,10 +370,11 @@ impl Rkllm {
         // Fail fast when the previous inference is still running (e.g. the
         // runtime hung on a tricky prompt): the caller gets a clear error
         // instead of queueing forever behind a stuck model.
-        let _guard = self
-            .lock
-            .try_lock()
-            .map_err(|_| anyhow!("RKLLM is busy (a previous inference may be stuck); restart the service to recover"))?;
+        let _guard = self.lock.try_lock().map_err(|_| {
+            anyhow!(
+                "RKLLM is busy (a previous inference may be stuck); restart the service to recover"
+            )
+        })?;
         let prompt_c = CString::new(prompt).map_err(|_| anyhow!("prompt contains NUL"))?;
         let role_c = CString::new(role).unwrap_or_else(|_| CString::new("user").unwrap());
         let mut on_chunk = on_chunk;
@@ -432,7 +429,12 @@ impl Rkllm {
     pub fn clear_kv_cache(&self, keep_system_prompt: bool) {
         let _guard = self.lock.lock().ok();
         unsafe {
-            (self.clear_kv_cache)(self.handle, keep_system_prompt as c_int, std::ptr::null_mut(), std::ptr::null_mut());
+            (self.clear_kv_cache)(
+                self.handle,
+                keep_system_prompt as c_int,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
         }
     }
 

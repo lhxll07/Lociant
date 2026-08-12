@@ -1,6 +1,17 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/store", "crates/tools", "crates/agent", "crates/rkllm", "crates/server", "crates/tui"]
+members = [
+    "crates/core",
+    "crates/store",
+    "crates/tools",
+    "crates/agent",
+    "crates/rkllm",
+    "crates/server",
+    "crates/tui",
+    "vendor/slumberguard/crates/core",
+    "vendor/slumberguard/crates/source",
+    "vendor/slumberguard/crates/runtime",
+]
 
 [workspace.package]
 version = "0.1.0"

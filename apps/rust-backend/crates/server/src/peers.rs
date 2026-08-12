@@ -1,7 +1,7 @@
 //! Peer-to-peer node discovery and remote capability sharing.
 //!
-//! Every Lociant node advertises itself over UDP broadcast (port 11435) and
-//! watches for siblings, so discovery works on any LAN (Android included)
+//! Lociant nodes can advertise themselves over UDP broadcast (port 11435) and
+//! watch for siblings, so discovery works on any LAN (Android included)
 //! without mDNS/group-multicast support. Discovered peers are attached to
 //! the shared
 //! `ToolRegistry` (tools are called over the peer's `/api/v1/peer/*` routes,
@@ -14,10 +14,10 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use lociant_core::{ToolDescriptor, ToolResult};
-use lociant_tools::{DeviceAdapter, ToolError, ToolRegistry};
 use async_trait::async_trait;
 use lociant_agent::backend::{ChatBackend, TurnEvent, TurnOutcome};
+use lociant_core::{ToolDescriptor, ToolResult};
+use lociant_tools::{DeviceAdapter, ToolError, ToolRegistry};
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
@@ -35,6 +35,8 @@ pub struct PeerNode {
     pub port: u16,
     pub last_seen: Instant,
 }
+
+type ToolsCache = Arc<Mutex<Option<(Instant, Vec<ToolDescriptor>)>>>;
 
 /// Manages UDP advertisement, peer tracking and remote tool adapters.
 pub struct PeerManager {
@@ -56,6 +58,21 @@ impl PeerManager {
         token: String,
         port: u16,
     ) -> Self {
+        // `reqwest::blocking::Client::build` creates and tears down an
+        // internal Tokio runtime. Constructing it directly inside our
+        // `#[tokio::main]` future panics while that temporary runtime is
+        // dropped, so keep the complete blocking-client lifecycle setup on a
+        // plain OS thread. Peer requests themselves already run on dedicated
+        // threads or `spawn_blocking` call sites.
+        let client = std::thread::spawn(|| {
+            reqwest::blocking::Client::builder()
+                .connect_timeout(Duration::from_secs(2))
+                .timeout(Duration::from_secs(4))
+                .build()
+        })
+        .join()
+        .expect("peer HTTP client builder thread panicked")
+        .expect("peer HTTP client build failed");
         PeerManager {
             self_id,
             self_name,
@@ -64,126 +81,107 @@ impl PeerManager {
             nodes: RwLock::new(HashMap::new()),
             adapters: Mutex::new(HashMap::new()),
             registry,
-            client: reqwest::blocking::Client::builder()
-                // Peer metadata must never stall request paths for long:
-                // short connect cap, then the result is cached either way.
-                .connect_timeout(Duration::from_secs(2))
-                .timeout(Duration::from_secs(4))
-                .build()
-                .unwrap_or_default(),
+            client,
         }
     }
 
-    /// Starts UDP advertisement and discovery on background tasks.
-    pub fn start(self: &Arc<Self>) {
-        // Advertisement: broadcast our identity periodically.
-        let peers = self.clone();
-        std::thread::spawn(move || {
-            let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {
-                Ok(socket) => socket,
-                Err(error) => {
-                    tracing::error!("UDP advertise bind failed: {error}");
-                    return;
-                }
-            };
-            let _ = socket.set_broadcast(true);
-            let payload = json!({
-                "id": peers.self_id,
-                "name": peers.self_name,
-                "platform": std::env::consts::OS,
-                "port": peers.port,
-            })
-            .to_string();
-            let targets = Self::subnet_broadcast_addrs();
-            let targets = if targets.is_empty() {
-                vec![std::net::Ipv4Addr::BROADCAST]
-            } else {
-                targets
-            };
-            loop {
-                for target in &targets {
-                    match socket.send_to(payload.as_bytes(), (*target, DISCOVERY_PORT)) {
-                        Ok(n) => {
-                            let _ = std::fs::OpenOptions::new()
-                                .create(true)
-                                .append(true)
-                                .open("/tmp/peers-advertise.log")
-                                .and_then(|mut f| {
-                                    use std::io::Write;
-                                    writeln!(f, "sent {n} bytes to {target}")
-                                });
-                        }
-                        Err(error) => {
-                            let _ = std::fs::OpenOptions::new()
-                                .create(true)
-                                .append(true)
-                                .open("/tmp/peers-advertise.log")
-                                .and_then(|mut f| {
-                                    use std::io::Write;
-                                    writeln!(f, "advertise to {target} failed: {error}")
-                                });
+    /// Starts peer services. Manual peers and their metadata refresher always
+    /// work; UDP discovery is optional and defaults to enabled at the server
+    /// configuration layer for backwards compatibility.
+    pub fn start(self: &Arc<Self>, discovery: bool) {
+        if discovery {
+            // Advertisement: broadcast our identity periodically.
+            let peers = self.clone();
+            std::thread::spawn(move || {
+                let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {
+                    Ok(socket) => socket,
+                    Err(error) => {
+                        tracing::error!("UDP advertise bind failed: {error}");
+                        return;
+                    }
+                };
+                let _ = socket.set_broadcast(true);
+                let payload = json!({
+                    "id": peers.self_id,
+                    "name": peers.self_name,
+                    "platform": std::env::consts::OS,
+                    "port": peers.port,
+                })
+                .to_string();
+                let targets = Self::subnet_broadcast_addrs();
+                let targets = if targets.is_empty() {
+                    vec![std::net::Ipv4Addr::BROADCAST]
+                } else {
+                    targets
+                };
+                loop {
+                    for target in &targets {
+                        match socket.send_to(payload.as_bytes(), (*target, DISCOVERY_PORT)) {
+                            Ok(_) => {}
+                            Err(error) => {
+                                tracing::debug!(%target, "peer advertise failed: {error}")
+                            }
                         }
                     }
+                    std::thread::sleep(ADVERTISE_INTERVAL);
                 }
-                std::thread::sleep(ADVERTISE_INTERVAL);
-            }
-        });
+            });
 
-        // Discovery: listen for sibling broadcasts.
-        let peers = self.clone();
-        tokio::spawn(async move {
-            let socket2_socket = match socket2::Socket::new(
-                socket2::Domain::IPV4,
-                socket2::Type::DGRAM,
-                Some(socket2::Protocol::UDP),
-            ) {
-                Ok(socket) => socket,
-                Err(error) => {
-                    tracing::error!("UDP discovery socket failed: {error}");
-                    return;
-                }
-            };
-            let _ = socket2_socket.set_reuse_address(true);
-            let _ = socket2_socket.set_nonblocking(true);
-            let _ = socket2_socket.bind(
-                &format!("0.0.0.0:{DISCOVERY_PORT}")
-                    .parse::<std::net::SocketAddr>()
-                    .expect("static discovery addr")
-                    .into(),
-            );
-            let std_socket: std::net::UdpSocket = socket2_socket.into();
-            let socket = match tokio::net::UdpSocket::from_std(std_socket) {
-                Ok(socket) => socket,
-                Err(error) => {
-                    tracing::error!("UDP discovery socket failed: {error}");
-                    return;
-                }
-            };
-            let mut buf = [0u8; 2048];
-            loop {
-                let Ok((size, addr)) = socket.recv_from(&mut buf).await else {
-                    continue;
+            // Discovery: listen for sibling broadcasts.
+            let peers = self.clone();
+            tokio::spawn(async move {
+                let socket2_socket = match socket2::Socket::new(
+                    socket2::Domain::IPV4,
+                    socket2::Type::DGRAM,
+                    Some(socket2::Protocol::UDP),
+                ) {
+                    Ok(socket) => socket,
+                    Err(error) => {
+                        tracing::error!("UDP discovery socket failed: {error}");
+                        return;
+                    }
                 };
-                if let Ok(payload) = serde_json::from_slice::<Value>(&buf[..size]) {
-                    peers.handle_discovery_packet(addr, payload);
+                let _ = socket2_socket.set_reuse_address(true);
+                let _ = socket2_socket.set_nonblocking(true);
+                let _ = socket2_socket.bind(
+                    &format!("0.0.0.0:{DISCOVERY_PORT}")
+                        .parse::<std::net::SocketAddr>()
+                        .expect("static discovery addr")
+                        .into(),
+                );
+                let std_socket: std::net::UdpSocket = socket2_socket.into();
+                let socket = match tokio::net::UdpSocket::from_std(std_socket) {
+                    Ok(socket) => socket,
+                    Err(error) => {
+                        tracing::error!("UDP discovery socket failed: {error}");
+                        return;
+                    }
+                };
+                let mut buf = [0u8; 2048];
+                loop {
+                    let Ok((size, addr)) = socket.recv_from(&mut buf).await else {
+                        continue;
+                    };
+                    if let Ok(payload) = serde_json::from_slice::<Value>(&buf[..size]) {
+                        peers.handle_discovery_packet(addr, payload);
+                    }
                 }
-            }
-        });
+            });
 
-        // Heartbeat cleanup: drop peers that stopped broadcasting.
-        let peers = self.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(15));
-            loop {
-                interval.tick().await;
-                peers.reap_stale(Duration::from_secs(45));
-            }
-        });
+            // Heartbeat cleanup: drop peers that stopped broadcasting.
+            let peers = self.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(15));
+                loop {
+                    interval.tick().await;
+                    peers.reap_stale(Duration::from_secs(45));
+                }
+            });
 
-        tracing::info!(
-            "peer discovery enabled (UDP broadcast :{})",
-            DISCOVERY_PORT
-        );
+            tracing::info!("peer discovery enabled (UDP broadcast :{})", DISCOVERY_PORT);
+        } else {
+            tracing::info!("peer discovery disabled; manual peers remain available");
+        }
 
         // Background refresher: keep every peer's tool metadata warm so the
         // request path only ever hits the cache. Primes immediately, then
@@ -400,7 +398,7 @@ pub struct HttpPeerAdapter {
     base_url: String,
     token: String,
     client: reqwest::blocking::Client,
-    tools_cache: Arc<Mutex<Option<(Instant, Vec<ToolDescriptor>)>>>,
+    tools_cache: ToolsCache,
 }
 
 /// Remote tool metadata is slow-changing; cache it so the agent loop and the
@@ -449,10 +447,9 @@ impl DeviceAdapter for HttpPeerAdapter {
     }
 
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError> {
-        let mut request = self.client.post(format!(
-            "{}/api/v1/peer/tools/{name}/calls",
-            self.base_url
-        ));
+        let mut request = self
+            .client
+            .post(format!("{}/api/v1/peer/tools/{name}/calls", self.base_url));
         if !self.token.is_empty() {
             request = request.bearer_auth(&self.token);
         }
@@ -501,7 +498,47 @@ impl HttpPeerAdapter {
         let Ok(body) = response.json::<Value>() else {
             return None;
         };
-        serde_json::from_value(body.get("data").cloned().unwrap_or(Value::Array(Vec::new())))
-            .ok()
+        serde_json::from_value(
+            body.get("data")
+                .cloned()
+                .unwrap_or(Value::Array(Vec::new())),
+        )
+        .ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lociant_tools::NoopDevice;
+
+    fn manager(id: &str) -> PeerManager {
+        let registry = Arc::new(ToolRegistry::new(Box::new(NoopDevice)));
+        PeerManager::new(
+            registry,
+            id.to_owned(),
+            "Test node".to_owned(),
+            String::new(),
+            11434,
+        )
+    }
+
+    #[tokio::test]
+    async fn manager_can_be_created_inside_tokio_runtime() {
+        let manager = manager("test-node");
+        assert_eq!(manager.self_id, "test-node");
+    }
+
+    #[test]
+    fn manual_peer_is_available_without_discovery() {
+        let manager = manager("self");
+        manager.add_manual_peer("192.0.2.10".to_owned(), 11434, Some("test".to_owned()));
+        let node = manager.node("192.0.2.10:11434").expect("manual peer");
+        assert_eq!(node.platform, "manual");
+        assert_eq!(node.name, "test");
+        assert_eq!(
+            manager.peer_base_url(&node.id).expect("peer URL").0,
+            "http://192.0.2.10:11434/v1"
+        );
     }
 }

@@ -24,12 +24,19 @@ class SseChatClient implements ChatStreamer {
     required void Function(ToolCallPart call) onToolCall,
     required void Function(String phase, String tool, int round) onPhase,
   }) async {
-    final request = http.Request('POST', Uri.parse('${api.baseUrl}/v1/chat/completions'));
+    final request = http.Request(
+      'POST',
+      Uri.parse('${api.baseUrl}/v1/chat/completions'),
+    );
     request.headers['Content-Type'] = 'application/json';
-    if (api.authToken.isNotEmpty) request.headers['Authorization'] = 'Bearer ${api.authToken}';
+    if (api.authToken.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer ${api.authToken}';
+    }
     request.body = jsonEncode(body);
 
-    final response = await api.client.send(request).timeout(const Duration(seconds: 30));
+    final response = await api.client
+        .send(request)
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode >= 400) {
       final text = await response.stream.bytesToString();
       dynamic json;
@@ -46,7 +53,9 @@ class SseChatClient implements ChatStreamer {
     final text = StringBuffer();
     final reasoning = StringBuffer();
     final accumulator = _ToolCallAccumulator();
-    final lines = response.stream.transform(utf8.decoder).transform(const LineSplitter());
+    final lines = response.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
     String? error;
 
     await for (final line in lines) {
@@ -76,7 +85,9 @@ class SseChatClient implements ChatStreamer {
         if (type == 'phase') {
           final phase = lociant['phase']?.toString() ?? '';
           final tool = lociant['tool']?.toString() ?? '';
-          final round = lociant['round'] is num ? (lociant['round'] as num).toInt() : 0;
+          final round = lociant['round'] is num
+              ? (lociant['round'] as num).toInt()
+              : 0;
           onPhase(phase, tool, round);
         }
         continue;
@@ -159,13 +170,15 @@ class _ToolCallAccumulator {
         return ai.compareTo(bi);
       });
     return entries
-        .map((e) => ToolCallPart(
-              key: e.key,
-              id: e.value['id']?.toString() ?? e.key,
-              index: e.value['index'] as int?,
-              name: e.value['name']?.toString() ?? 'tool',
-              arguments: e.value['arguments']?.toString() ?? '',
-            ))
+        .map(
+          (e) => ToolCallPart(
+            key: e.key,
+            id: e.value['id']?.toString() ?? e.key,
+            index: e.value['index'] as int?,
+            name: e.value['name']?.toString() ?? 'tool',
+            arguments: e.value['arguments']?.toString() ?? '',
+          ),
+        )
         .toList();
   }
 }

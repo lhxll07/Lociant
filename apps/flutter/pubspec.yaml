@@ -15,7 +15,7 @@ description: "Lociant Flutter UI — a single UI for the Android runtime and fut
 # This version is used _only_ for the Runner app, which is used if you just do
 # a `flutter run`. It has no impact on any other native host app that you embed
 # your Flutter project into.
-version: 1.0.0+1
+version: 2.0.0+20000
 
 environment:
   sdk: ^3.12.2

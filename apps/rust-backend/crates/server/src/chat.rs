@@ -316,6 +316,7 @@ pub async fn chat_completions(
     .into_response())
 }
 
+#[allow(clippy::result_large_err, clippy::too_many_arguments)]
 fn select_local_backend(
     state: &AppState,
     request: &ChatRequest,

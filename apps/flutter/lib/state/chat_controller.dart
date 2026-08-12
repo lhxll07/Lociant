@@ -27,7 +27,11 @@ class ChatItem {
 }
 
 class ToolBubble {
-  ToolBubble({required this.name, required this.arguments, required this.status});
+  ToolBubble({
+    required this.name,
+    required this.arguments,
+    required this.status,
+  });
 
   final String name;
   String arguments;
@@ -39,7 +43,7 @@ class ToolBubble {
 /// used, so nothing on the server side changes.
 class ChatController extends ChangeNotifier {
   ChatController(this.runtime, this.api, {ChatStreamer? streamer})
-      : sse = streamer ?? SseChatClient(api);
+    : sse = streamer ?? SseChatClient(api);
 
   final RuntimeController runtime;
   final ApiClient api;
@@ -59,15 +63,22 @@ class ChatController extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> _loadToolManifest() {
     // One in-flight fetch shared by warmup and send; the result is cached so
     // the chat hot path never waits on the manifest twice.
-    return _manifestLoad ??= _fetchToolManifest().whenComplete(() => _manifestLoad = null);
+    return _manifestLoad ??= _fetchToolManifest().whenComplete(
+      () => _manifestLoad = null,
+    );
   }
 
   Future<List<Map<String, dynamic>>> _fetchToolManifest() async {
     if (_toolManifest.isNotEmpty) return _toolManifest;
     try {
       final data = await api.get('/api/v1/tools');
-      final list = (data is Map && data['data'] is List) ? data['data'] as List : const [];
-      final next = list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      final list = (data is Map && data['data'] is List)
+          ? data['data'] as List
+          : const [];
+      final next = list
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
       if (next.isNotEmpty) _toolManifest = next;
       return next;
     } catch (_) {
@@ -87,7 +98,9 @@ class ChatController extends ChangeNotifier {
     if (text.isEmpty && imageDataUrl == null) return;
     final sessionId = currentSessionId ?? '';
     lastError = null;
-    messages.add(ChatItem(role: 'user', text: text, imageDataUrl: imageDataUrl));
+    messages.add(
+      ChatItem(role: 'user', text: text, imageDataUrl: imageDataUrl),
+    );
     _round = -1;
     _roundItem = null;
     runStatus = '';
@@ -124,9 +137,15 @@ class ChatController extends ChangeNotifier {
         },
         onToolCall: (call) {
           final item = _itemForRound();
-          final existing = item.tools.where((b) => b.name == call.name).toList();
+          final existing = item.tools
+              .where((b) => b.name == call.name)
+              .toList();
           final bubble = existing.isEmpty
-              ? ToolBubble(name: call.name, arguments: call.arguments, status: 'call')
+              ? ToolBubble(
+                  name: call.name,
+                  arguments: call.arguments,
+                  status: 'call',
+                )
               : existing.last;
           if (existing.isEmpty) item.tools.add(bubble);
           bubble.arguments = call.arguments;
@@ -194,13 +213,19 @@ class ChatController extends ChangeNotifier {
     return item;
   }
 
-  List<Map<String, dynamic>> _requestMessages(String text, String? imageDataUrl) {
+  List<Map<String, dynamic>> _requestMessages(
+    String text,
+    String? imageDataUrl,
+  ) {
     final content = <dynamic>[];
     if (text.trim().isNotEmpty) {
       content.add({'type': 'text', 'text': text});
     }
     if (imageDataUrl != null) {
-      content.add({'type': 'image_url', 'image_url': {'url': imageDataUrl}});
+      content.add({
+        'type': 'image_url',
+        'image_url': {'url': imageDataUrl},
+      });
     }
     return [
       {'role': 'user', 'content': content},
@@ -226,7 +251,9 @@ class ChatController extends ChangeNotifier {
               final name = map['name']?.toString() ?? 'tool';
               final target = messages.isNotEmpty ? messages.last : null;
               if (target != null && target.role == 'assistant') {
-                target.tools.add(ToolBubble(name: name, arguments: text, status: 'done'));
+                target.tools.add(
+                  ToolBubble(name: name, arguments: text, status: 'done'),
+                );
               }
             } else if (text.isNotEmpty) {
               final item = ChatItem(role: role, text: text);

@@ -371,6 +371,14 @@ pub struct AgentConfig {
     pub max_tokens: Option<u32>,
 }
 
+struct RunContext<'a> {
+    config: &'a AgentConfig,
+    tools: &'a [Value],
+    streaming: bool,
+    meta: Option<&'a StreamMeta>,
+    tx: Option<&'a mpsc::Sender<Bytes>>,
+}
+
 /// Streams a full multi-round agent run over the SSE channel. Returns the
 /// final result so the caller can persist the assistant turn.
 pub async fn stream_agent(
@@ -390,17 +398,14 @@ pub async fn stream_agent(
     // Tool metadata is fixed for the whole run; building it once here (with
     // adapter-level caching) keeps the per-round path free of network I/O.
     let tools = build_tools(&config, &registry);
-    let result = run_loop(
-        backend,
-        registry,
-        &config,
-        &tools,
-        messages,
-        true,
-        Some(&meta),
-        Some(tx),
-    )
-    .await;
+    let context = RunContext {
+        config: &config,
+        tools: &tools,
+        streaming: true,
+        meta: Some(&meta),
+        tx: Some(tx),
+    };
+    let result = run_loop(backend, registry, messages, context).await;
     let reason = if result.tool_calls.is_empty() {
         "stop"
     } else {
@@ -432,7 +437,14 @@ pub async fn run_agent_complete(
     messages: Vec<LoopMessage>,
 ) -> AgentResult {
     let tools = build_tools(&config, &registry);
-    run_loop(backend, registry, &config, &tools, messages, false, None, None).await
+    let context = RunContext {
+        config: &config,
+        tools: &tools,
+        streaming: false,
+        meta: None,
+        tx: None,
+    };
+    run_loop(backend, registry, messages, context).await
 }
 
 /// Builds the OpenAI tool definitions once per agent run. The registry is
@@ -460,13 +472,16 @@ fn build_tools(config: &AgentConfig, registry: &ToolRegistry) -> Vec<Value> {
 async fn run_loop(
     backend: Arc<dyn ChatBackend>,
     registry: Arc<ToolRegistry>,
-    config: &AgentConfig,
-    tools: &[Value],
     mut messages: Vec<LoopMessage>,
-    streaming: bool,
-    meta: Option<&StreamMeta>,
-    tx: Option<&mpsc::Sender<Bytes>>,
+    context: RunContext<'_>,
 ) -> AgentResult {
+    let RunContext {
+        config,
+        tools,
+        streaming,
+        meta,
+        tx,
+    } = context;
     let mut rounds: u32 = 0;
     let mut retries: u32 = 0;
     let mut executed_tool_calls = 0usize;

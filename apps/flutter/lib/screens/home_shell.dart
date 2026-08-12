@@ -20,7 +20,12 @@ class HomeShell extends StatefulWidget {
 class HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _pages = [HomeScreen(), ModelsScreen(), NodesScreen(), SettingsScreen()];
+  static const _pages = [
+    HomeScreen(),
+    ModelsScreen(),
+    NodesScreen(),
+    SettingsScreen(),
+  ];
 
   /// Switches the top-level tab (used by other screens, e.g. Nodes -> Home).
   void switchTo(int index) {
@@ -67,7 +72,9 @@ class _TopBar extends StatelessWidget {
             color: Theme.of(context).colorScheme.surfaceContainer,
             border: Border(
               bottom: BorderSide(
-                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.35),
+                color: Theme.of(
+                  context,
+                ).colorScheme.outlineVariant.withValues(alpha: 0.35),
               ),
             ),
           ),
@@ -97,7 +104,8 @@ class _TopBar extends StatelessWidget {
                     customBorder: const StadiumBorder(),
                     child: _HistoryButton(count: state?.sessions.length ?? 0),
                   ),
-                  popupBuilder: (context, close) => _SessionsPopup(close: close),
+                  popupBuilder: (context, close) =>
+                      _SessionsPopup(close: close),
                 ),
               const Spacer(),
               _StatusPill(
@@ -135,11 +143,16 @@ class _NavPopup extends StatelessWidget {
         children: [
           for (var i = 0; i < items.length; i++)
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 2,
+              ),
               leading: Icon(items[i].$1, size: 21),
               title: Text(items[i].$2, style: const TextStyle(fontSize: 14.5)),
               selected: i == current,
-              selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
+              selectedTileColor: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.35),
               onTap: () => onSelect(i),
             ),
         ],
@@ -160,7 +173,9 @@ class _HistoryButton extends StatelessWidget {
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
+        color: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -168,7 +183,10 @@ class _HistoryButton extends StatelessWidget {
         children: [
           const Icon(Icons.history, size: 16),
           const SizedBox(width: 6),
-          Text(l10n.homeHistory, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(
+            l10n.homeHistory,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -176,7 +194,10 @@ class _HistoryButton extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(999),
             ),
-            child: Text('$count', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            child: Text(
+              '$count',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -206,7 +227,10 @@ class _SessionsPopup extends StatelessWidget {
               Expanded(
                 child: Text(
                   l10n.homeHistory,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               TextButton.icon(
@@ -217,7 +241,10 @@ class _SessionsPopup extends StatelessWidget {
                         close();
                       },
                 icon: const Icon(Icons.add, size: 16),
-                label: Text(l10n.homeNewChat, style: const TextStyle(fontSize: 12)),
+                label: Text(
+                  l10n.homeNewChat,
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -232,15 +259,22 @@ class _SessionsPopup extends StatelessWidget {
                   itemCount: sessions.length,
                   itemBuilder: (context, index) {
                     final session = sessions[index];
-                    final active = session.id == (runtime.state?.currentSessionId ?? '');
+                    final active =
+                        session.id == (runtime.state?.currentSessionId ?? '');
                     return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
                       selected: active,
                       title: Text(
                         session.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 2),
@@ -248,7 +282,9 @@ class _SessionsPopup extends StatelessWidget {
                           '${session.modelId} · ${session.messageCount}',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -258,7 +294,9 @@ class _SessionsPopup extends StatelessWidget {
                           icon: const Icon(Icons.delete_outline, size: 20),
                           tooltip: l10n.homeDeleteChat,
                           visualDensity: VisualDensity.compact,
-                          onPressed: chat.streaming ? null : () => runtime.deleteSession(session.id),
+                          onPressed: chat.streaming
+                              ? null
+                              : () => runtime.deleteSession(session.id),
                         ),
                       ),
                       onTap: chat.streaming
@@ -289,10 +327,12 @@ class _StatusPill extends StatelessWidget {
     final text = starting
         ? l10n.statusStarting
         : running
-            ? l10n.statusRunning
-            : l10n.statusStopped;
+        ? l10n.statusRunning
+        : l10n.statusStopped;
     final status = context.status;
-    final color = running ? status.success : (starting ? status.warning : status.danger);
+    final color = running
+        ? status.success
+        : (starting ? status.warning : status.danger);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -302,7 +342,11 @@ class _StatusPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 7),
           Text(text, style: const TextStyle(fontSize: 12)),
         ],

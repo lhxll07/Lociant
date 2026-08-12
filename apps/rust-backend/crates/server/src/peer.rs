@@ -10,10 +10,7 @@ use crate::error::{Problem, RequireAuth, RequireChatAuth, RequirePeerAuth};
 use crate::models::collect_local_models;
 use crate::state::AppState;
 
-pub async fn list_peer_tools(
-    State(state): State<AppState>,
-    _: RequirePeerAuth,
-) -> Json<Value> {
+pub async fn list_peer_tools(State(state): State<AppState>, _: RequirePeerAuth) -> Json<Value> {
     let exposure = state
         .settings_snapshot()
         .get("toolExposure")
@@ -40,14 +37,14 @@ pub async fn call_peer_tool(
         .to_owned();
     match state.tools.call_remote(&tool_name, arguments, &exposure) {
         Ok(result) => Ok(Json(json!({ "data": result }))),
-        Err(error) => Err(Problem::bad_request(error.to_string(), "/api/v1/peer/tools")),
+        Err(error) => Err(Problem::bad_request(
+            error.to_string(),
+            "/api/v1/peer/tools",
+        )),
     }
 }
 
-pub async fn list_peer_models(
-    State(state): State<AppState>,
-    _: RequirePeerAuth,
-) -> Json<Value> {
+pub async fn list_peer_models(State(state): State<AppState>, _: RequirePeerAuth) -> Json<Value> {
     Json(json!({ "models": collect_local_models(&state) }))
 }
 
@@ -105,10 +102,7 @@ pub async fn add_peer(
     if host.is_empty() || port == 0 {
         return Json(json!({ "error": "host and port are required" }));
     }
-    let name = body
-        .get("name")
-        .and_then(Value::as_str)
-        .map(str::to_owned);
+    let name = body.get("name").and_then(Value::as_str).map(str::to_owned);
     peers.add_manual_peer(host, port, name);
     persist_manual_peers(&state);
     Json(json!({ "ok": true }))

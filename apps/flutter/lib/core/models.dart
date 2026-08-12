@@ -42,14 +42,14 @@ class SessionSummary {
   });
 
   factory SessionSummary.fromJson(Map<String, dynamic> json) => SessionSummary(
-        id: str(json, 'id'),
-        title: str(json, 'title'),
-        modelId: str(json, 'modelId'),
-        updatedAt: intOf(json, 'updatedAt'),
-        messageCount: intOf(json, 'messageCount'),
-        lastRole: str(json, 'lastRole'),
-        lastText: str(json, 'lastText'),
-      );
+    id: str(json, 'id'),
+    title: str(json, 'title'),
+    modelId: str(json, 'modelId'),
+    updatedAt: intOf(json, 'updatedAt'),
+    messageCount: intOf(json, 'messageCount'),
+    lastRole: str(json, 'lastRole'),
+    lastText: str(json, 'lastText'),
+  );
 
   final String id;
   final String title;
@@ -68,10 +68,10 @@ class SessionMessage {
   });
 
   factory SessionMessage.fromJson(Map<String, dynamic> json) => SessionMessage(
-        id: intOf(json, 'id').toString(),
-        role: str(json, 'role', 'assistant'),
-        text: str(json, 'text') == '' ? str(json, 'content') : str(json, 'text'),
-      );
+    id: intOf(json, 'id').toString(),
+    role: str(json, 'role', 'assistant'),
+    text: str(json, 'text') == '' ? str(json, 'content') : str(json, 'text'),
+  );
 
   final String id;
   final String role;
@@ -91,15 +91,15 @@ class ModelInfo {
   });
 
   factory ModelInfo.fromJson(Map<String, dynamic> json) => ModelInfo(
-        id: str(json, 'id'),
-        name: str(json, 'name') == '' ? str(json, 'id') : str(json, 'name'),
-        runtime: str(json, 'runtime'),
-        type: str(json, 'type'),
-        ready: boolOf(json, 'ready'),
-        installed: boolOf(json, 'installed'),
-        missingFiles: asList(json['missingFiles']).map((e) => '$e').toList(),
-        cloud: boolOf(json, 'cloud'),
-      );
+    id: str(json, 'id'),
+    name: str(json, 'name') == '' ? str(json, 'id') : str(json, 'name'),
+    runtime: str(json, 'runtime'),
+    type: str(json, 'type'),
+    ready: boolOf(json, 'ready'),
+    installed: boolOf(json, 'installed'),
+    missingFiles: asList(json['missingFiles']).map((e) => '$e').toList(),
+    cloud: boolOf(json, 'cloud'),
+  );
 
   final String id;
   final String name;
@@ -128,16 +128,16 @@ class MarketModel {
   });
 
   factory MarketModel.fromJson(Map<String, dynamic> json) => MarketModel(
-        id: str(json, 'id'),
-        repo: str(json, 'repo'),
-        name: str(json, 'name'),
-        description: str(json, 'description'),
-        vendor: str(json, 'vendor'),
-        sizeGb: doubleOf(json, 'sizeGb'),
-        fileSize: intOf(json, 'fileSize'),
-        tags: asList(json['tags']).map((e) => '$e').toList(),
-        installed: boolOf(json, 'installed'),
-      );
+    id: str(json, 'id'),
+    repo: str(json, 'repo'),
+    name: str(json, 'name'),
+    description: str(json, 'description'),
+    vendor: str(json, 'vendor'),
+    sizeGb: doubleOf(json, 'sizeGb'),
+    fileSize: intOf(json, 'fileSize'),
+    tags: asList(json['tags']).map((e) => '$e').toList(),
+    installed: boolOf(json, 'installed'),
+  );
 
   final String id;
   final String repo;
@@ -303,22 +303,27 @@ class RuntimeUiState {
       toolExposure: str(json, 'toolExposure', 'action'),
       autoStart: boolOf(json, 'autoStart'),
       currentSessionId: str(json, 'currentSessionId'),
-      sessions: asList(json['sessions'])
-          .whereType<Map>()
-          .map((e) => SessionSummary.fromJson(asMap(e)))
-          .toList(),
+      sessions: asList(
+        json['sessions'],
+      ).whereType<Map>().map((e) => SessionSummary.fromJson(asMap(e))).toList(),
       requestCount: intOf(json, 'requestCount'),
       recentRequests: asList(json['recentRequests']).toList(),
       lastError: json['lastError'] is String ? json['lastError'] as String : '',
       message: str(json, 'message'),
       cameraPermissionGranted: boolOf(json, 'cameraPermissionGranted'),
-      notificationPermissionGranted: boolOf(json, 'notificationPermissionGranted'),
+      notificationPermissionGranted: boolOf(
+        json,
+        'notificationPermissionGranted',
+      ),
       windowAllowed: boolOf(json, 'windowAllowed'),
       windowVisible: boolOf(json, 'windowVisible'),
       windowState: str(json, 'windowState', 'hidden'),
       windowAutoShow: boolOf(json, 'windowAutoShow'),
       batteryOptimizationIgnored: boolOf(json, 'batteryOptimizationIgnored'),
-      accessibilityPermissionGranted: boolOf(json, 'accessibilityPermissionGranted'),
+      accessibilityPermissionGranted: boolOf(
+        json,
+        'accessibilityPermissionGranted',
+      ),
       vision: asMap(json['vision']),
       device: asMap(json['device']),
     );
@@ -373,63 +378,66 @@ class RuntimeUiState {
   String get baseUrl => 'http://127.0.0.1:$port';
 
   RuntimeUiState copyWith({List<SessionSummary>? sessions}) => RuntimeUiState(
-        raw: sessions == null ? raw : {...raw, 'sessions': sessions.map((e) => e.toJson())},
-        running: running,
-        starting: starting,
-        port: port,
-        lanUrl: lanUrl,
-        url: url,
-        authToken: authToken,
-        modelId: modelId,
-        modelLoaded: modelLoaded,
-        modelLoading: modelLoading,
-        maxOutputTokens: maxOutputTokens,
-        hardMaxOutputTokens: hardMaxOutputTokens,
-        cpuThreads: cpuThreads,
-        maxCpuThreads: maxCpuThreads,
-        inferenceBackend: inferenceBackend,
-        contextProfile: contextProfile,
-        historyLimit: historyLimit,
-        agentMaxRounds: agentMaxRounds,
-        agentPolicy: agentPolicy,
-        cloudEnabled: cloudEnabled,
-        cloudModel: cloudModel,
-        cloudBaseUrl: cloudBaseUrl,
-        cloudApiKey: cloudApiKey,
-        cloudMaxOutputTokens: cloudMaxOutputTokens,
-        cloudContextWindow: cloudContextWindow,
-        cloudHistoryLimit: cloudHistoryLimit,
-        toolExposure: toolExposure,
-        autoStart: autoStart,
-        currentSessionId: currentSessionId,
-        sessions: sessions ?? this.sessions,
-        requestCount: requestCount,
-        recentRequests: recentRequests,
-        lastError: lastError,
-        message: message,
-        cameraPermissionGranted: cameraPermissionGranted,
-        notificationPermissionGranted: notificationPermissionGranted,
-        windowAllowed: windowAllowed,
-        windowVisible: windowVisible,
-        windowState: windowState,
-        windowAutoShow: windowAutoShow,
-        batteryOptimizationIgnored: batteryOptimizationIgnored,
-        accessibilityPermissionGranted: accessibilityPermissionGranted,
-        vision: vision,
-        device: device,
-      );
+    raw: sessions == null
+        ? raw
+        : {...raw, 'sessions': sessions.map((e) => e.toJson())},
+    running: running,
+    starting: starting,
+    port: port,
+    lanUrl: lanUrl,
+    url: url,
+    authToken: authToken,
+    modelId: modelId,
+    modelLoaded: modelLoaded,
+    modelLoading: modelLoading,
+    maxOutputTokens: maxOutputTokens,
+    hardMaxOutputTokens: hardMaxOutputTokens,
+    cpuThreads: cpuThreads,
+    maxCpuThreads: maxCpuThreads,
+    inferenceBackend: inferenceBackend,
+    contextProfile: contextProfile,
+    historyLimit: historyLimit,
+    agentMaxRounds: agentMaxRounds,
+    agentPolicy: agentPolicy,
+    cloudEnabled: cloudEnabled,
+    cloudModel: cloudModel,
+    cloudBaseUrl: cloudBaseUrl,
+    cloudApiKey: cloudApiKey,
+    cloudMaxOutputTokens: cloudMaxOutputTokens,
+    cloudContextWindow: cloudContextWindow,
+    cloudHistoryLimit: cloudHistoryLimit,
+    toolExposure: toolExposure,
+    autoStart: autoStart,
+    currentSessionId: currentSessionId,
+    sessions: sessions ?? this.sessions,
+    requestCount: requestCount,
+    recentRequests: recentRequests,
+    lastError: lastError,
+    message: message,
+    cameraPermissionGranted: cameraPermissionGranted,
+    notificationPermissionGranted: notificationPermissionGranted,
+    windowAllowed: windowAllowed,
+    windowVisible: windowVisible,
+    windowState: windowState,
+    windowAutoShow: windowAutoShow,
+    batteryOptimizationIgnored: batteryOptimizationIgnored,
+    accessibilityPermissionGranted: accessibilityPermissionGranted,
+    vision: vision,
+    device: device,
+  );
 }
 
 extension SessionSummaryJson on SessionSummary {
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'modelId': modelId,
-        'updatedAt': updatedAt,
-        'messageCount': messageCount,
-        'lastRole': lastRole,
-        'lastText': lastText,
-      };
+    'id': id,
+    'title': title,
+    'modelId': modelId,
+    'updatedAt': updatedAt,
+    'messageCount': messageCount,
+    'lastRole': lastRole,
+    'lastText': lastText,
+  };
 }
 
-String prettyJson(Object value) => const JsonEncoder.withIndent('  ').convert(value);
+String prettyJson(Object value) =>
+    const JsonEncoder.withIndent('  ').convert(value);

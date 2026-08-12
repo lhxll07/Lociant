@@ -96,8 +96,7 @@ impl ChatBackend for RkllmBackend {
                     ..TurnOutcome::default()
                 },
             }
-        })
-        ;
+        });
         // RKLLM runs occasionally hang on some inputs; bound the inference so
         // a stuck model never wedges the agent loop, then abort the runtime.
         match tokio::time::timeout(Duration::from_secs(120), task).await {

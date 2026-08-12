@@ -39,7 +39,7 @@ The Flutter UI talks to the Rust backend over HTTP (OpenAI `/v1`, control
 operations (permissions, floating window, vision, lifecycle) and
 `deviceState`. Data-plane behavior belongs in HTTP/MCP, not in the channel.
 See [architecture.md](../../docs/architecture.md) and
-[control-api.md](../../docs/control-api.md).
+[agent-integration.md](../../docs/agent-integration.md).
 
 ## HTTP Contracts
 

@@ -36,13 +36,14 @@ class ApiClient {
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
   Map<String, String> _headers({bool json = false}) => {
-        if (json) 'Content-Type': 'application/json',
-        if (authToken.isNotEmpty) 'Authorization': 'Bearer $authToken',
-      };
+    if (json) 'Content-Type': 'application/json',
+    if (authToken.isNotEmpty) 'Authorization': 'Bearer $authToken',
+  };
 
   Future<dynamic> get(String path) => _send('GET', path);
 
-  Future<dynamic> post(String path, [Object? body]) => _send('POST', path, body);
+  Future<dynamic> post(String path, [Object? body]) =>
+      _send('POST', path, body);
 
   Future<dynamic> put(String path, [Object? body]) => _send('PUT', path, body);
 
@@ -52,7 +53,9 @@ class ApiClient {
     final request = http.Request(method, _uri(path));
     request.headers.addAll(_headers(json: body != null));
     if (body != null) request.body = jsonEncode(body);
-    final response = await client.send(request).timeout(const Duration(seconds: 30));
+    final response = await client
+        .send(request)
+        .timeout(const Duration(seconds: 30));
     final text = await response.stream.bytesToString();
     dynamic json;
     if (text.isNotEmpty) {
