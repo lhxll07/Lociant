@@ -2,6 +2,7 @@
 .gradle/
 build/
 */build/
+CMakeFiles/
 /local.properties
 /captures/
 .externalNativeBuild/
