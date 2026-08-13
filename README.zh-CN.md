@@ -4,6 +4,8 @@
 
 > 你的下一台 AI 设备，可能不是新电脑，而是抽屉里那台旧手机。
 
+<img src="docs/media/social-preview.png" alt="Lociant" width="720">
+
 Lociant 让一台普通设备（旧手机、Linux 电脑、RK 开发板）成为真正能干活的
 本地 Agent：它自己跑模型、自己看屏幕、自己动手操作，还能与你的其他设备
 自动互联，并被 Claude、Codex 等 Agent 调用。数据默认留在本地，能力由你

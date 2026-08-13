@@ -11,6 +11,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/lhxll07/Lociant.svg?style=social&label=Star)](https://github.com/lhxll07/Lociant)
 
+<img src="docs/media/social-preview.png" alt="Lociant" width="720">
+
 </div>
 
 Lociant turns an ordinary device — an old Android phone, a Linux desktop, or a Rockchip dev board — into an agent that actually *does things*: it runs models, reads its own screen, taps buttons, fills forms, and connects with your other devices over the LAN. External agents (Claude, Codex, OpenCode) can call its device capabilities over MCP. Data stays on your devices by default, and every capability is granted one at a time.
