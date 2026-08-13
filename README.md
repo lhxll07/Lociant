@@ -1,70 +1,141 @@
-# Lociant —— 把身边每一台设备，都变成你的 Agent
+**English** | [简体中文](README.zh-CN.md)
 
-> 你的下一台 AI 设备，可能不是新电脑，而是抽屉里那台旧手机。
+<div align="center">
 
-Lociant 让一台普通设备（旧手机、Linux 电脑、RK 开发板）成为真正能干活的
-本地 Agent：它自己跑模型、自己看屏幕、自己动手操作，还能与你的其他设备
-自动互联，并被 Claude、Codex 等 Agent 调用。数据默认留在本地，能力由你
-逐项授权。
+# Lociant
 
-## 它能帮你做什么
+### Turn every device around you into an agent
 
-- **把旧手机变成 7×24 的私人助理**：打开 App、查未读消息、点按钮、填表单——它真的会“动手”，不是只会聊天。
-- **断网也能用**：模型跑在本地（手机 MNN、板子 NPU），不是套壳的在线聊天。
-- **一台不够就组网**：手机、电脑、开发板同一局域网自动互联，互借模型和工具——手机可以直接用板子上的大模型。
-- **接入任何 Agent**：Claude、Codex、OpenCode 通过 MCP 调用它的设备能力；也提供 OpenAI 兼容接口。
-- **感知真实世界**：光线、距离、传感器、相机、屏幕状态——让 Agent 知道它“在哪里、在干什么”。
-- **云端大脑（可选）**：配一个 OpenAI 兼容的云端模型，本地优先、云端按需，两不耽误。
+*Your next AI device might not be a new computer — it might be the old phone in your drawer.*
 
-比如：让 Agent 打开 QQ 看谁发了消息、总结 B 站动态、帮你把表单填好；或者
-先“感觉”一下手机现在在口袋里还是桌上，再决定要不要亮屏动手。
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/lhxll07/Lociant.svg?style=social&label=Star)](https://github.com/lhxll07/Lociant)
 
-## 三种玩法
+</div>
 
-| 设备 | 玩法 |
+Lociant turns an ordinary device — an old Android phone, a Linux desktop, or a Rockchip dev board — into an agent that actually *does things*: it runs models, reads its own screen, taps buttons, fills forms, and connects with your other devices over the LAN. External agents (Claude, Codex, OpenCode) can call its device capabilities over MCP. Data stays on your devices by default, and every capability is granted one at a time.
+
+## What it does
+
+- **Turn an old phone into a 7×24 personal assistant.** It opens apps, reads unread messages, taps buttons, fills forms — it acts, it doesn't just chat.
+- **Works offline.** Models run locally: MNN on phones, NPU (RKLLM) on Rockchip boards. Not a wrapper around an online chatbot.
+- **One device is not enough? Mesh them.** Phones, desktops and dev boards discover each other on the LAN automatically and borrow each other's models and tools — a phone can use the big model running on your dev board.
+- **Callable from any agent.** Claude, Codex and OpenCode reach its device capabilities through a standard MCP endpoint; an OpenAI-compatible API is also provided.
+- **Perceives the real world.** Light, proximity, sensors, camera, screen state — the agent knows where it is and what it is doing.
+- **Optional cloud brain.** Point it at any OpenAI-compatible cloud model. Local-first, cloud on demand.
+
+Example: ask the agent to open QQ and see who messaged you, summarize your Bilibili feed, or fill in a form — or check whether the phone is in your pocket or on the desk before deciding to touch the screen.
+
+## Three ways to run
+
+| Device | What you get |
 |---|---|
-| 安卓手机 | 完整 Agent：云端/本地模型 + 手机工具（看屏、点击、传感器、相机） |
-| Linux 桌面（x86_64） | 一个压缩包开箱即用：Flutter UI + 内置 Rust 后端 |
-| RK 开发板（Armbian） | 无头常驻 + RKLLM NPU 推理 + 终端 TUI，7×24 低功耗 |
+| Android phone | Full agent: cloud or local model + phone tools (screen, tap, sensors, camera) |
+| Linux desktop (x86_64) | Self-contained tarball: Flutter UI + bundled Rust backend, runs out of the box |
+| RK board (Armbian, headless) | systemd service + RKLLM NPU inference + terminal TUI, 7×24 at low power |
 
-## 快速开始
+## Quick start
 
-支持三种玩法，按你的设备选对应章节：
+Pick your device and follow the matching chapter of the **[setup guide (from zero)](docs/setup-guide.md)**:
 
-- **安卓手机**：完整 Agent（云端/本地模型 + 手机工具）
-- **Linux 桌面**：Flutter UI + 内置 Rust 后端，一个压缩包开箱即用
-- **RK 开发板（无头）**：systemd 常驻 + RKLLM NPU 推理 + 终端 TUI
+- **Android phone** — full agent (cloud/local model + phone tools)
+- **Linux desktop** — Flutter UI + built-in Rust backend, one tarball
+- **RK board (headless)** — systemd service + RKLLM NPU inference + TUI
 
-所有平台的下载、安装、配置、RKLLM 和多节点互联，见
-**[配置指南（从零开始）](docs/setup-guide.md)**。
+Current release (v2.0.1):
 
-当前发布包：
+- [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
+- [Linux x86_64 desktop (tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz)
+- [Linux aarch64 board (tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
 
-[下载 Lociant v2.0.1 APK（Android arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk) ·
-[下载 Linux x86_64 桌面版](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz) ·
-[下载 Linux aarch64 开发板版](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
+On Debian/Ubuntu, install the [x86_64 desktop DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb) or the [arm64 headless node DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb).
 
-Debian / Ubuntu 也可直接安装
-[x86_64 桌面 DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb) 或
-[arm64 无头节点 DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb)。
+## Demo
 
-## 架构
+<video src="docs/media/lociant-1.1.0-demo.mp4" controls width="100%"></video>
 
-一套 Flutter UI + Rust 后端跑在全部平台：Android 只保留设备层（无障碍、
-传感器、悬浮窗、本地 MNN 推理），通过本地 IPC 给 Rust 提供工具；桌面端
-UI 连接本机 Rust 服务；无头板子直接跑 systemd 服务并通过 RKLLM 走 NPU。
-详见 [架构](docs/architecture.md)。
+*Demo from v1.1.0 — the UI has moved on, but this shows the phone taking real actions.*
 
-## 开发者
+## Works with any agent
 
-UI 是 Flutter，服务端是 Rust（`apps/rust-backend`），Android 是设备层。
-开发、构建和完整接口说明见：
+Lociant exposes one HTTP surface (port `11434`) from its Rust backend:
 
-- [架构](docs/architecture.md)
-- [配置指南（从零开始）](docs/setup-guide.md)
-- [Android 开发说明](apps/android/README.md)
-- [Agent 与 HTTP API（MCP、OpenAI、控制接口）](docs/agent-integration.md)
+- **MCP Streamable HTTP** — `http://HOST:11434/mcp` for tools. Works with Claude Desktop/Code, Codex, OpenCode and RikkaHub (phone clients).
+- **OpenAI-compatible API** — `http://HOST:11434/v1` for direct model inference.
+- **Control API** — `http://HOST:11434/api/v1` for sessions, settings and model management.
 
-## 许可证
+Tool families exposed to agents:
 
-[MIT License](LICENSE)
+| Family | Examples |
+|---|---|
+| Runtime & model | `runtime_status`, `model_list`, `llm_chat` |
+| Device | `device_status`, `clipboard_read/write`, `app_open` |
+| Sensors | `sensor_status`, `sensor_read`, `sensor_start/stop` |
+| Screen & UI | `ui_screen_state`, `ui_click_node`, `ui_tap`, `ui_swipe`, `ui_paste`, `ui_set_text` |
+| Vision | `vision_status`, `camera_capture` |
+
+Every tool carries a policy: exposure levels (`read` < `sensor` < `action`) and `remote_allowed` are enforced by the backend before anything touches your device. Configure a token before binding Lociant to an untrusted network — see the [agent integration docs](docs/agent-integration.md) for client configs and the full API.
+
+## How it works
+
+One Flutter UI + one Rust backend on every platform. Android keeps only the device layer the backend cannot reach directly; headless boards run the backend alone.
+
+```text
+Flutter UI (Android / Linux desktop)
+        │ HTTP (OpenAI /v1, control /api/v1, MCP /mcp)
+        ▼
+Rust backend (axum) ── the single server core
+  ├─ core    domain types + JSON contract
+  ├─ store   SQLite: sessions, messages, settings, models
+  ├─ tools   tool contract + registry (single policy owner)
+  ├─ agent   multi-round agent loop (cloud + local backends)
+  ├─ server  HTTP: control plane, OpenAI plane, MCP
+  └─ rkllm   in-process RKLLM NPU inference (libloading)
+        │ device IPC (localhost TCP, token-gated)
+        ▼
+Android device layer (Kotlin)
+  ├─ foreground service spawns the Rust server subprocess
+  ├─ phone tools (accessibility, sensors, window, camera)
+  └─ local MNN inference + vision
+```
+
+Peer mesh: nodes discover each other via UDP broadcast (port `11435`) and share tools and models (`peer:<node>:<model>`) over the OpenAI plane. Details in [architecture](docs/architecture.md).
+
+## Documentation
+
+- [Setup guide (from zero)](docs/setup-guide.md) — install, configure and connect all platforms
+- [Agent integration & HTTP API](docs/agent-integration.md) — MCP, OpenAI and control APIs
+- [Architecture](docs/architecture.md) — components, seams, headless deployment
+- [Android development](apps/android/README.md)
+
+## Development
+
+- UI: Flutter (`apps/flutter`)
+- Backend: Rust (`apps/rust-backend`)
+- Android device layer: Kotlin (`apps/android`)
+
+Run on Linux desktop (two terminals):
+
+```bash
+cd apps/rust-backend && cargo run          # http://127.0.0.1:11434
+cd apps/flutter && flutter run -d linux     # UI; LOCIANT_BASE_URL overridable
+```
+
+Android: `bash scripts/dev-install.sh` builds the APK (Rust server included via `cargo ndk`), installs and launches it.
+
+## Roadmap
+
+- [x] Rust backend, Flutter UI (Android + Linux desktop)
+- [x] Android device layer over IPC, MNN local inference
+- [x] Headless RK board deployment (aarch64, systemd) + RKLLM NPU inference
+- [x] Peer mesh: LAN discovery, shared tools, model forwarding
+- [ ] Desktop local inference (llama.cpp on x86_64)
+- [ ] Desktop device adapter (filesystem / process / camera tools)
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+Star us if Lociant is useful — it tells us this direction matters. ⭐
