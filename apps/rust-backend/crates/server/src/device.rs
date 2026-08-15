@@ -1,19 +1,15 @@
 //! IPC device adapter: talks to the Kotlin device layer (Android) over a
 //! localhost TCP JSON protocol. Rust stays the single policy owner
 //! (exposure + remote_allowed in `ToolRegistry`); this side only discovers
-//! and executes.
+//! and executes device capabilities.
 
-use async_trait::async_trait;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
-use lociant_agent::backend::{ChatBackend, TurnEvent, TurnOutcome};
 use lociant_core::{ToolDescriptor, ToolResult};
 use lociant_tools::{DeviceAdapter, ToolError};
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncBufReader};
-use tokio::sync::mpsc;
 
 pub struct IpcDeviceAdapter {
     pub port: u16,
@@ -43,7 +39,7 @@ impl IpcDeviceAdapter {
             .map_err(|error| format!("device adapter response parse failed: {error}"))
     }
 
-    /// Local MNN model specs from the Kotlin model manager.
+    /// Local model specs from the Kotlin model manager.
     pub fn models(&self) -> Vec<Value> {
         let request = json!({ "token": self.token, "method": "models.list" });
         let Ok(response) = self.request(&request) else {
@@ -64,6 +60,41 @@ impl IpcDeviceAdapter {
             model.get("id").and_then(Value::as_str) == Some(model_id)
                 || model.get("name").and_then(Value::as_str) == Some(model_id)
         })
+    }
+
+    /// Pushes Rust-owned settings down to the Kotlin device layer.
+    pub fn sync_settings(&self, settings: &Value) -> Result<(), String> {
+        let request = json!({
+            "token": self.token,
+            "method": "settings.sync",
+            "settings": settings,
+        });
+        let response = self.request(&request)?;
+        if response.get("ok").and_then(Value::as_bool) == Some(true) {
+            Ok(())
+        } else {
+            Err(response
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("settings sync rejected")
+                .to_owned())
+        }
+    }
+
+    /// Drops the Kotlin model snapshot so the next `models.list` rescan sees
+    /// installs/deletes performed by the Rust backend.
+    pub fn invalidate_models(&self) -> Result<(), String> {
+        let request = json!({ "token": self.token, "method": "models.invalidate" });
+        let response = self.request(&request)?;
+        if response.get("ok").and_then(Value::as_bool) == Some(true) {
+            Ok(())
+        } else {
+            Err(response
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("model cache invalidation rejected")
+                .to_owned())
+        }
     }
 }
 
@@ -93,237 +124,6 @@ impl DeviceAdapter for IpcDeviceAdapter {
         let response = self.request(&request).map_err(ToolError::Adapter)?;
         Ok(map_result(response))
     }
-}
-
-/// Runs local MNN turns through the same IPC channel, streaming chunks /
-/// reasoning / tool calls back as they are produced by the Kotlin runtime.
-pub struct IpcChatBackend {
-    pub port: u16,
-    pub token: String,
-}
-
-#[async_trait]
-impl ChatBackend for IpcChatBackend {
-    async fn stream_turn(&self, body: &Value, events: mpsc::Sender<TurnEvent>) -> TurnOutcome {
-        ipc_chat(self, body, Some(events)).await
-    }
-
-    async fn complete_turn(&self, body: &Value) -> TurnOutcome {
-        ipc_chat(self, body, None).await
-    }
-}
-
-async fn ipc_chat(
-    backend: &IpcChatBackend,
-    body: &Value,
-    events: Option<mpsc::Sender<TurnEvent>>,
-) -> TurnOutcome {
-    tokio::time::timeout(Duration::from_secs(600), async {
-        let mut stream = match tokio::net::TcpStream::connect(("127.0.0.1", backend.port)).await {
-            Ok(stream) => stream,
-            Err(error) => {
-                return TurnOutcome {
-                    ok: false,
-                    retryable: true,
-                    message: format!("device chat connect failed: {error}"),
-                    ..TurnOutcome::default()
-                };
-            }
-        };
-        let request = json!({
-            "token": backend.token,
-            "method": "chat.invoke",
-            "request": body,
-        });
-        let mut line = request.to_string();
-        line.push('\n');
-        if let Err(error) = stream.write_all(line.as_bytes()).await {
-            return TurnOutcome {
-                ok: false,
-                retryable: true,
-                message: format!("device chat write failed: {error}"),
-                ..TurnOutcome::default()
-            };
-        }
-
-        let mut reader = AsyncBufReader::new(stream);
-        let mut line_buf = String::new();
-        let mut text = String::new();
-        let mut reasoning = String::new();
-        let mut tool_calls: Vec<lociant_core::ModelToolCall> = Vec::new();
-        let mut usage = None;
-        loop {
-            line_buf.clear();
-            match reader.read_line(&mut line_buf).await {
-                Ok(0) => break,
-                Ok(_) => {}
-                Err(error) => {
-                    return TurnOutcome {
-                        ok: false,
-                        retryable: true,
-                        message: format!("device chat read failed: {error}"),
-                        text,
-                        reasoning,
-                        tool_calls,
-                        ..TurnOutcome::default()
-                    };
-                }
-            }
-            let event: Value = match serde_json::from_str(line_buf.trim()) {
-                Ok(event) => event,
-                Err(_) => continue,
-            };
-            match event.get("type").and_then(Value::as_str) {
-                Some("chunk") => {
-                    if let Some(chunk) = event.get("text").and_then(Value::as_str) {
-                        if !chunk.is_empty() {
-                            text.push_str(chunk);
-                            if let Some(events) = &events {
-                                if events
-                                    .send(TurnEvent::Chunk(chunk.to_owned()))
-                                    .await
-                                    .is_err()
-                                {
-                                    return TurnOutcome {
-                                        aborted: true,
-                                        ..TurnOutcome::default()
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-                Some("reasoning") => {
-                    if let Some(chunk) = event.get("text").and_then(Value::as_str) {
-                        if !chunk.is_empty() {
-                            reasoning.push_str(chunk);
-                            if let Some(events) = &events {
-                                if events
-                                    .send(TurnEvent::Reasoning(chunk.to_owned()))
-                                    .await
-                                    .is_err()
-                                {
-                                    return TurnOutcome {
-                                        aborted: true,
-                                        ..TurnOutcome::default()
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-                Some("tool_call") => {
-                    let call = lociant_core::ModelToolCall {
-                        id: event
-                            .get("id")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .to_owned(),
-                        name: event
-                            .get("name")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .to_owned(),
-                        arguments: event
-                            .get("arguments")
-                            .and_then(Value::as_str)
-                            .unwrap_or("{}")
-                            .to_owned(),
-                    };
-                    if !call.name.is_empty() {
-                        tool_calls.push(call.clone());
-                        if let Some(events) = &events {
-                            if events.send(TurnEvent::ToolCall(call)).await.is_err() {
-                                return TurnOutcome {
-                                    aborted: true,
-                                    ..TurnOutcome::default()
-                                };
-                            }
-                        }
-                    }
-                }
-                Some("done") => {
-                    let ok = event.get("ok").and_then(Value::as_bool).unwrap_or(false);
-                    if !ok {
-                        return TurnOutcome {
-                            ok: false,
-                            retryable: false,
-                            message: event
-                                .get("message")
-                                .and_then(Value::as_str)
-                                .unwrap_or("device chat failed")
-                                .to_owned(),
-                            text,
-                            reasoning,
-                            tool_calls,
-                            usage,
-                            ..TurnOutcome::default()
-                        };
-                    }
-                    let final_text = event
-                        .get("text")
-                        .and_then(Value::as_str)
-                        .map(str::to_owned)
-                        .unwrap_or(text);
-                    let final_reasoning = event
-                        .get("reasoning")
-                        .and_then(Value::as_str)
-                        .map(str::to_owned)
-                        .unwrap_or(reasoning);
-                    if let Some(calls) = event.get("toolCalls").and_then(Value::as_array) {
-                        if !calls.is_empty() {
-                            tool_calls = calls
-                                .iter()
-                                .map(|call| lociant_core::ModelToolCall {
-                                    id: call
-                                        .get("id")
-                                        .and_then(Value::as_str)
-                                        .unwrap_or("")
-                                        .to_owned(),
-                                    name: call
-                                        .get("name")
-                                        .and_then(Value::as_str)
-                                        .unwrap_or("")
-                                        .to_owned(),
-                                    arguments: call
-                                        .get("arguments")
-                                        .and_then(Value::as_str)
-                                        .unwrap_or("{}")
-                                        .to_owned(),
-                                })
-                                .collect();
-                        }
-                    }
-                    usage = event.get("usage").cloned().or(usage);
-                    return TurnOutcome {
-                        ok: true,
-                        text: final_text,
-                        reasoning: final_reasoning,
-                        tool_calls,
-                        usage,
-                        ..TurnOutcome::default()
-                    };
-                }
-                _ => {}
-            }
-        }
-        TurnOutcome {
-            ok: false,
-            retryable: true,
-            message: "device chat stream ended without done".into(),
-            text,
-            reasoning,
-            tool_calls,
-            ..TurnOutcome::default()
-        }
-    })
-    .await
-    .unwrap_or_else(|_| TurnOutcome {
-        ok: false,
-        retryable: true,
-        message: "device chat timed out".into(),
-        ..TurnOutcome::default()
-    })
 }
 
 fn kotlin_descriptor(raw: &Value) -> Option<ToolDescriptor> {

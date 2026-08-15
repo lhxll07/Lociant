@@ -162,6 +162,7 @@ class AndroidTools(
             .put("permissions", JSONObject()
                 .put("camera", hasPermission(Manifest.permission.CAMERA))
                 .put("notification", notificationPermissionGranted())
+                .put("sensor", sensorPermissionGranted())
                 .put("overlay", canDrawOverlays())
                 .put("batteryOptimizationIgnored", isIgnoringBatteryOptimizations())
                 .put("accessibility", isAccessibilityServiceEnabled()))
@@ -338,6 +339,10 @@ class AndroidTools(
     private fun notificationPermissionGranted(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+
+    private fun sensorPermissionGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            hasPermission(Manifest.permission.ACTIVITY_RECOGNITION)
 
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)

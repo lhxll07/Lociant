@@ -35,8 +35,8 @@ pub async fn handle(State(state): State<AppState>, _: RequireAuth, body: Bytes) 
     let outcome = match method {
         "initialize" => Ok(initialize(&request)),
         "ping" => Ok(json!({})),
-        "tools/list" => Ok(tools_list(&state)),
-        "tools/call" => tools_call(&state, &request),
+        "tools/list" => tools_list(&state).await,
+        "tools/call" => tools_call(&state, &request).await,
         _ => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             -32601,
@@ -66,15 +66,25 @@ fn initialize(request: &Value) -> Value {
     })
 }
 
-fn tools_list(state: &AppState) -> Value {
-    let settings = state.settings_snapshot();
-    let exposure = settings
+async fn tools_list(state: &AppState) -> Result<Value, (StatusCode, i64, String)> {
+    let exposure = state
+        .settings_snapshot()
         .get("toolExposure")
         .and_then(Value::as_str)
-        .unwrap_or("action");
-    let tools = state
-        .tools
-        .visible(exposure)
+        .unwrap_or("action")
+        .to_owned();
+    let registry = state.tools.clone();
+    let exposure_for_block = exposure.clone();
+    let tools = tokio::task::spawn_blocking(move || registry.visible(&exposure_for_block))
+        .await
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                -32603,
+                format!("tools list failed: {error}"),
+            )
+        })?;
+    let tools = tools
         .into_iter()
         .map(|tool| {
             json!({
@@ -88,10 +98,10 @@ fn tools_list(state: &AppState) -> Value {
             })
         })
         .collect::<Vec<_>>();
-    json!({ "tools": tools })
+    Ok(json!({ "tools": tools }))
 }
 
-fn tools_call(state: &AppState, request: &Value) -> Result<Value, (StatusCode, i64, String)> {
+async fn tools_call(state: &AppState, request: &Value) -> Result<Value, (StatusCode, i64, String)> {
     let name = request
         .pointer("/params/name")
         .and_then(Value::as_str)
@@ -107,13 +117,22 @@ fn tools_call(state: &AppState, request: &Value) -> Result<Value, (StatusCode, i
         .pointer("/params/arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let settings = state.settings_snapshot();
-    let exposure = settings
+    let exposure = state
+        .settings_snapshot()
         .get("toolExposure")
         .and_then(Value::as_str)
-        .unwrap_or("action");
+        .unwrap_or("action")
+        .to_owned();
+    let registry = state.tools.clone();
+    let name_for_block = name.to_owned();
+    let exposure_for_block = exposure.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        registry.call_remote(&name_for_block, arguments, &exposure_for_block)
+    })
+    .await
+    .unwrap_or_else(|error| Err(ToolError::Adapter(format!("tool task failed: {error}"))));
 
-    match state.tools.call_remote(name, arguments, exposure) {
+    match result {
         Ok(result) => {
             let text = serde_json::to_string(&result).unwrap_or_else(|_| "{}".into());
             Ok(json!({

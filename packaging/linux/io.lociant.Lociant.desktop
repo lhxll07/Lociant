@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Lociant
-Comment=Local agent runtime and device control
+Comment=Local edge runtime and device control
 Exec=lociant
 Terminal=false
 Categories=Utility;

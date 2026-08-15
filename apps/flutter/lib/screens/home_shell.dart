@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
-import '../core/models.dart';
 import '../l10n/app_localizations.dart';
 import '../theme.dart';
 import '../widgets/anchored_popup.dart';
-import 'home_screen.dart';
+import 'edge_overview_screen.dart';
+import 'extensions_screen.dart';
 import 'models_screen.dart';
 import 'nodes_screen.dart';
 import 'settings_screen.dart';
@@ -21,13 +21,13 @@ class HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   static const _pages = [
-    HomeScreen(),
+    EdgeOverviewScreen(),
     ModelsScreen(),
     NodesScreen(),
+    ExtensionsScreen(),
     SettingsScreen(),
   ];
 
-  /// Switches the top-level tab (used by other screens, e.g. Nodes -> Home).
   void switchTo(int index) {
     if (index < 0 || index >= _pages.length) return;
     setState(() => _index = index);
@@ -95,18 +95,11 @@ class _TopBar extends StatelessWidget {
                   },
                 ),
               ),
-              if (index == 0)
-                AnchoredOverlay(
-                  popupWidth: 344,
-                  maxHeight: 500,
-                  builder: (context, toggle) => InkWell(
-                    onTap: toggle,
-                    customBorder: const StadiumBorder(),
-                    child: _HistoryButton(count: state?.sessions.length ?? 0),
-                  ),
-                  popupBuilder: (context, close) =>
-                      _SessionsPopup(close: close),
-                ),
+              const SizedBox(width: 8),
+              Text(
+                index == 0 ? l10n.edgeOverviewTitle : _title(l10n, index),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
               const Spacer(),
               _StatusPill(
                 running: state?.running ?? false,
@@ -119,6 +112,13 @@ class _TopBar extends StatelessWidget {
       },
     );
   }
+
+  String _title(AppLocalizations l10n, int index) => switch (index) {
+    1 => l10n.modelsTitle,
+    2 => l10n.nodesTitle,
+    3 => l10n.extensionsTitle,
+    _ => l10n.settingsTitle,
+  };
 }
 
 class _NavPopup extends StatelessWidget {
@@ -131,9 +131,10 @@ class _NavPopup extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final items = [
-      (Icons.chat_bubble_outline, l10n.navHome),
+      (Icons.dashboard_outlined, l10n.navHome),
       (Icons.memory_outlined, l10n.navModels),
       (Icons.hub_outlined, l10n.navNodes),
+      (Icons.extension_outlined, l10n.navExtensions),
       (Icons.settings_outlined, l10n.navSettings),
     ];
     return Padding(
@@ -157,160 +158,6 @@ class _NavPopup extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _HistoryButton extends StatelessWidget {
-  const _HistoryButton({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.primaryContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.history, size: 16),
-          const SizedBox(width: 6),
-          Text(
-            l10n.homeHistory,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SessionsPopup extends StatelessWidget {
-  const _SessionsPopup({required this.close});
-
-  final VoidCallback close;
-
-  @override
-  Widget build(BuildContext context) {
-    final scope = AppScope.of(context);
-    final runtime = scope.runtime;
-    final chat = scope.chat;
-    final l10n = AppLocalizations.of(context)!;
-    final sessions = runtime.state?.sessions ?? const <SessionSummary>[];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.homeHistory,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: chat.streaming
-                    ? null
-                    : () async {
-                        await chat.newChat();
-                        close();
-                      },
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(
-                  l10n.homeNewChat,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Flexible(
-          child: sessions.isEmpty
-              ? const Padding(padding: EdgeInsets.all(24), child: Text('--'))
-              : ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  itemCount: sessions.length,
-                  itemBuilder: (context, index) {
-                    final session = sessions[index];
-                    final active =
-                        session.id == (runtime.state?.currentSessionId ?? '');
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 2,
-                      ),
-                      selected: active,
-                      title: Text(
-                        session.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '${session.modelId} · ${session.messageCount}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      trailing: Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          tooltip: l10n.homeDeleteChat,
-                          visualDensity: VisualDensity.compact,
-                          onPressed: chat.streaming
-                              ? null
-                              : () => runtime.deleteSession(session.id),
-                        ),
-                      ),
-                      onTap: chat.streaming
-                          ? null
-                          : () async {
-                              await runtime.selectSession(session.id);
-                              await chat.loadSession(session.id);
-                              close();
-                            },
-                    );
-                  },
-                ),
-        ),
-      ],
     );
   }
 }

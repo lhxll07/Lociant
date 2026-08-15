@@ -46,6 +46,7 @@ object RustServerProcess {
                 builder.environment()[DeviceAdapterServer.TOKEN_ENV] = deviceToken
                 builder.environment()[DeviceAdapterServer.PORT_ENV] = devicePort.toString()
             }
+            LlamaServerProcess.configure(context, builder)
             builder.redirectErrorStream(true)
             val proc = builder.start()
             process = proc

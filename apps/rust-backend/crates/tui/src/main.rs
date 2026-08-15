@@ -1,12 +1,8 @@
-//! Terminal UI client for headless Lociant nodes.
+//! Terminal control console for headless Lociant edge nodes.
 //!
-//! Connects to a running `lociant-server` (local or remote) over the OpenAI
-//! and control planes: chat, model switching, node status — all from a
-//! terminal over SSH. Usage:
-//!
-//! ```text
-//! lociant-tui --connect http://192.168.10.103:11434 --token TOKEN
-//! ```
+//! The TUI is intentionally a control-plane client: it shows runtime health,
+//! models, nodes and executable tools without becoming another chat client.
+//! Usage: `lociant-tui --connect http://HOST:11434 --token TOKEN`.
 
 use std::io::{self, Read};
 use std::time::Duration;
@@ -20,53 +16,40 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
 use ratatui::{Frame, Terminal};
-use serde_json::{json, Value};
+use serde_json::Value;
 use unicode_width::UnicodeWidthStr;
 
 struct App {
     base_url: String,
     token: String,
     client: reqwest::blocking::Client,
-    messages: Vec<(String, String)>, // (role, content)
-    models: Vec<String>,
-    model: String,
+    runtime: Value,
+    models: Vec<Value>,
     nodes: Vec<Value>,
+    tools: Vec<Value>,
     input: String,
     connected: bool,
-    notice: String,
-    thinking: bool,
-    result_rx: std::sync::mpsc::Receiver<ChatOutcome>,
-    result_tx: std::sync::mpsc::Sender<ChatOutcome>,
-}
-
-struct ChatOutcome {
-    ok: bool,
-    text: String,
     notice: String,
 }
 
 impl App {
     fn new(base_url: String, token: String) -> Self {
-        let (result_tx, result_rx) = std::sync::mpsc::channel();
         App {
             client: reqwest::blocking::Client::builder()
-                .timeout(Duration::from_secs(30))
+                .timeout(Duration::from_secs(10))
                 .build()
                 .unwrap_or_default(),
             base_url,
             token,
-            messages: Vec::new(),
+            runtime: Value::Object(Default::default()),
             models: Vec::new(),
-            model: String::new(),
             nodes: Vec::new(),
+            tools: Vec::new(),
             input: String::new(),
             connected: false,
             notice: String::new(),
-            thinking: false,
-            result_rx,
-            result_tx,
         }
     }
 
@@ -77,12 +60,21 @@ impl App {
     fn headers(&self) -> reqwest::header::HeaderMap {
         let mut headers = reqwest::header::HeaderMap::new();
         if !self.token.is_empty() {
-            headers.insert(
-                reqwest::header::AUTHORIZATION,
-                format!("Bearer {}", self.token).parse().unwrap(),
-            );
+            if let Ok(value) = format!("Bearer {}", self.token).parse() {
+                headers.insert(reqwest::header::AUTHORIZATION, value);
+            }
         }
         headers
+    }
+
+    fn get_json(&self, path: &str) -> Option<Value> {
+        self.client
+            .get(self.api(path))
+            .headers(self.headers())
+            .send()
+            .ok()
+            .filter(|response| response.status().is_success())
+            .and_then(|response| response.json().ok())
     }
 
     fn refresh(&mut self) {
@@ -90,176 +82,68 @@ impl App {
             .client
             .get(self.api("/health"))
             .send()
-            .map(|r| r.status().is_success())
+            .map(|response| response.status().is_success())
             .unwrap_or(false);
-        self.notice = String::new();
-        if let Ok(response) = self
-            .client
-            .get(self.api("/api/v1/models"))
-            .headers(self.headers())
-            .send()
-        {
-            if let Ok(body) = response.json::<Value>() {
-                self.models = body
-                    .get("models")
-                    .and_then(Value::as_array)
-                    .map(|list| {
-                        list.iter()
-                            .filter_map(|m| m.get("id").and_then(Value::as_str).map(str::to_owned))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if self.model.is_empty() {
-                    self.model = self.models.first().cloned().unwrap_or_default();
-                }
-            }
-        }
-        if let Ok(response) = self
-            .client
-            .get(self.api("/api/v1/nodes"))
-            .headers(self.headers())
-            .send()
-        {
-            if let Ok(body) = response.json::<Value>() {
-                self.nodes = body
-                    .get("nodes")
-                    .and_then(Value::as_array)
-                    .cloned()
-                    .unwrap_or_default();
-            }
-        }
-    }
-
-    fn send_chat(&mut self, text: String) {
-        let text = text.trim().to_owned();
-        if text.is_empty() || self.thinking {
+        if !self.connected {
+            self.notice = "无法连接到节点".to_owned();
             return;
         }
-        self.input.clear();
-        self.messages.push(("user".to_owned(), text.clone()));
-        self.thinking = true;
-        let url = self.api("/v1/chat/completions");
-        let headers = self.headers();
-        // The server requires a model field; fall back to "rkllm" when no
-        // model list was loaded (e.g. headless board with built-in RKLLM).
-        let model = if self.model.is_empty() {
-            "rkllm".to_owned()
-        } else {
-            self.model.clone()
-        };
-        let client = self.client.clone();
-        let tx = self.result_tx.clone();
-        std::thread::spawn(move || {
-            let mut body = json!({
-                "messages": [{"role": "user", "content": text}],
-                "stream": false,
-                "max_tokens": 1024,
-            });
-            if !model.is_empty() {
-                body["model"] = json!(model);
-            }
-            let outcome = match client.post(url).headers(headers).json(&body).send() {
-                Ok(response) if response.status().is_success() => match response.json::<Value>() {
-                    Ok(parsed) => ChatOutcome {
-                        ok: true,
-                        text: parsed
-                            .pointer("/choices/0/message/content")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .to_owned(),
-                        notice: String::new(),
-                    },
-                    Err(error) => ChatOutcome {
-                        ok: false,
-                        text: String::new(),
-                        notice: format!("响应解析失败: {error}"),
-                    },
-                },
-                Ok(response) => match response.json::<Value>() {
-                    Ok(parsed) => ChatOutcome {
-                        ok: false,
-                        text: String::new(),
-                        notice: parsed
-                            .get("error")
-                            .and_then(|e| e.get("message"))
-                            .and_then(Value::as_str)
-                            .unwrap_or("unknown error")
-                            .to_owned(),
-                    },
-                    Err(error) => ChatOutcome {
-                        ok: false,
-                        text: String::new(),
-                        notice: format!("响应解析失败: {error}"),
-                    },
-                },
-                Err(error) => ChatOutcome {
-                    ok: false,
-                    text: String::new(),
-                    notice: format!("请求失败: {error}"),
-                },
-            };
-            let _ = tx.send(outcome);
-        });
+
+        self.runtime = self
+            .get_json("/api/v1/runtime")
+            .unwrap_or_else(|| Value::Object(Default::default()));
+        self.models = self
+            .get_json("/api/v1/models")
+            .and_then(|body| body.get("models").cloned())
+            .and_then(|models| models.as_array().cloned())
+            .unwrap_or_default();
+        self.nodes = self
+            .get_json("/api/v1/nodes")
+            .and_then(|body| body.get("nodes").cloned())
+            .and_then(|nodes| nodes.as_array().cloned())
+            .unwrap_or_default();
+        self.tools = self
+            .get_json("/api/v1/tools")
+            .and_then(|body| body.get("data").cloned())
+            .and_then(|tools| tools.as_array().cloned())
+            .unwrap_or_default();
+        self.notice = format!(
+            "已刷新 · {} 个模型 · {} 个节点 · {} 个工具",
+            self.models.len(),
+            self.nodes.len(),
+            self.tools.len()
+        );
     }
 
-    fn run_command(&mut self, raw: &str) {
-        let (command, arg) = raw
-            .split_once(char::is_whitespace)
-            .map(|(c, a)| (c, a.trim()))
-            .unwrap_or((raw, ""));
+    fn run_command(&mut self, raw: &str) -> bool {
+        let command = raw.trim();
         match command {
+            "" => false,
             "/help" => {
-                self.notice =
-                    "/help /models /model <id> /nodes /clear /quit — 输入文本直接聊天".to_owned();
+                self.notice = "/refresh 重新读取  /models  /nodes  /tools  /quit".to_owned();
+                false
             }
-            "/models" => {
+            "/refresh" | "r" => {
                 self.refresh();
-                let list = if self.models.is_empty() {
-                    "（无可用模型）".to_owned()
-                } else {
-                    self.models.join("\n")
-                };
-                self.messages
-                    .push(("system".to_owned(), format!("可用模型:\n{list}")));
+                false
             }
-            "/model" => {
-                if arg.is_empty() {
-                    self.notice = format!("当前模型: {}", self.model);
-                } else if self.models.iter().any(|m| m == arg) {
-                    self.model = arg.to_owned();
-                    self.notice = format!("已切换到模型: {arg}");
-                } else {
-                    self.notice = format!("未知模型: {arg}（用 /models 查看）");
-                }
+            "/models" | "m" => {
+                self.notice = format!("模型列表已显示，共 {} 个", self.models.len());
+                false
             }
-            "/nodes" => {
-                self.refresh();
-                let list = self
-                    .nodes
-                    .iter()
-                    .map(|n| {
-                        format!(
-                            "{} {}:{} {}",
-                            n.get("name").and_then(Value::as_str).unwrap_or("?"),
-                            n.get("host").and_then(Value::as_str).unwrap_or("?"),
-                            n.get("port").and_then(Value::as_u64).unwrap_or(0),
-                            if n.get("self").and_then(Value::as_bool).unwrap_or(false) {
-                                "(本机)"
-                            } else {
-                                ""
-                            }
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                self.messages
-                    .push(("system".to_owned(), format!("节点:\n{list}")));
+            "/nodes" | "n" => {
+                self.notice = format!("节点列表已显示，共 {} 个", self.nodes.len());
+                false
             }
-            "/clear" => {
-                self.messages.clear();
+            "/tools" | "t" => {
+                self.notice = format!("工具列表已显示，共 {} 个", self.tools.len());
+                false
             }
-            "/quit" => std::process::exit(0),
-            _ => self.notice = format!("未知命令: {command}（/help 查看）"),
+            "/quit" | "q" => true,
+            _ => {
+                self.notice = format!("未知命令: {command}（输入 /help 查看）");
+                false
+            }
         }
     }
 }
@@ -273,7 +157,7 @@ fn main() -> Result<()> {
             "--connect" => base_url = args.next().unwrap_or(base_url),
             "--token" => token = args.next().unwrap_or_default(),
             "-h" | "--help" => {
-                println!("lociant-tui — Lociant 终端客户端");
+                println!("lociant-tui — Lociant 边缘节点控制台");
                 println!("用法: lociant-tui [--connect http://host:11434] [--token TOKEN]");
                 return Ok(());
             }
@@ -284,8 +168,6 @@ fn main() -> Result<()> {
         }
     }
 
-    // Auto-read the node token from the headless config when not given, so
-    // `lociant-tui` on a board works without flags.
     if token.is_empty() {
         let config_path = std::env::var("LOCIANT_CONFIG")
             .unwrap_or_else(|_| "/etc/lociant/config.json".to_owned());
@@ -308,9 +190,7 @@ fn main() -> Result<()> {
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-
     let result = run(&mut terminal, &mut app);
-
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
@@ -318,18 +198,15 @@ fn main() -> Result<()> {
 }
 
 fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
-    // Raw stdin bytes arrive through a dedicated reader thread; crossterm's
-    // event parser drops Enter after multi-byte UTF-8 input on some
-    // terminals, so the UI parses the few keys it needs itself.
     let (byte_tx, byte_rx) = std::sync::mpsc::channel::<u8>();
     std::thread::spawn(move || {
         let mut stdin = io::stdin();
-        let mut buf = [0u8; 256];
+        let mut buffer = [0u8; 256];
         loop {
-            match stdin.read(&mut buf) {
+            match stdin.read(&mut buffer) {
                 Ok(0) => break,
-                Ok(n) => {
-                    for &byte in &buf[..n] {
+                Ok(size) => {
+                    for &byte in &buffer[..size] {
                         if byte_tx.send(byte).is_err() {
                             return;
                         }
@@ -339,106 +216,89 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
             }
         }
     });
-    let mut utf8_buf: Vec<u8> = Vec::new();
-    // True while an escape sequence (arrow keys, mouse reports, function
-    // keys) is being consumed; those are ignored so they never pollute the
-    // input buffer or move the cursor.
+
+    let mut utf8_buffer = Vec::new();
     let mut in_escape = false;
     let mut csi = false;
     loop {
         terminal.draw(|frame| draw(frame, app))?;
-        if let Ok(outcome) = app.result_rx.try_recv() {
-            if outcome.ok {
-                app.messages.push(("assistant".to_owned(), outcome.text));
-            } else {
-                let notice = if outcome.notice.is_empty() {
-                    "请求失败（无详情）".to_owned()
-                } else {
-                    outcome.notice.clone()
-                };
-                app.notice = notice.clone();
-                app.messages.push(("system".to_owned(), notice));
-            }
-            app.thinking = false;
-        }
         while let Ok(byte) = byte_rx.try_recv() {
             if in_escape {
                 if csi {
                     if (0x40..=0x7e).contains(&byte) {
                         in_escape = false;
-                        csi = false; // end of CSI sequence
+                        csi = false;
                     }
-                } else if byte == 0x5b || byte == 0x4f {
-                    csi = true; // ESC [ or ESC O prefix
+                } else if byte == b'[' || byte == b'O' {
+                    csi = true;
                 } else {
-                    in_escape = false; // lone ESC
+                    in_escape = false;
                 }
                 continue;
             }
             match byte {
-                0x03 => return Ok(()), // Ctrl+C
+                0x03 => return Ok(()),
                 0x1b => {
                     in_escape = true;
                     csi = false;
                 }
                 b'\r' | b'\n' => {
-                    flush_utf8(&mut utf8_buf, &mut app.input);
-                    let raw = app.input.trim().to_owned();
-                    app.input.clear();
-                    if raw.starts_with('/') {
-                        app.run_command(&raw);
-                    } else {
-                        app.send_chat(raw);
+                    flush_utf8(&mut utf8_buffer, &mut app.input);
+                    let command = std::mem::take(&mut app.input);
+                    if app.run_command(&command) {
+                        return Ok(());
                     }
                 }
                 0x7f | 0x08 => {
-                    flush_utf8(&mut utf8_buf, &mut app.input);
+                    flush_utf8(&mut utf8_buffer, &mut app.input);
                     app.input.pop();
                 }
-                _ => utf8_buf.push(byte),
+                _ => utf8_buffer.push(byte),
             }
-            if utf8_buf.len() >= 4 {
-                flush_utf8(&mut utf8_buf, &mut app.input);
+            if utf8_buffer.len() >= 4 {
+                flush_utf8(&mut utf8_buffer, &mut app.input);
             }
         }
-        flush_utf8(&mut utf8_buf, &mut app.input);
+        flush_utf8(&mut utf8_buffer, &mut app.input);
         std::thread::sleep(Duration::from_millis(30));
     }
 }
 
-/// Decodes complete UTF-8 sequences accumulated from raw stdin bytes into
-/// `input`, keeping a trailing incomplete sequence for the next read.
-fn flush_utf8(buf: &mut Vec<u8>, input: &mut String) {
-    if buf.is_empty() {
+fn flush_utf8(buffer: &mut Vec<u8>, input: &mut String) {
+    if buffer.is_empty() {
         return;
     }
-    match std::str::from_utf8(buf) {
+    match std::str::from_utf8(buffer) {
         Ok(text) => {
             input.push_str(text);
-            buf.clear();
+            buffer.clear();
         }
-        Err(error) if error.error_len().is_none() => {
-            // Incomplete trailing sequence; wait for more bytes.
-        }
-        Err(_) => {
-            // Invalid byte; drop it so the stream stays healthy.
-            buf.clear();
-        }
+        Err(error) if error.error_len().is_none() => {}
+        Err(_) => buffer.clear(),
     }
 }
 
-fn draw(frame: &mut Frame, app: &mut App) {
-    let layout = Layout::vertical([
+fn draw(frame: &mut Frame, app: &App) {
+    let outer = Layout::vertical([
         Constraint::Length(1),
-        Constraint::Min(3),
+        Constraint::Min(8),
         Constraint::Length(1),
         Constraint::Length(3),
     ])
     .split(frame.area());
-    draw_status(frame, layout[0], app);
-    draw_chat(frame, layout[1], app);
-    draw_hint(frame, layout[2], app);
-    draw_input(frame, layout[3], app);
+    draw_status(frame, outer[0], app);
+
+    let columns = Layout::horizontal([
+        Constraint::Percentage(34),
+        Constraint::Percentage(33),
+        Constraint::Percentage(33),
+    ])
+    .split(outer[1]);
+    draw_runtime(frame, columns[0], app);
+    draw_models(frame, columns[1], app);
+    draw_nodes(frame, columns[2], app);
+    draw_hint(frame, outer[2], app);
+    draw_input(frame, outer[3], app);
 }
 
 fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
@@ -447,79 +307,98 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         Span::styled("○ 离线", Style::default().fg(Color::Red))
     };
-    let model = format!(
-        "模型: {}",
-        if app.model.is_empty() {
-            "未选择"
-        } else {
-            &app.model
-        }
-    );
-    let nodes = format!("节点: {}", app.nodes.len());
     let line = Line::from(vec![
         Span::styled(
-            " Lociant TUI ",
+            " Lociant Edge ",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
         status,
-        Span::raw("  |  "),
-        Span::raw(model),
-        Span::raw("  |  "),
-        Span::raw(nodes),
-        Span::raw("  |  "),
-        Span::raw(&app.notice),
+        Span::raw("  "),
+        Span::raw(&app.base_url),
+        Span::raw("  "),
+        Span::styled(&app.notice, Style::default().fg(Color::DarkGray)),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
 
-fn draw_chat(frame: &mut Frame, area: Rect, app: &App) {
-    // Render the whole conversation as wrapped text so long replies are not
-    // clipped at the terminal width; scroll stays at the latest message.
-    let mut lines: Vec<Line> = Vec::new();
-    for (role, content) in &app.messages {
-        let (prefix, style) = match role.as_str() {
-            "user" => ("你: ", Style::default().fg(Color::Cyan)),
-            "assistant" => ("AI: ", Style::default().fg(Color::Green)),
-            _ => ("系统: ", Style::default().fg(Color::Yellow)),
-        };
-        for (i, text_line) in content.lines().enumerate() {
-            if i == 0 {
-                lines.push(Line::from(vec![
-                    Span::styled(prefix, style),
-                    Span::raw(text_line),
-                ]));
-            } else {
-                lines.push(Line::from(vec![Span::raw(text_line)]));
-            }
-        }
-    }
-    if app.thinking {
-        lines.push(Line::from(vec![
-            Span::styled("…", Style::default().fg(Color::Yellow)),
-            Span::styled(" 思考中", Style::default().fg(Color::Yellow)),
-        ]));
-    }
-    let content_area = Block::default()
-        .borders(Borders::ALL)
-        .title("对话")
-        .inner(area);
-    let height = content_area.height.saturating_sub(1).max(1) as usize;
-    let total = lines.len().saturating_sub(1);
-    let scroll = total.saturating_sub(height) as u16;
-    let paragraph = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0));
+fn draw_runtime(frame: &mut Frame, area: Rect, app: &App) {
+    let running = app
+        .runtime
+        .get("running")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let model = field(&app.runtime, "modelId", "未选择");
+    let exposure = field(&app.runtime, "toolExposure", "action");
+    let lines = vec![
+        Line::from(vec![
+            Span::raw("状态  "),
+            Span::styled(
+                if running { "运行中" } else { "已停止" },
+                Style::default().fg(if running { Color::Green } else { Color::Red }),
+            ),
+        ]),
+        Line::from(format!("模型  {model}")),
+        Line::from(format!("工具  {exposure}")),
+        Line::from(format!("端口  {}", field(&app.runtime, "port", "11434"))),
+    ];
     frame.render_widget(
-        paragraph.block(Block::default().borders(Borders::ALL).title("对话")),
+        Paragraph::new(lines)
+            .block(Block::default().borders(Borders::ALL).title("运行时"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn draw_models(frame: &mut Frame, area: Rect, app: &App) {
+    let items = app.models.iter().map(|model| {
+        let id = field(model, "id", "?");
+        let runtime = field(model, "runtime", "unknown");
+        ListItem::new(Line::from(vec![
+            Span::styled(id, Style::default().fg(Color::Cyan)),
+            Span::raw(format!("  {runtime}")),
+        ]))
+    });
+    frame.render_widget(
+        List::new(items).block(Block::default().borders(Borders::ALL).title("模型")),
+        area,
+    );
+}
+
+fn draw_nodes(frame: &mut Frame, area: Rect, app: &App) {
+    let items = app.nodes.iter().map(|node| {
+        let name = field(node, "name", "?");
+        let platform = field(node, "platform", "unknown");
+        let online = node.get("online").and_then(Value::as_bool).unwrap_or(false);
+        ListItem::new(Line::from(vec![
+            Span::styled(
+                name,
+                Style::default().fg(if online { Color::Green } else { Color::Gray }),
+            ),
+            Span::raw(format!("  {platform}")),
+        ]))
+    });
+    frame.render_widget(
+        List::new(items).block(Block::default().borders(Borders::ALL).title("节点")),
+        area,
+    );
+}
+
+fn draw_hint(frame: &mut Frame, area: Rect, app: &App) {
+    let text = format!(
+        "工具 {} 个 · 输入 /help 查看命令 · Enter 执行 · Ctrl+C 退出",
+        app.tools.len()
+    );
+    frame.render_widget(
+        Paragraph::new(Span::styled(text, Style::default().fg(Color::DarkGray))),
         area,
     );
 }
 
 fn draw_input(frame: &mut Frame, area: Rect, app: &App) {
     let input = Paragraph::new(Line::from(vec![Span::raw("> "), Span::raw(&app.input)]))
-        .block(Block::default().borders(Borders::ALL).title("输入"))
+        .block(Block::default().borders(Borders::ALL).title("控制命令"))
         .wrap(Wrap { trim: true });
     frame.render_widget(input, area);
     frame.set_cursor_position((
@@ -528,40 +407,12 @@ fn draw_input(frame: &mut Frame, area: Rect, app: &App) {
     ));
 }
 
-fn draw_hint(frame: &mut Frame, area: Rect, app: &App) {
-    let hint = if app.thinking {
-        "正在请求模型，请稍候…（Ctrl+C 可随时退出）"
-    } else if app.input.starts_with('/') {
-        "命令: /help  /models  /model <id>  /nodes  /clear  /quit"
-    } else {
-        "输入 / 查看命令，Enter 发送，Ctrl+C 退出"
-    };
-    let line = Line::from(vec![Span::styled(
-        hint,
-        Style::default().fg(Color::DarkGray),
-    )]);
-    frame.render_widget(Paragraph::new(line), area);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Live peer-model smoke test. It is intentionally ignored in the default
-    /// unit suite because it requires the external fixture documented below.
-    #[test]
-    #[ignore = "requires a Lociant peer fixture on 127.0.0.1:12001"]
-    fn chat_outcome_reaches_channel() {
-        // Requires a local node on :12001 (test fixture):
-        //   LOCIANT_CONFIG=/tmp/peer-local/config.json ... lociant-server
-        let mut app = App::new("http://127.0.0.1:12001".to_owned(), "tok-local".to_owned());
-        app.model = "peer:lociant-node:qwen3.5-0.8b-w4a16-g128-opt0".to_owned();
-        app.send_chat("你好，请一句话回复".to_owned());
-        let outcome = app
-            .result_rx
-            .recv_timeout(Duration::from_secs(40))
-            .expect("chat outcome should arrive within 40s");
-        assert!(outcome.ok, "chat failed: {}", outcome.notice);
-        assert!(!outcome.text.is_empty(), "empty reply");
-    }
+fn field(value: &Value, key: &str, fallback: &str) -> String {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| value.get(key).map(ToString::to_string))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| fallback.to_owned())
 }

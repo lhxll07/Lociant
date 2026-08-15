@@ -1,5 +1,5 @@
 [Unit]
-Description=Lociant Rust backend (headless agent node)
+Description=Lociant Rust backend (headless edge runtime)
 After=network-online.target
 Wants=network-online.target
 

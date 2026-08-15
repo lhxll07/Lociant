@@ -1,7 +1,6 @@
 //! Control-plane error handling: RFC 7807 problem+json responses and the
 //! bearer-token guard shared by every control/data route.
 
-use axum::extract::connect_info::ConnectInfo;
 use axum::extract::FromRequestParts;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
@@ -117,39 +116,16 @@ impl FromRequestParts<AppState> for RequireAuth {
         parts: &mut axum::http::request::Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        if is_loopback_request(parts) {
-            return Ok(Self);
-        }
         let token = state.auth_token();
         if token.is_empty() {
             return Ok(Self);
         }
-        let supplied = parts
-            .headers
-            .get(AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-            .map(str::to_owned)
-            .or_else(|| {
-                parts
-                    .headers
-                    .get("x-lociant-token")
-                    .and_then(|v| v.to_str().ok())
-                    .map(str::to_owned)
-            });
-        if supplied.as_deref() == Some(token.as_str()) {
+        if supplied_token(parts).as_deref() == Some(token.as_str()) {
             Ok(Self)
         } else {
             Err(Box::new(Problem::unauthorized("")))
         }
     }
-}
-
-pub fn is_loopback_request(parts: &axum::http::request::Parts) -> bool {
-    parts
-        .extensions
-        .get::<ConnectInfo<std::net::SocketAddr>>()
-        .is_some_and(|ConnectInfo(address)| address.ip().is_loopback())
 }
 
 fn supplied_token(parts: &axum::http::request::Parts) -> Option<String> {
@@ -168,9 +144,8 @@ fn supplied_token(parts: &axum::http::request::Parts) -> Option<String> {
         })
 }
 
-/// Peer-plane guard: accepts the configured peer token. When no peer token
-/// is configured the plane is open, matching the control-plane behavior, so
-/// nodes on a trusted LAN interconnect out of the box.
+/// Peer-plane guard: accepts the configured peer token. Peer networking is
+/// opt-in; without a peer token the whole plane is disabled.
 pub struct RequirePeerAuth;
 
 impl FromRequestParts<AppState> for RequirePeerAuth {
@@ -187,47 +162,15 @@ impl FromRequestParts<AppState> for RequirePeerAuth {
             .unwrap_or("")
             .to_owned();
         if peer_token.is_empty() {
-            return Ok(Self);
+            return Err(Box::new(Problem::forbidden(
+                "peer networking is disabled (set peerToken)",
+                "/api/v1/peer",
+            )));
         }
         if supplied_token(parts).as_deref() == Some(peer_token.as_str()) {
             Ok(Self)
         } else {
             Err(Box::new(Problem::unauthorized("/api/v1/peer")))
-        }
-    }
-}
-
-/// Chat-plane guard: accepts the API token or the peer token, so sibling
-/// nodes can forward chat completions without control-plane access.
-pub struct RequireChatAuth;
-
-impl FromRequestParts<AppState> for RequireChatAuth {
-    type Rejection = Box<Problem>;
-
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
-        let token = state.auth_token();
-        let peer_token = state
-            .settings_snapshot()
-            .get("peerToken")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("")
-            .to_owned();
-        // No API token configured: the node is in local/open mode and chat
-        // stays open even when a peer token exists (the peer token only
-        // guards the /api/v1/peer/* plane, not local UI chat).
-        if token.is_empty() {
-            return Ok(Self);
-        }
-        let supplied = supplied_token(parts);
-        if supplied.as_deref() == Some(token.as_str())
-            || (!peer_token.is_empty() && supplied.as_deref() == Some(peer_token.as_str()))
-        {
-            Ok(Self)
-        } else {
-            Err(Box::new(Problem::unauthorized("/v1/chat/completions")))
         }
     }
 }

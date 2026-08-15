@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// No description provided for @navHome.
   ///
   /// In en, this message translates to:
-  /// **'Home'**
+  /// **'Overview'**
   String get navHome;
 
   /// No description provided for @navModels.
@@ -127,6 +127,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nodes'**
   String get navNodes;
+
+  /// No description provided for @navExtensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions'**
+  String get navExtensions;
 
   /// No description provided for @navSettings.
   ///
@@ -170,6 +176,78 @@ abstract class AppLocalizations {
   /// **'Offline'**
   String get nodesOffline;
 
+  /// No description provided for @nodesGridHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a device card for details and available actions'**
+  String get nodesGridHint;
+
+  /// No description provided for @nodesAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get nodesAddress;
+
+  /// No description provided for @nodesPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform'**
+  String get nodesPlatform;
+
+  /// No description provided for @nodesNodeId.
+  ///
+  /// In en, this message translates to:
+  /// **'Node ID'**
+  String get nodesNodeId;
+
+  /// No description provided for @nodesNameOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get nodesNameOptional;
+
+  /// No description provided for @nodesAvailableActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Available actions'**
+  String get nodesAvailableActions;
+
+  /// No description provided for @nodesOpenModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Open models'**
+  String get nodesOpenModels;
+
+  /// No description provided for @nodesSelfHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This is the current device and its local runtime.'**
+  String get nodesSelfHint;
+
+  /// No description provided for @nodesDevicePhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get nodesDevicePhone;
+
+  /// No description provided for @nodesDeviceComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer'**
+  String get nodesDeviceComputer;
+
+  /// No description provided for @nodesDeviceBoard.
+  ///
+  /// In en, this message translates to:
+  /// **'Board'**
+  String get nodesDeviceBoard;
+
+  /// No description provided for @nodesDeviceOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get nodesDeviceOther;
+
   /// No description provided for @nodesEmpty.
   ///
   /// In en, this message translates to:
@@ -209,7 +287,7 @@ abstract class AppLocalizations {
   /// No description provided for @nodesGuideStep3.
   ///
   /// In en, this message translates to:
-  /// **'Open a node card to share models (peer: prefix), view baby monitoring or chat directly'**
+  /// **'Open a node card to share models (peer: prefix) or view baby monitoring'**
   String get nodesGuideStep3;
 
   /// No description provided for @nodesGuideOpenSettings.
@@ -332,24 +410,6 @@ abstract class AppLocalizations {
   /// **'Failed to delete node'**
   String get nodesDeleteFailed;
 
-  /// No description provided for @nodesChat.
-  ///
-  /// In en, this message translates to:
-  /// **'Chat'**
-  String get nodesChat;
-
-  /// No description provided for @nodesChatSelectModel.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose a model'**
-  String get nodesChatSelectModel;
-
-  /// No description provided for @nodesChatNoModel.
-  ///
-  /// In en, this message translates to:
-  /// **'No available models on this node'**
-  String get nodesChatNoModel;
-
   /// No description provided for @commonCancel.
   ///
   /// In en, this message translates to:
@@ -380,6 +440,90 @@ abstract class AppLocalizations {
   /// **'Desktop service runs automatically with the app (built-in Rust backend)'**
   String get settingsModelServerDesktop;
 
+  /// No description provided for @extensionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions'**
+  String get extensionsTitle;
+
+  /// No description provided for @extensionsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage edge capabilities available on this device'**
+  String get extensionsSubtitle;
+
+  /// No description provided for @extensionsInstalledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed extensions'**
+  String get extensionsInstalledTitle;
+
+  /// No description provided for @extensionsBuiltInHint.
+  ///
+  /// In en, this message translates to:
+  /// **'These extensions are bundled with Lociant and use this device\'s permissions.'**
+  String get extensionsBuiltInHint;
+
+  /// No description provided for @extensionsBabyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor baby activity, record events and notify parents when attention is needed.'**
+  String get extensionsBabyDescription;
+
+  /// No description provided for @extensionsBabyPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires camera, notifications and background operation'**
+  String get extensionsBabyPermissions;
+
+  /// No description provided for @extensionsStatusChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking'**
+  String get extensionsStatusChecking;
+
+  /// No description provided for @extensionsStatusEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get extensionsStatusEnabled;
+
+  /// No description provided for @extensionsStatusNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get extensionsStatusNotConfigured;
+
+  /// No description provided for @extensionsStatusUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporarily unavailable'**
+  String get extensionsStatusUnavailable;
+
+  /// No description provided for @extensionsUnavailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to reach the current node. Make sure the service is running.'**
+  String get extensionsUnavailableHint;
+
+  /// No description provided for @extensionsOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get extensionsOpen;
+
+  /// No description provided for @extensionsRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh status'**
+  String get extensionsRefresh;
+
+  /// No description provided for @extensionsOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage permissions'**
+  String get extensionsOpenSettings;
+
   /// No description provided for @statusIdle.
   ///
   /// In en, this message translates to:
@@ -404,101 +548,263 @@ abstract class AppLocalizations {
   /// **'Stopped'**
   String get statusStopped;
 
-  /// No description provided for @homePlaceholder.
+  /// No description provided for @edgeOverviewTitle.
   ///
   /// In en, this message translates to:
-  /// **'Ask Lociant, or describe a tool task'**
-  String get homePlaceholder;
+  /// **'Edge runtime'**
+  String get edgeOverviewTitle;
 
-  /// No description provided for @homeSend.
+  /// No description provided for @edgeOverviewSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Send'**
-  String get homeSend;
+  /// **'Control plane for this device'**
+  String get edgeOverviewSubtitle;
 
-  /// No description provided for @homeNewChat.
+  /// No description provided for @edgeMetricModels.
   ///
   /// In en, this message translates to:
-  /// **'New chat'**
-  String get homeNewChat;
+  /// **'Models'**
+  String get edgeMetricModels;
 
-  /// No description provided for @homeHistory.
+  /// No description provided for @edgeMetricNodes.
   ///
   /// In en, this message translates to:
-  /// **'Recent chats'**
-  String get homeHistory;
+  /// **'Nodes'**
+  String get edgeMetricNodes;
 
-  /// No description provided for @homeEmptyReply.
+  /// No description provided for @edgeMetricTools.
   ///
   /// In en, this message translates to:
-  /// **'No reply'**
-  String get homeEmptyReply;
+  /// **'Tools'**
+  String get edgeMetricTools;
 
-  /// No description provided for @homeThinking.
+  /// No description provided for @edgeMetricStatus.
   ///
   /// In en, this message translates to:
-  /// **'Thinking…'**
-  String get homeThinking;
+  /// **'Status'**
+  String get edgeMetricStatus;
 
-  /// No description provided for @homeThought.
+  /// No description provided for @edgeNodesTitle.
   ///
   /// In en, this message translates to:
-  /// **'Thought'**
-  String get homeThought;
+  /// **'Connected devices'**
+  String get edgeNodesTitle;
 
-  /// No description provided for @homeRunStatusTool.
+  /// No description provided for @edgeNodesEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Running tool {tool} (round {round})…'**
-  String homeRunStatusTool(Object round, Object tool);
+  /// **'No devices to show yet.'**
+  String get edgeNodesEmpty;
 
-  /// No description provided for @homeRunStatusRound.
+  /// No description provided for @edgeViewAll.
   ///
   /// In en, this message translates to:
-  /// **'Calling model (round {round})…'**
-  String homeRunStatusRound(Object round);
+  /// **'View all'**
+  String get edgeViewAll;
 
-  /// No description provided for @homeRunStatusRetry.
+  /// No description provided for @edgeEndpointsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Retrying…'**
-  String get homeRunStatusRetry;
+  /// **'Control endpoints'**
+  String get edgeEndpointsTitle;
 
-  /// No description provided for @homeRoundLabel.
+  /// No description provided for @edgeControlApi.
   ///
   /// In en, this message translates to:
-  /// **'Round {n}'**
-  String homeRoundLabel(Object n);
+  /// **'Control API'**
+  String get edgeControlApi;
 
-  /// No description provided for @homeToolRunDone.
+  /// No description provided for @edgeToolsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Tools completed without a text reply.'**
-  String get homeToolRunDone;
+  /// **'Available tools'**
+  String get edgeToolsTitle;
 
-  /// No description provided for @homeImageAttached.
+  /// No description provided for @edgeToolsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Image attached'**
-  String get homeImageAttached;
+  /// **'No tools are available at the current exposure level'**
+  String get edgeToolsEmpty;
 
-  /// No description provided for @homeRemoveImage.
+  /// No description provided for @toolDescriptionGeneric.
   ///
   /// In en, this message translates to:
-  /// **'Remove image'**
-  String get homeRemoveImage;
+  /// **'Device capability available to controllers.'**
+  String get toolDescriptionGeneric;
 
-  /// No description provided for @homeUploadImage.
+  /// No description provided for @toolDescriptionRuntimeStatus.
   ///
   /// In en, this message translates to:
-  /// **'Upload photo'**
-  String get homeUploadImage;
+  /// **'Check runtime status.'**
+  String get toolDescriptionRuntimeStatus;
 
-  /// No description provided for @homeDeleteChat.
+  /// No description provided for @toolDescriptionModelList.
   ///
   /// In en, this message translates to:
-  /// **'Delete chat'**
-  String get homeDeleteChat;
+  /// **'List available models.'**
+  String get toolDescriptionModelList;
+
+  /// No description provided for @toolDescriptionDeviceStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Check basic device information.'**
+  String get toolDescriptionDeviceStatus;
+
+  /// No description provided for @toolDescriptionClipboardRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the clipboard.'**
+  String get toolDescriptionClipboardRead;
+
+  /// No description provided for @toolDescriptionClipboardWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Write text to the clipboard.'**
+  String get toolDescriptionClipboardWrite;
+
+  /// No description provided for @toolDescriptionAppOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open an app.'**
+  String get toolDescriptionAppOpen;
+
+  /// No description provided for @toolDescriptionUiScreenState.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the current screen structure.'**
+  String get toolDescriptionUiScreenState;
+
+  /// No description provided for @toolDescriptionUiClickNode.
+  ///
+  /// In en, this message translates to:
+  /// **'Click a screen element.'**
+  String get toolDescriptionUiClickNode;
+
+  /// No description provided for @toolDescriptionUiTap.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a screen position.'**
+  String get toolDescriptionUiTap;
+
+  /// No description provided for @toolDescriptionUiSwipe.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe across the screen.'**
+  String get toolDescriptionUiSwipe;
+
+  /// No description provided for @toolDescriptionUiWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for the screen to change.'**
+  String get toolDescriptionUiWait;
+
+  /// No description provided for @toolDescriptionUiPaste.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste text into the current field.'**
+  String get toolDescriptionUiPaste;
+
+  /// No description provided for @toolDescriptionUiSetText.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in a text field.'**
+  String get toolDescriptionUiSetText;
+
+  /// No description provided for @toolDescriptionVisionStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Check vision service status.'**
+  String get toolDescriptionVisionStatus;
+
+  /// No description provided for @toolDescriptionVisionStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the vision service.'**
+  String get toolDescriptionVisionStart;
+
+  /// No description provided for @toolDescriptionCameraCapture.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a camera photo.'**
+  String get toolDescriptionCameraCapture;
+
+  /// No description provided for @toolDescriptionVisionStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop the vision service.'**
+  String get toolDescriptionVisionStop;
+
+  /// No description provided for @toolDescriptionSensorStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Check sensor status.'**
+  String get toolDescriptionSensorStatus;
+
+  /// No description provided for @toolDescriptionSensorRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read sensor data.'**
+  String get toolDescriptionSensorRead;
+
+  /// No description provided for @toolDescriptionSensorStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start sensor collection.'**
+  String get toolDescriptionSensorStart;
+
+  /// No description provided for @toolDescriptionSensorStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sensor collection.'**
+  String get toolDescriptionSensorStop;
+
+  /// No description provided for @toolDescriptionFileList.
+  ///
+  /// In en, this message translates to:
+  /// **'List files in a directory.'**
+  String get toolDescriptionFileList;
+
+  /// No description provided for @toolDescriptionFileRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read a text file.'**
+  String get toolDescriptionFileRead;
+
+  /// No description provided for @toolDescriptionFileWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a text file.'**
+  String get toolDescriptionFileWrite;
+
+  /// No description provided for @toolDescriptionProcessList.
+  ///
+  /// In en, this message translates to:
+  /// **'List running processes.'**
+  String get toolDescriptionProcessList;
+
+  /// No description provided for @toolDescriptionProcessRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Run a system command.'**
+  String get toolDescriptionProcessRun;
+
+  /// No description provided for @edgeOpenModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Open models'**
+  String get edgeOpenModels;
+
+  /// No description provided for @edgeOpenNodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Open nodes'**
+  String get edgeOpenNodes;
+
+  /// No description provided for @edgeOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get edgeOpenSettings;
 
   /// No description provided for @onboardingSkip.
   ///
@@ -527,31 +833,31 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingWelcomeBody.
   ///
   /// In en, this message translates to:
-  /// **'Turn any device into a local agent that runs models, reads the screen, controls the UI and senses its environment — callable from Claude, Codex and other agents over MCP.'**
+  /// **'Turn any device into an edge runtime that runs local models, exposes device tools and senses its environment through a controlled API and MCP.'**
   String get onboardingWelcomeBody;
 
-  /// No description provided for @onboardingCloudTitle.
+  /// No description provided for @onboardingLocalTitle.
   ///
   /// In en, this message translates to:
-  /// **'Start with a cloud model'**
-  String get onboardingCloudTitle;
+  /// **'Prepare a local model'**
+  String get onboardingLocalTitle;
 
-  /// No description provided for @onboardingCloudBody.
+  /// No description provided for @onboardingLocalBody.
   ///
   /// In en, this message translates to:
-  /// **'Go to Settings → Cloud model, enter the API base URL, key and model name (e.g. DeepSeek) and you can chat right away. To work offline, install a local model from the Models page later.'**
-  String get onboardingCloudBody;
+  /// **'Import or install a local model under Models so inference stays on the edge device.'**
+  String get onboardingLocalBody;
 
   /// No description provided for @onboardingPermissionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Give the agent hands'**
+  /// **'Enable device capabilities'**
   String get onboardingPermissionTitle;
 
   /// No description provided for @onboardingPermissionBody.
   ///
   /// In en, this message translates to:
-  /// **'Enable permissions in Settings: accessibility lets it read the screen, tap and swipe; notifications keep it alive in the background; camera is for photos and vision; set battery to unrestricted so it isn\'t paused when the screen locks.'**
+  /// **'Enable permissions in Settings: accessibility provides screen and UI tools; notifications keep the runtime alive; camera powers vision; set battery to unrestricted for reliable background operation.'**
   String get onboardingPermissionBody;
 
   /// No description provided for @onboardingNodesTitle.
@@ -575,7 +881,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingReadyBody.
   ///
   /// In en, this message translates to:
-  /// **'Start the runtime on the home page, send a message to confirm the model works, then let it do things. Later you can also connect the device from MCP-capable clients like Claude and OpenCode.'**
+  /// **'Start the runtime from the overview, inspect the available tools and connect external clients through the control API or MCP.'**
   String get onboardingReadyBody;
 
   /// No description provided for @settingsOnboardingTitle.
@@ -671,7 +977,7 @@ abstract class AppLocalizations {
   /// No description provided for @modelsMarketSub.
   ///
   /// In en, this message translates to:
-  /// **'ModelScope MNN models'**
+  /// **'ModelScope GGUF models'**
   String get modelsMarketSub;
 
   /// No description provided for @modelsRuntimeTitle.
@@ -685,18 +991,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default model and API'**
   String get modelsRuntimeSub;
-
-  /// No description provided for @modelsCloudTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud model'**
-  String get modelsCloudTitle;
-
-  /// No description provided for @modelsCloudSub.
-  ///
-  /// In en, this message translates to:
-  /// **'OpenAI-compatible cloud API'**
-  String get modelsCloudSub;
 
   /// No description provided for @modelsImport.
   ///
@@ -794,6 +1088,60 @@ abstract class AppLocalizations {
   /// **'System'**
   String get settingsFollowSystem;
 
+  /// No description provided for @settingsLanguageChinese.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese'**
+  String get settingsLanguageChinese;
+
+  /// No description provided for @settingsLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEnglish;
+
+  /// No description provided for @settingsAppearanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearanceTitle;
+
+  /// No description provided for @settingsSectionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsSectionsTitle;
+
+  /// No description provided for @settingsSecurityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get settingsSecurityTitle;
+
+  /// No description provided for @settingsSecuritySub.
+  ///
+  /// In en, this message translates to:
+  /// **'API access, peer connections and tool permissions'**
+  String get settingsSecuritySub;
+
+  /// No description provided for @settingsLocalModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local model'**
+  String get settingsLocalModelTitle;
+
+  /// No description provided for @settingsLocalModelSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Default model and local inference behavior'**
+  String get settingsLocalModelSub;
+
+  /// No description provided for @settingsAboutSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Version and runtime information'**
+  String get settingsAboutSub;
+
   /// No description provided for @settingsRuntimeTitle.
   ///
   /// In en, this message translates to:
@@ -827,20 +1175,8 @@ abstract class AppLocalizations {
   /// No description provided for @settingsModelSub.
   ///
   /// In en, this message translates to:
-  /// **'Model and CPU threads'**
+  /// **'Installed model and response length'**
   String get settingsModelSub;
-
-  /// No description provided for @settingsAgentTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent'**
-  String get settingsAgentTitle;
-
-  /// No description provided for @settingsAgentSub.
-  ///
-  /// In en, this message translates to:
-  /// **'Tool-loop behavior'**
-  String get settingsAgentSub;
 
   /// No description provided for @settingsAdvancedTitle.
   ///
@@ -848,35 +1184,17 @@ abstract class AppLocalizations {
   /// **'Advanced'**
   String get settingsAdvancedTitle;
 
-  /// No description provided for @settingsAdvancedSub.
-  ///
-  /// In en, this message translates to:
-  /// **'Sessions and diagnostics'**
-  String get settingsAdvancedSub;
-
-  /// No description provided for @settingsAgentRounds.
-  ///
-  /// In en, this message translates to:
-  /// **'Max tool rounds'**
-  String get settingsAgentRounds;
-
-  /// No description provided for @settingsAgentRoundsSub.
-  ///
-  /// In en, this message translates to:
-  /// **'Model↔tool iterations per task ({min}–{max})'**
-  String settingsAgentRoundsSub(Object max, Object min);
-
-  /// No description provided for @settingsToolCalls.
-  ///
-  /// In en, this message translates to:
-  /// **'Tool call cap'**
-  String get settingsToolCalls;
-
   /// No description provided for @settingsPermissionsTitle.
   ///
   /// In en, this message translates to:
   /// **'Permissions'**
   String get settingsPermissionsTitle;
+
+  /// No description provided for @settingsPermissionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'These permissions control device tools; remote tool scope is set by the level below.'**
+  String get settingsPermissionsHint;
 
   /// No description provided for @settingsWindowVision.
   ///
@@ -920,6 +1238,12 @@ abstract class AppLocalizations {
   /// **'Action'**
   String get settingsToolAction;
 
+  /// No description provided for @settingsToolExposureHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which device capabilities remote clients can use.'**
+  String get settingsToolExposureHint;
+
   /// No description provided for @settingsGenerate.
   ///
   /// In en, this message translates to:
@@ -931,12 +1255,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clear'**
   String get settingsClear;
-
-  /// No description provided for @settingsSessions.
-  ///
-  /// In en, this message translates to:
-  /// **'Sessions'**
-  String get settingsSessions;
 
   /// No description provided for @settingsPerformanceMode.
   ///
@@ -961,42 +1279,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fast'**
   String get settingsPerformanceFast;
-
-  /// No description provided for @settingsInferenceBackend.
-  ///
-  /// In en, this message translates to:
-  /// **'Inference backend'**
-  String get settingsInferenceBackend;
-
-  /// No description provided for @settingsBackendModel.
-  ///
-  /// In en, this message translates to:
-  /// **'Follow model'**
-  String get settingsBackendModel;
-
-  /// No description provided for @settingsBackendAuto.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto'**
-  String get settingsBackendAuto;
-
-  /// No description provided for @settingsBackendCpu.
-  ///
-  /// In en, this message translates to:
-  /// **'CPU'**
-  String get settingsBackendCpu;
-
-  /// No description provided for @settingsBackendOpencl.
-  ///
-  /// In en, this message translates to:
-  /// **'OpenCL (GPU)'**
-  String get settingsBackendOpencl;
-
-  /// No description provided for @settingsBackendVulkan.
-  ///
-  /// In en, this message translates to:
-  /// **'Vulkan (GPU)'**
-  String get settingsBackendVulkan;
 
   /// No description provided for @settingsResponseLength.
   ///
@@ -1058,53 +1340,11 @@ abstract class AppLocalizations {
   /// **'Release'**
   String get settingsRelease;
 
-  /// No description provided for @settingsCloudTitle.
+  /// No description provided for @settingsReleaseModelHint.
   ///
   /// In en, this message translates to:
-  /// **'Cloud model'**
-  String get settingsCloudTitle;
-
-  /// No description provided for @settingsCloudBaseUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'API base URL'**
-  String get settingsCloudBaseUrl;
-
-  /// No description provided for @settingsCloudApiKey.
-  ///
-  /// In en, this message translates to:
-  /// **'API key'**
-  String get settingsCloudApiKey;
-
-  /// No description provided for @settingsCloudModel.
-  ///
-  /// In en, this message translates to:
-  /// **'Model name'**
-  String get settingsCloudModel;
-
-  /// No description provided for @settingsCloudResponseLengthSub.
-  ///
-  /// In en, this message translates to:
-  /// **'Max output tokens (0 = provider default)'**
-  String get settingsCloudResponseLengthSub;
-
-  /// No description provided for @settingsCloudContextWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'Context window'**
-  String get settingsCloudContextWindow;
-
-  /// No description provided for @settingsCloudHistoryLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'History messages'**
-  String get settingsCloudHistoryLimit;
-
-  /// No description provided for @connectionOpenaiUrl.
-  ///
-  /// In en, this message translates to:
-  /// **'OpenAI Base URL'**
-  String get connectionOpenaiUrl;
+  /// **'Free memory used by the loaded model.'**
+  String get settingsReleaseModelHint;
 
   /// No description provided for @connectionMcpUrl.
   ///
@@ -1160,6 +1400,78 @@ abstract class AppLocalizations {
   /// **'API token'**
   String get settingsApiToken;
 
+  /// No description provided for @settingsApiTokenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Protects control API and remote tool calls.'**
+  String get settingsApiTokenHint;
+
+  /// No description provided for @settingsShowToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Show token'**
+  String get settingsShowToken;
+
+  /// No description provided for @settingsHideToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide token'**
+  String get settingsHideToken;
+
+  /// No description provided for @settingsModelStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Model status'**
+  String get settingsModelStatus;
+
+  /// No description provided for @settingsModelLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading'**
+  String get settingsModelLoading;
+
+  /// No description provided for @settingsModelReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get settingsModelReady;
+
+  /// No description provided for @settingsModelNotLoaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Not loaded'**
+  String get settingsModelNotLoaded;
+
+  /// No description provided for @settingsModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an installed model ID as the default.'**
+  String get settingsModelHint;
+
+  /// No description provided for @settingsOutputTokensHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum {max} tokens per response.'**
+  String settingsOutputTokensHint(Object max);
+
+  /// No description provided for @settingsAboutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Lociant turns phones, desktops and boards into edge runtimes for local models, device tools and controlled connections.'**
+  String get settingsAboutBody;
+
+  /// No description provided for @settingsAboutRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge runtime'**
+  String get settingsAboutRuntime;
+
+  /// No description provided for @settingsAboutRuntimeSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Local model inference and device capability control'**
+  String get settingsAboutRuntimeSub;
+
   /// No description provided for @settingsAutoStart.
   ///
   /// In en, this message translates to:
@@ -1196,11 +1508,101 @@ abstract class AppLocalizations {
   /// **'Background power'**
   String get settingsPermissionBattery;
 
+  /// No description provided for @settingsPermissionBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Background operation'**
+  String get settingsPermissionBackground;
+
   /// No description provided for @settingsPermissionAccessibility.
   ///
   /// In en, this message translates to:
   /// **'Accessibility'**
   String get settingsPermissionAccessibility;
+
+  /// No description provided for @settingsPermissionSensor.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensors'**
+  String get settingsPermissionSensor;
+
+  /// No description provided for @settingsPermissionNotificationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the runtime visible and active in the background.'**
+  String get settingsPermissionNotificationHint;
+
+  /// No description provided for @settingsPermissionBackgroundHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduce system limits on the background service.'**
+  String get settingsPermissionBackgroundHint;
+
+  /// No description provided for @settingsPermissionAccessibilityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Read screen structure and perform UI actions.'**
+  String get settingsPermissionAccessibilityHint;
+
+  /// No description provided for @settingsPermissionCameraHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Let vision tools capture camera frames.'**
+  String get settingsPermissionCameraHint;
+
+  /// No description provided for @settingsPermissionSensorHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Let sensor tools read motion, light and other data.'**
+  String get settingsPermissionSensorHint;
+
+  /// No description provided for @settingsPermissionOverlayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Let the runtime display a floating control.'**
+  String get settingsPermissionOverlayHint;
+
+  /// No description provided for @settingsPermissionFileRead.
+  ///
+  /// In en, this message translates to:
+  /// **'File reading'**
+  String get settingsPermissionFileRead;
+
+  /// No description provided for @settingsPermissionFileReadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only paths accessible to the current system user can be read.'**
+  String get settingsPermissionFileReadHint;
+
+  /// No description provided for @settingsPermissionSystemManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'System managed'**
+  String get settingsPermissionSystemManaged;
+
+  /// No description provided for @settingsPermissionAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get settingsPermissionAllowed;
+
+  /// No description provided for @settingsPermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs access'**
+  String get settingsPermissionRequired;
+
+  /// No description provided for @settingsPermissionChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking'**
+  String get settingsPermissionChecking;
+
+  /// No description provided for @settingsPermissionManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get settingsPermissionManage;
 
   /// No description provided for @settingsDesktopPermissionsHint.
   ///

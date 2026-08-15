@@ -9,12 +9,13 @@ This directory contains the complete Android runtime. Version 1.0 intentionally 
 | `:app` | `io.lociant.android` | Flutter UI host, foreground service, device-layer composition root |
 | `:core` | `io.lociant.core` | Stable API paths, session ID rules, model contracts and tool policy |
 | `:data` | `io.lociant.data` | AtomicFile JSON storage (device settings) |
-| `:local-runtime` | `io.lociant.runtime` | MNN/NCNN integration, model installation/catalog and vision pipeline |
+| `:local-runtime` | `io.lociant.runtime` | GGUF model import, NCNN vision runtime and model inventory |
 | `:phone-tools` | `io.lociant.tools` | Android device capabilities, accessibility and tool providers |
 
 The HTTP server and MCP adapter moved to the Rust backend (`apps/rust-backend`);
 the Android app is now the device layer: foreground service, phone tools, local
-MNN inference and vision, exposed to Rust over the device IPC
+NCNN vision, exposed to Rust over the device IPC. GGUF inference is supervised
+by the Rust backend through an optional llama.cpp `llama-server` bundle
 (`DeviceAdapterServer`). Dependencies flow toward `:core`; `:phone-tools` does
 not depend on `:data`; persistence is owned by the application composition root.
 
@@ -27,30 +28,30 @@ service lifecycle through explicit Android intents.
 `LociantRuntime` is the process-level composition root. It creates one immutable set of long-lived dependencies:
 
 ```text
-LocalStore + ModelManager + MnnRuntime
-                         |
-                  ChatCapability
-                         |
-                    LociantServer
+LocalStore + ModelManager
+            |
+       LociantServer
 ```
 
-The Flutter UI talks to the Rust backend over HTTP (OpenAI `/v1`, control
-`/api/v1`, MCP `/mcp`); the method channel only carries Android-only device
-operations (permissions, floating window, vision, lifecycle) and
-`deviceState`. Data-plane behavior belongs in HTTP/MCP, not in the channel.
-See [architecture.md](../../docs/architecture.md) and
+The Flutter UI talks to the Rust backend over the control API (`/api/v1`) and
+MCP (`/mcp`); the method channel only carries Android-only device operations
+(permissions, floating window, vision, lifecycle) and `deviceState`. Data-plane
+behavior belongs in HTTP/MCP, not in the channel. See
+[architecture.md](../../docs/architecture.md) and
 [agent-integration.md](../../docs/agent-integration.md).
 
 ## HTTP Contracts
 
-The HTTP contract is implemented by the Rust backend (port 11434): `/v1`
-OpenAI endpoints, `/api/v1` control plane, `/mcp` MCP, `/health` public.
+The HTTP contract is implemented by the Rust backend (port 11434): `/api/v1`
+control plane, `/mcp` MCP, and `/health` public. The old OpenAI `/v1` data
+plane is not part of the runtime.
 Control errors use `application/problem+json`.
 
 ## Persistence
 
-Sessions, messages and settings live in the Rust backend's SQLite; this
-module only keeps `LocalStore` (AtomicFile JSON) for device settings.
+Runtime settings and the installed-model index live in the Rust backend's
+SQLite; this module only keeps `LocalStore` (AtomicFile JSON) for the Android
+boot flag and device settings.
 `LocalStore` loads `store/local-store.json` once. Reads return defensive
 copies from memory. Writes clone the root, commit through `AtomicFile`, and
 publish the new in-memory root only after the disk commit succeeds.
@@ -65,11 +66,15 @@ Android/data/io.lociant.android/files/models/<model-id>/
 
 `ModelManager` maintains a locked immutable directory snapshot. Import, successful catalog installation, delete, and explicit management refresh invalidate it. Ordinary model listing must not rescan the filesystem.
 
-Native libraries are `lociant_mnn` and `lociant_ncnn`. JNI symbols target `io_lociant_runtime_model_*`. When changing package or class names, update Kotlin load calls, JNI exports and CMake targets together.
+The Android JNI library is `lociant_ncnn`; the Rust server is packaged as
+`liblociant_server.so`, and an optional llama.cpp bundle is packaged as
+`libllama_server.so`. JNI symbols target `io_lociant_runtime_model_*`. When
+changing package or class names, update Kotlin load calls, JNI exports and
+CMake targets together.
 
 ## Tool Policy
 
-All HTTP, OpenAI tool execution and MCP calls use one `ToolRegistry`.
+All HTTP and MCP tool calls use one `ToolRegistry`.
 
 Policy is enforced before the handler runs:
 

@@ -28,25 +28,15 @@ pub fn run() -> anyhow::Result<()> {
     };
     println!();
 
-    let backend = prompt("推理后端（none=无 / cloud=云端 / rkllm=本地 NPU）", "none")
+    let backend = prompt("推理后端（none=无 / rkllm=本地 NPU）", "none")
         .trim()
         .to_ascii_lowercase();
-    let mut cloud_enabled = false;
     let mut local_model = false;
     let mut rkllm_model_path = String::new();
     let mut rkllm_lib_path = String::new();
     let mut rkllm_model_name = String::new();
     let mut peer_name = String::new();
-    let mut cloud_base_url = String::new();
-    let mut cloud_api_key = String::new();
-    let mut cloud_model = String::new();
     match backend.as_str() {
-        "cloud" | "c" => {
-            cloud_enabled = true;
-            cloud_base_url = prompt("云端 API 地址", "https://api.openai.com/v1");
-            cloud_api_key = prompt("云端 API Key", "");
-            cloud_model = prompt("云端模型名（如 deepseek-chat）", "");
-        }
         "rkllm" | "r" => {
             local_model = true;
             rkllm_model_path = prompt(
@@ -83,7 +73,6 @@ pub fn run() -> anyhow::Result<()> {
         "port": port,
         "host": host,
         "authToken": auth_token,
-        "cloudEnabled": cloud_enabled,
         "localModel": local_model,
         "rkllmModelPath": rkllm_model_path,
         "rkllmLibPath": rkllm_lib_path,
@@ -91,9 +80,6 @@ pub fn run() -> anyhow::Result<()> {
         "peerToken": peer_token,
         "peerDiscovery": peer_discovery,
         "peerName": peer_name,
-        "cloudBaseUrl": cloud_base_url,
-        "cloudApiKey": cloud_api_key,
-        "cloudModel": cloud_model,
     });
     let pretty = format!("{}\n", serde_json::to_string_pretty(&config)?);
 
@@ -109,8 +95,6 @@ pub fn run() -> anyhow::Result<()> {
             "本地 NPU（RKLLM）：{} ({})",
             rkllm_model_name, rkllm_model_path
         );
-    } else if cloud_enabled {
-        println!("云端模型：{} @ {}", cloud_model, cloud_base_url);
     }
     if !peer_token.is_empty() {
         println!("节点互联：已启用（令牌 ***）");

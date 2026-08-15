@@ -1,15 +1,15 @@
 mod baby;
 mod catalog;
-mod chat;
 mod control;
 mod device;
 mod error;
 mod init;
+mod linux_device;
+mod llama;
 mod mcp;
 mod models;
 mod peer;
 mod peers;
-mod rkllm_backend;
 mod state;
 
 use std::collections::HashMap;
@@ -21,7 +21,7 @@ use axum::routing::{delete, get, post};
 use axum::Router;
 use device::IpcDeviceAdapter;
 use lociant_store::Store;
-use lociant_tools::{NoopDevice, ToolRegistry};
+use lociant_tools::ToolRegistry;
 use serde_json::Value;
 
 use crate::state::AppState;
@@ -149,53 +149,58 @@ async fn main() -> anyhow::Result<()> {
             port: adapter.port,
             token: adapter.token.clone(),
         }))),
-        None => Arc::new(ToolRegistry::new(Box::new(NoopDevice))),
+        None => Arc::new(ToolRegistry::new(Box::new(linux_device::LinuxDevice))),
     };
 
-    // Peer networking is always enabled: without a peer token the plane is
-    // open (like the control plane), so trusted LAN devices interconnect
-    // out of the box. Setting `peerToken` on every node adds a shared secret.
+    // Peer networking is opt-in: a shared peer token is what makes the mesh
+    // trustworthy, so without it we do not broadcast, listen or aggregate
+    // remote tools/models at all. Single-device users stay on the simplest
+    // possible path.
     let peers = {
-        let self_id = settings
-            .get("peerId")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .unwrap_or_else(|| {
-                // A stable, unique peer id matters: discovery drops packets
-                // whose id equals our own, so a shared default would make
-                // every node ignore every other node. Prefer the host name
-                // (or /etc/hostname on Android) plus the platform.
-                let host = std::env::var("HOSTNAME")
-                    .or_else(|_| std::env::var("HOST"))
-                    .unwrap_or_default();
-                let host = if host.is_empty() || host == "localhost" {
-                    std::fs::read_to_string("/etc/hostname")
-                        .ok()
-                        .map(|s| s.trim().to_owned())
-                        .filter(|s| !s.is_empty() && s != "localhost")
-                        .unwrap_or_else(|| "lociant-node".to_owned())
-                } else {
-                    host
-                };
-                format!("{host}-{}", std::env::consts::OS)
-            });
-        let self_name = settings
-            .get("peerName")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .unwrap_or_else(|| self_id.clone());
         let peer_token = settings
             .get("peerToken")
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_owned();
-        Some(Arc::new(peers::PeerManager::new(
-            tools.clone(),
-            self_id,
-            self_name,
-            peer_token,
-            port,
-        )))
+        if peer_token.is_empty() {
+            None
+        } else {
+            let self_id = settings
+                .get("peerId")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .unwrap_or_else(|| {
+                    // A stable, unique peer id matters: discovery drops packets
+                    // whose id equals our own, so a shared default would make
+                    // every node ignore every other node. Prefer the host name
+                    // (or /etc/hostname on Android) plus the platform.
+                    let host = std::env::var("HOSTNAME")
+                        .or_else(|_| std::env::var("HOST"))
+                        .unwrap_or_default();
+                    let host = if host.is_empty() || host == "localhost" {
+                        std::fs::read_to_string("/etc/hostname")
+                            .ok()
+                            .map(|s| s.trim().to_owned())
+                            .filter(|s| !s.is_empty() && s != "localhost")
+                            .unwrap_or_else(|| "lociant-node".to_owned())
+                    } else {
+                        host
+                    };
+                    format!("{host}-{}", std::env::consts::OS)
+                });
+            let self_name = settings
+                .get("peerName")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .unwrap_or_else(|| self_id.clone());
+            Some(Arc::new(peers::PeerManager::new(
+                tools.clone(),
+                self_id,
+                self_name,
+                peer_token,
+                port,
+            )))
+        }
     };
     let peers_for_start = peers.clone();
     let peer_discovery = peer_discovery_enabled(&settings);
@@ -218,6 +223,8 @@ async fn main() -> anyhow::Result<()> {
             crate::baby::start(device, &mic)
         });
 
+    let llama = llama::start(&settings).await?;
+    let bootstrap_settings = settings.clone();
     let state = AppState {
         store,
         settings: Arc::new(Mutex::new(settings)),
@@ -236,11 +243,20 @@ async fn main() -> anyhow::Result<()> {
         models_dir,
         installs: Arc::new(Mutex::new(HashMap::new())),
         rkllm,
+        llama,
         peers,
         baby,
         baby_cache: Arc::new(Mutex::new(HashMap::new())),
         tools_cache: Arc::new(Mutex::new(HashMap::new())),
     };
+
+    // Make sure the device layer starts from the same settings snapshot the
+    // Rust backend loaded from SQLite / headless config, not just later deltas.
+    if let Some(device) = &state.device {
+        if let Err(error) = device.sync_settings(&bootstrap_settings) {
+            tracing::warn!("device bootstrap settings sync failed: {error}");
+        }
+    }
 
     if let Some(peers) = peers_for_start {
         // Restore manually added peers persisted in settings.
@@ -268,14 +284,6 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/settings",
             get(control::get_settings).put(control::put_settings),
         )
-        .route(
-            "/api/v1/sessions",
-            get(control::list_sessions).post(control::create_session),
-        )
-        .route(
-            "/api/v1/sessions/{session_id}",
-            get(control::get_session).delete(control::delete_session),
-        )
         .route("/api/v1/models", get(models::list_models))
         .route("/api/v1/models/{model_id}", delete(models::delete_model))
         .route("/api/v1/catalog/models", get(models::catalog_models))
@@ -299,9 +307,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/peers/{node_id}/baby/state",
             get(peer::peer_baby_state),
         )
-        .route("/mcp", post(mcp::handle))
-        .route("/v1/models", get(models::openai_models))
-        .route("/v1/chat/completions", post(chat::chat_completions));
+        .route("/mcp", post(mcp::handle));
 
     let app = app.route("/api/v1/nodes", get(peer::list_nodes));
 

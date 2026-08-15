@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-default = ["slumberguard"]
+default = []
 slumberguard = [
     "dep:slumberguard-core",
     "dep:slumberguard-runtime",
@@ -18,7 +18,6 @@ async-trait.workspace = true
 axum.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
-lociant-agent = { path = "../agent" }
 lociant-core = { path = "../core" }
 lociant-rkllm = { path = "../rkllm" }
 lociant-store = { path = "../store" }

@@ -140,8 +140,6 @@ class _ModelsScreenState extends State<ModelsScreen> {
               ? l10n.modelsLocalTitle
               : _view == 'market'
               ? l10n.modelsMarketTitle
-              : _view == 'cloud'
-              ? l10n.modelsCloudTitle
               : l10n.modelsRuntimeTitle,
         ),
         leading: _view == 'home'
@@ -170,7 +168,6 @@ class _ModelsScreenState extends State<ModelsScreen> {
         'home' => _homeGrid(l10n),
         'local' => _localView(l10n),
         'market' => _marketView(l10n),
-        'cloud' => const _CloudView(),
         _ => _runtimeView(l10n),
       },
     );
@@ -210,15 +207,6 @@ class _ModelsScreenState extends State<ModelsScreen> {
           () {
             setState(() => _view = 'runtime');
             _loadModels();
-          },
-        ),
-        _tile(
-          l10n.modelsCloudTitle,
-          l10n.modelsCloudSub,
-          state?.cloudModel ?? '--',
-          Icons.cloud_outlined,
-          () {
-            setState(() => _view = 'cloud');
           },
         ),
       ],
@@ -370,24 +358,6 @@ class _ModelsScreenState extends State<ModelsScreen> {
   Widget _runtimeView(AppLocalizations l10n) {
     final ready = _models.where((m) => m.ready && m.isChatModel).toList();
     final state = AppScope.of(context).runtime.state;
-    final cloud = state;
-    if (cloud != null && cloud.cloudEnabled && cloud.cloudModel.isNotEmpty) {
-      final cloudId = ModelManagerNormalizer.normalize(cloud.cloudModel);
-      if (!ready.any((m) => m.id == cloudId)) {
-        ready.add(
-          ModelInfo(
-            id: cloudId.isEmpty ? cloud.cloudModel : cloudId,
-            name: cloud.cloudModel,
-            runtime: 'cloud',
-            type: 'chat',
-            ready: true,
-            installed: true,
-            missingFiles: const [],
-            cloud: true,
-          ),
-        );
-      }
-    }
     return ListView.builder(
       padding: const EdgeInsets.all(8),
       itemCount: ready.length,
@@ -415,124 +385,5 @@ class _ModelsScreenState extends State<ModelsScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-class ModelManagerNormalizer {
-  static String normalize(String value) {
-    var result = value.trim().toLowerCase();
-    result = result.replaceAll(RegExp(r'[\s_]+'), '-');
-    result = result.replaceAll(RegExp(r'[^a-z0-9.\-]+'), '-');
-    result = result.replaceAll(RegExp(r'-+'), '-');
-    return result.replaceAll(RegExp(r'^-+|-+$'), '');
-  }
-}
-
-class _CloudView extends StatefulWidget {
-  const _CloudView();
-
-  @override
-  State<_CloudView> createState() => _CloudViewState();
-}
-
-class _CloudViewState extends State<_CloudView> {
-  late TextEditingController _baseUrl;
-  late TextEditingController _apiKey;
-  late TextEditingController _model;
-  late TextEditingController _tokens;
-  late TextEditingController _context;
-  late TextEditingController _history;
-  bool _enabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final state = AppScope.maybeOf(context)?.runtime.state;
-    _baseUrl = TextEditingController(text: state?.cloudBaseUrl ?? '');
-    _apiKey = TextEditingController(text: state?.cloudApiKey ?? '');
-    _model = TextEditingController(text: state?.cloudModel ?? '');
-    _tokens = TextEditingController(
-      text: '${state?.cloudMaxOutputTokens ?? 0}',
-    );
-    _context = TextEditingController(
-      text: '${state?.cloudContextWindow ?? 131072}',
-    );
-    _history = TextEditingController(
-      text: '${state?.cloudHistoryLimit ?? 256}',
-    );
-    _enabled = state?.cloudEnabled ?? false;
-  }
-
-  @override
-  void dispose() {
-    _baseUrl.dispose();
-    _apiKey.dispose();
-    _model.dispose();
-    _tokens.dispose();
-    _context.dispose();
-    _history.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final apiKey = _apiKey.text.trim();
-    AppScope.of(context).runtime.updateSettings({
-      'cloudEnabled': _enabled,
-      'cloudBaseUrl': _baseUrl.text.trim(),
-      if (apiKey.isNotEmpty) 'cloudApiKey': apiKey,
-      'cloudModel': _model.text.trim(),
-      'cloudMaxOutputTokens': int.tryParse(_tokens.text) ?? 0,
-      'cloudContextWindow': int.tryParse(_context.text) ?? 131072,
-      'cloudHistoryLimit': int.tryParse(_history.text) ?? 256,
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return ListView(
-      padding: const EdgeInsets.all(14),
-      children: [
-        SwitchListTile(
-          title: Text(l10n.settingsCloudTitle),
-          value: _enabled,
-          onChanged: (v) => setState(() => _enabled = v),
-        ),
-        _field(l10n.settingsCloudBaseUrl, _baseUrl),
-        _field(l10n.settingsCloudApiKey, _apiKey, obscure: true),
-        _field(l10n.settingsCloudModel, _model),
-        _field(l10n.settingsCloudResponseLengthSub, _tokens, numeric: true),
-        _field(l10n.settingsCloudContextWindow, _context, numeric: true),
-        _field(l10n.settingsCloudHistoryLimit, _history, numeric: true),
-        const SizedBox(height: 12),
-        FilledButton(onPressed: _save, child: Text(l10n.commonSave)),
-        TextButton(
-          onPressed: () {
-            _apiKey.clear();
-            AppScope.of(
-              context,
-            ).runtime.updateSettings({'clearCloudApiKey': true});
-          },
-          child: Text(l10n.settingsClear),
-        ),
-      ],
-    );
-  }
-
-  Widget _field(
-    String label,
-    TextEditingController controller, {
-    bool obscure = false,
-    bool numeric = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: numeric ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(labelText: label, isDense: true),
-      ),
-    );
   }
 }

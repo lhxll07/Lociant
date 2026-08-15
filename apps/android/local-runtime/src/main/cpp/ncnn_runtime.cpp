@@ -40,6 +40,42 @@ struct Detection {
     int cls;
 };
 
+// CameraX leaves the YUV buffer in sensor orientation while the preview is
+// rotated into display orientation. Detection coordinates are normalized, so
+// rotating the four box edges is enough to keep them aligned with that preview.
+void rotate_detection_to_display(Detection& detection, int rotation) {
+    int normalized = rotation % 360;
+    if (normalized < 0) normalized += 360;
+
+    const float x1 = detection.x1;
+    const float y1 = detection.y1;
+    const float x2 = detection.x2;
+    const float y2 = detection.y2;
+
+    switch (normalized) {
+        case 90:
+            detection.x1 = 1.f - y2;
+            detection.y1 = x1;
+            detection.x2 = 1.f - y1;
+            detection.y2 = x2;
+            break;
+        case 180:
+            detection.x1 = 1.f - x2;
+            detection.y1 = 1.f - y2;
+            detection.x2 = 1.f - x1;
+            detection.y2 = 1.f - y1;
+            break;
+        case 270:
+            detection.x1 = y1;
+            detection.y1 = 1.f - x2;
+            detection.x2 = y2;
+            detection.y2 = 1.f - x1;
+            break;
+        default:
+            break;
+    }
+}
+
 const char* coco_label(int cls) {
     static const char* labels[] = {
         "person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light",
@@ -315,7 +351,7 @@ std::string NcnnRuntimeNative::state_json() const {
 std::string NcnnRuntimeNative::detect_yuv420(
     int width,
     int height,
-    int,
+    int rotation,
     const unsigned char* y,
     const unsigned char* u,
     const unsigned char* v,
@@ -415,6 +451,9 @@ std::string NcnnRuntimeNative::detect_yuv420(
     }
 
     nms(detections, 0.45f);
+    for (auto& detection : detections) {
+        rotate_detection_to_display(detection, rotation);
+    }
     return detections_to_json(true, "ok", actual_backend_, output.w, output.h, output.c, now_ms() - start, detections);
 }
 

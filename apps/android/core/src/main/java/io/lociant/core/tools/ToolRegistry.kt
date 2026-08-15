@@ -3,6 +3,13 @@ package io.lociant.core.tools
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * Device-layer tool registry.
+ *
+ * Policy (exposure, remoteAllowed, destructive, openWorld) is owned by the Rust
+ * backend. Kotlin only publishes metadata and executes the handler; it does not
+ * re-decide policy here.
+ */
 class ToolRegistry(
     providers: List<ToolProvider>,
 ) {
@@ -14,12 +21,8 @@ class ToolRegistry(
         }
     }
 
-    fun manifest(exposure: ToolExposure = ToolExposure.Action): JSONObject = JSONObject()
-        .put("object", "list")
-        .put("data", definitions(exposure))
-
-    fun definitions(exposure: ToolExposure = ToolExposure.Action): JSONArray =
-        JSONArray(tools.values.filter { exposure.allows(it.level()) }.map { it.toJson() })
+    fun definitions(): JSONArray =
+        JSONArray(tools.values.map { it.toJson() })
 
     fun definition(name: String): JSONObject? = tools[name]?.toJson()
 
@@ -28,15 +31,8 @@ class ToolRegistry(
     fun call(
         name: String,
         args: JSONObject = JSONObject(),
-        exposure: ToolExposure = ToolExposure.Action,
-        origin: ToolCallOrigin = ToolCallOrigin.Local,
     ): JSONObject {
         val tool = tools[name] ?: return error("tool_not_found", "Unknown tool: $name")
-        if (!exposure.allows(tool.level())) return error("tool_not_allowed", "Tool is not exposed by current policy: $name").put("tool", name)
-        if (!tool.policy.local) return error("tool_not_local", "Tool is not executable inside Lociant: $name").put("tool", name)
-        if (origin == ToolCallOrigin.Remote && !tool.policy.remoteAllowed) {
-            return error("tool_remote_denied", "Tool does not allow remote execution: $name").put("tool", name)
-        }
         return runCatching {
             val result = tool.handler(args)
             val ok = result.optBoolean("ok", true)
@@ -65,17 +61,10 @@ class ToolRegistry(
     }
 }
 
-enum class ToolCallOrigin {
-    Local,
-    Remote,
-}
-
-enum class ToolExposure(val id: String, private val rank: Int) {
-    Read("read", 0),
-    Sensor("sensor", 1),
-    Action("action", 2);
-
-    fun allows(level: ToolExposure): Boolean = level.rank <= rank
+enum class ToolExposure(val id: String) {
+    Read("read"),
+    Sensor("sensor"),
+    Action("action");
 
     companion object {
         fun from(value: String?): ToolExposure = entries.firstOrNull { it.id == value } ?: Action

@@ -3,14 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
+import '../core/api_client.dart';
 import '../l10n/app_localizations.dart';
 
 /// 眠安智护监控页：展示当前后端（如板子）的婴儿监控状态与事件。
 class BabyMonitorScreen extends StatefulWidget {
-  const BabyMonitorScreen({super.key, this.nodeId});
+  const BabyMonitorScreen({super.key, this.nodeId, this.nodeName});
 
   /// 指定查看某个 peer 节点的监控；null 表示当前连接的服务器。
   final String? nodeId;
+  final String? nodeName;
 
   @override
   State<BabyMonitorScreen> createState() => _BabyMonitorScreenState();
@@ -44,9 +46,12 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
           ? '/api/v1/baby/state'
           : '/api/v1/peers/${widget.nodeId}/baby/state';
       final response = await api.get(path);
+      if (response is! Map<String, dynamic> || response['state'] is! String) {
+        throw const ApiException('baby monitor returned an invalid response');
+      }
       if (!mounted) return;
       setState(() {
-        _data = response is Map<String, dynamic> ? response : null;
+        _data = response;
         _error = null;
       });
     } catch (error) {
@@ -66,8 +71,12 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final nodeName = widget.nodeName?.trim();
+    final title = nodeName == null || nodeName.isEmpty
+        ? l10n.babyTitle
+        : '${l10n.babyTitle} · $nodeName';
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.babyTitle)),
+      appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis)),
       body: _error != null
           ? Center(
               child: Padding(
@@ -77,12 +86,16 @@ class _BabyMonitorScreenState extends State<BabyMonitorScreen> {
                   children: [
                     const Icon(Icons.child_care, size: 56, color: Colors.grey),
                     const SizedBox(height: 12),
-                    Text(l10n.babyNotEnabled, textAlign: TextAlign.center),
-                    const SizedBox(height: 8),
                     Text(
                       _error!,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodyMedium,
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.commonRefresh),
                     ),
                   ],
                 ),

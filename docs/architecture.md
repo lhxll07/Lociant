@@ -1,148 +1,144 @@
 # Lociant Architecture
 
-Lociant is a local-first agent runtime: a Rust backend owns the service
-surface, one shared Flutter UI talks to it everywhere, and Android only keeps
-the device layer the backend cannot reach directly.
+Lociant is an edge-device runtime. The Rust backend owns the control plane,
+model inventory, peer networking and tool policy. Android supplies device-only
+capabilities such as accessibility, sensors, windows, camera and NCNN vision.
+GGUF inference is provided by a local llama.cpp process. The Flutter UI is a
+control console, not a chat client.
 
 ## Components
 
 ```text
 Flutter UI (apps/flutter)
-  ├─ Android: hybrid PlatformService (HTTP core + method channel device ops)
+  ├─ Android: hybrid PlatformService
+  │           HTTP control + method-channel device operations
   └─ Linux desktop: HTTP PlatformService
-        │ HTTP (OpenAI /v1, control /api/v1, MCP /mcp, auth)
+        │ HTTP (control /api/v1, MCP /mcp, auth)
         ▼
-Rust backend (apps/rust-backend) ── the single server core
-  ├─ crates/core    domain types + JSON contract
-  ├─ crates/store   SQLite: sessions, messages, settings, installed models
-  ├─ crates/tools   tool contract + registry (single policy owner)
-  ├─ crates/agent   multi-round agent loop + cloud/local chat backends
-  └─ crates/server  axum HTTP server: control plane, OpenAI plane, MCP
+Rust backend (apps/rust-backend)
+  ├─ crates/core    runtime and tool JSON contracts
+  ├─ crates/store   SQLite settings, model index and legacy data tables
+  ├─ crates/tools   ToolRegistry and policy enforcement
+  ├─ crates/server  axum control API, MCP, model and peer routes
+  └─ crates/rkllm   in-process RKLLM NPU runtime
         │ device IPC (localhost TCP, token-gated)
         ▼
 Android device layer (apps/android, Kotlin)
   ├─ foreground service spawns the Rust server subprocess
   ├─ phone tools (accessibility, sensors, window, camera)
-  ├─ local MNN inference + vision
-  └─ persisted device settings
+  └─ NCNN vision runtime
 ```
 
-## Seams
+There is intentionally no `crates/agent` and no general-purpose server-side
+Agent loop. A client may orchestrate calls through MCP, while each tool call
+is executed and authorized by the runtime that owns the device.
 
-### HTTP contract
+## HTTP Contract
 
-The backend implements the documented contract exactly once, in Rust:
+The backend implements the external contract once, in Rust:
 
-- `/v1` — OpenAI-compatible chat completions (SSE), models;
-- `/api/v1` — sessions, settings, models, model installs, tools, chat requests;
-- `/mcp` — MCP Streamable HTTP (stateless JSON responses);
-- `/health` — the only public endpoint.
+- `/api/v1` provides runtime state, settings, model management, nodes and
+  direct tool calls;
+- `/mcp` provides stateless MCP Streamable HTTP for tool discovery and calls;
+- `/health` is the public liveness endpoint.
 
-The complete external contract is documented in `agent-integration.md`.
-The Flutter UI and external agents only speak this contract.
+The former OpenAI `/v1` data plane and session routes are removed. SQLite keeps
+the old sessions/messages tables for database compatibility, but no current
+HTTP route creates or serves those records.
 
-### Device IPC
+## Device IPC
 
-The Rust server never touches a device directly. `lociant-tools::DeviceAdapter`
-is the only capability seam:
+The Rust server never reaches into Android APIs directly. The
+`IpcDeviceAdapter` is the single capability seam and talks to Kotlin's
+`DeviceAdapterServer` over localhost TCP JSON:
 
-- Android: `IpcDeviceAdapter` talks to Kotlin's `DeviceAdapterServer` over
-  localhost TCP JSON (`tools.list`, `tools.call`, `models.list`,
-  `chat.invoke`). A random token is passed through the spawn environment so
-  other local processes cannot call phone tools.
-- Linux desktop: no-op until a desktop device adapter exists.
+- `tools.list` and `tools.call` expose Android capabilities;
+- `models.list` and `models.invalidate` synchronize the model inventory;
+- `settings.sync` pushes Rust-owned runtime settings to Kotlin;
+- model inventory and settings synchronization keep GGUF files and the device
+  runtime aligned; llama.cpp inference stays behind the local runtime boundary.
 
-`ToolRegistry` is the single policy owner: exposure levels (`read` < `sensor`
-< `action`) and `remote_allowed` are checked before any adapter call. The
-agent loop runs in-process (`call_local`); HTTP/MCP callers use
-`call_remote`. Kotlin's registry executes without re-deciding policy.
+The random IPC token is passed through the Rust process environment so another
+local process cannot call the phone tools. Linux uses `LinuxDevice` for the
+desktop filesystem and process capabilities.
 
-### Data ownership
+`ToolRegistry` is the policy owner. It filters descriptors by exposure
+(`read`, `sensor`, `action`) and enforces `remoteAllowed` before every HTTP or
+MCP call. Peer adapters are attached dynamically, but peer-plane listing and
+calls are restricted to local adapters so requests cannot recurse through the
+mesh.
 
-- Sessions, messages, settings and the installed-model index live in the Rust
-  backend's SQLite.
-- Android device state (permissions, floating window, vision) is merged into
-  the runtime snapshot from Kotlin (`deviceState`).
-- Model files are shared: on Android `LOCIANT_MODELS_DIR` points at the same
-  external directory the Kotlin model manager scans, so catalog installs are
-  immediately visible to MNN.
+## Data Ownership
+
+- Rust Store owns settings and the installed-model index.
+- The legacy sessions/messages tables remain readable by the Store for
+  migration compatibility; they are no longer part of the product surface.
+- Android owns permissions, floating-window state, vision state and native
+  runtime caches.
+- Model files are shared between Rust and Android. On Android,
+  `LOCIANT_MODELS_DIR` points to the directory scanned by `ModelManager`, so
+  Rust catalog installs become visible after cache invalidation.
 
 ## Lifecycle
 
-- Android: `LociantRuntimeService` (foreground service) spawns the Rust
-  server as a subprocess (`RustServerProcess`) on port 11434 and stops it with
-  the service. The old Ktor HTTP server is retired.
-- Linux desktop: `flutter build linux` bundles `lociant-server` under `bin/`;
-  the Flutter app spawns it as a sidecar on startup and stops it on exit
-  (`DesktopServerProcess`), so the desktop app is self-contained.
+- Android `LociantRuntimeService` starts and stops the Rust server subprocess.
+  `MainActivity` requests service lifecycle and Android-only permissions.
+- Linux desktop starts the bundled `lociant-server` sidecar from Flutter and
+  stops it with the app.
+- Headless boards run `lociant-server` directly under systemd and use the TUI
+  or a remote Flutter console.
 
-## Headless / Board Deployment
+## Headless and Board Deployment
 
-The backend runs headless on a Linux board (e.g. RK3588/Armbian) as a
-systemd service; the Flutter UI or MCP/OpenAI clients connect over the LAN.
+The backend runs headless on Linux boards such as RK3588/RK3576 Armbian.
+Important environment settings are:
 
-Environment knobs:
+- `LOCIANT_HOST`: bind address, default `127.0.0.1`;
+- `LOCIANT_CONFIG`: JSON bootstrap file merged over stored settings;
+- `LOCIANT_DATA_DIR`: persistent data directory;
+- `LOCIANT_MODELS_DIR`: model file directory.
 
-- `LOCIANT_HOST` — bind address (default `127.0.0.1`; use `0.0.0.0` for LAN);
-- `LOCIANT_CONFIG` — JSON bootstrap file (`authToken`, cloud settings, port)
-  merged over stored settings on every start, so a board can be configured
-  without a UI;
-- `LOCIANT_DATA_DIR` — persistent data location;
-- `LOCIANT_MODELS_DIR` — model files location.
+The bootstrap file contains local runtime and mesh settings, for example:
 
-Deployment assets live in `deploy/`: `lociant.service` (systemd unit),
-`config.example.json` and `install.sh`. Cross-compile for the board:
-
-```bash
-rustup target add aarch64-unknown-linux-gnu
-CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
-CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
-cargo build --release --target aarch64-unknown-linux-gnu
-bash deploy/install.sh   # on the board, with sudo
+```json
+{
+  "host": "0.0.0.0",
+  "port": 11434,
+  "authToken": "replace-me",
+  "peerToken": "shared-lan-token",
+  "rkllmModelPath": "/opt/models/qwen.rkllm",
+  "rkllmModelName": "qwen-local"
+}
 ```
 
-Local NPU inference is built into the Rust backend (`crates/rkllm`): it loads
-`librkllmrt.so` at runtime via `libloading` and runs the `.rkllm` model
-in-process, so a board needs one binary, one systemd service and one model
-file — no Python/venv, no extra port. Configure `rkllmModelPath` (plus
-optional `rkllmLibPath`) in the headless config or pick the `rkllm` backend
-in `lociant-server --init`. Verified on the board with Qwen3.5-0.8B. W4A16/G128
-quantization is verified by the load log (`model_dtype: W4A16_G128`,
-`max_context_limit: 8192`); converting with `optimization_level=1` silently
-falls back to W8A8, so export with `optimization_level=0`. The `.rkllm` file
-size alone does not distinguish the two (both are ~1.3 GB).
+Local RKLLM inference is loaded through `crates/rkllm` and `libloading`.
+The optional llama.cpp process manager follows the same local-runtime model
+and reports its model in the control inventory.
 
 ## Status
 
-- [x] Rust backend: sessions/messages/settings (SQLite), auth, model catalog
-  + install, cloud chat (SSE), agent loop (rounds, tool execution, phase
-  events), MCP, tool registry with policy.
-- [x] Flutter UI on Android and Linux desktop (HTTP `PlatformService`).
-- [x] Android host: Rust server in the foreground service, Kotlin as the
-  device layer over IPC, Ktor server retired.
-- [x] Headless board deployment: aarch64 Linux cross-build, systemd service,
-  `LOCIANT_CONFIG` bootstrap, LAN bind + auth. Verified on an RK3576/Armbian
-  board.
-- [x] Board local inference: RKLLM runtime integrated in-process
-  (`crates/rkllm`, libloading, W4A16 verified).
-- [x] Peer networking: optional UDP broadcast discovery (`11435`,
-  `peerDiscovery`, enabled by default), shared peer
-  token, remote tools over `/api/v1/peer/*` (provider enforces its own
-  exposure), peer model forwarding (`peer:<node>:<model>`) via the OpenAI
-  plane, `/api/v1/nodes` for the UI. Manual peers remain available when
-  discovery is disabled.
-- [ ] Desktop local inference (llama.cpp, x86_64 machines without RKLLM).
-- [ ] Desktop device adapter (filesystem/process/camera tools).
-- [x] Bundle the Rust server as a sidecar in the Flutter desktop app.
+- [x] Rust control API, MCP transport, auth and model catalog/install flow.
+- [x] Shared ToolRegistry with exposure and remote-call policy.
+- [x] Android device layer over token-gated IPC with NCNN vision support.
+- [x] Headless RKLLM runtime and terminal edge-node console.
+- [x] Opt-in peer networking for tools and model inventory.
+- [x] Desktop device adapter for filesystem and process tools.
+- [x] Flutter edge overview for runtime, models, tools and nodes.
+- [x] Removal of the generic Agent crate, chat home and server-side Agent loop.
 
 ## Run
 
-Linux desktop (two terminals):
+Linux desktop:
 
 ```bash
-cd apps/rust-backend && cargo run          # http://127.0.0.1:11434
-cd apps/flutter && flutter run -d linux     # UI; LOCIANT_BASE_URL overridable
+cd apps/rust-backend && cargo run
+cd apps/flutter && flutter run -d linux
 ```
 
-Android: `bash scripts/dev-install.sh` builds the APK (including the Rust
-server via `cargo ndk`), installs and launches it.
+Android development:
+
+```bash
+bash scripts/dev-install.sh
+```
+
+The Android build bundles the Rust server and the Kotlin device layer.

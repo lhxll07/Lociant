@@ -815,22 +815,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
-name = "lociant-agent"
-version = "2.0.1"
-dependencies = [
- "async-trait",
- "bytes",
- "futures-util",
- "lociant-core",
- "lociant-tools",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "lociant-core"
 version = "2.0.1"
 dependencies = [
@@ -856,7 +840,6 @@ dependencies = [
  "bytes",
  "futures-util",
  "hex",
- "lociant-agent",
  "lociant-core",
  "lociant-rkllm",
  "lociant-store",

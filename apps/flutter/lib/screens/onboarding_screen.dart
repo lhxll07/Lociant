@@ -4,7 +4,7 @@ import '../l10n/app_localizations.dart';
 
 /// First-run wizard shown until the user finishes (or skips) it.
 ///
-/// Scenario-driven pages: welcome, cloud model, permissions, node
+/// Scenario-driven pages: welcome, local model, permissions, node
 /// interconnect, ready. Completion is stored by the app shell, so the
 /// wizard never shows again.
 class OnboardingScreen extends StatefulWidget {
@@ -58,9 +58,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         l10n.onboardingWelcomeBody,
       ),
       _PageData(
-        Icons.cloud_outlined,
-        l10n.onboardingCloudTitle,
-        l10n.onboardingCloudBody,
+        Icons.memory_outlined,
+        l10n.onboardingLocalTitle,
+        l10n.onboardingLocalBody,
       ),
       _PageData(
         Icons.touch_app_outlined,

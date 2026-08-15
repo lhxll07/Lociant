@@ -6,20 +6,17 @@
 //! the shared
 //! `ToolRegistry` (tools are called over the peer's `/api/v1/peer/*` routes,
 //! and the provider enforces its own exposure policy — "the remote side
-//! decides"). Peer model inference reuses the OpenAI-compatible
-//! `/v1/chat/completions` route through the existing `CloudBackend`.
+//! decides").
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use async_trait::async_trait;
-use lociant_agent::backend::{ChatBackend, TurnEvent, TurnOutcome};
 use lociant_core::{ToolDescriptor, ToolResult};
 use lociant_tools::{DeviceAdapter, ToolError, ToolRegistry};
 use serde_json::{json, Value};
-use tokio::sync::mpsc;
+use sha2::{Digest, Sha256};
 
 /// UDP discovery port (broadcast), separate from the HTTP service port.
 pub const DISCOVERY_PORT: u16 = 11435;
@@ -101,13 +98,17 @@ impl PeerManager {
                     }
                 };
                 let _ = socket.set_broadcast(true);
-                let payload = json!({
+                let mut payload = json!({
                     "id": peers.self_id,
                     "name": peers.self_name,
                     "platform": std::env::consts::OS,
                     "port": peers.port,
-                })
-                .to_string();
+                });
+                if !peers.token.is_empty() {
+                    let hmac = discovery_hmac(&peers.token, &payload.to_string());
+                    payload["hmac"] = json!(hmac);
+                }
+                let payload = payload.to_string();
                 let targets = Self::subnet_broadcast_addrs();
                 let targets = if targets.is_empty() {
                     vec![std::net::Ipv4Addr::BROADCAST]
@@ -185,6 +186,10 @@ impl PeerManager {
     }
 
     fn handle_discovery_packet(&self, addr: SocketAddr, payload: Value) {
+        if !self.token.is_empty() && !discovery_packet_valid(&self.token, &payload) {
+            tracing::debug!(%addr, "ignoring peer discovery packet with invalid hmac");
+            return;
+        }
         let id = payload.get("id").and_then(Value::as_str).unwrap_or("");
         if id.is_empty() || id == self.self_id {
             return;
@@ -271,6 +276,7 @@ impl PeerManager {
         }
         if is_new {
             let adapter = Arc::new(HttpPeerAdapter {
+                node_id: node.id.clone(),
                 base_url: format!("http://{}:{}", node.host, node.port),
                 token: self.token.clone(),
                 client: self.client.clone(),
@@ -337,7 +343,7 @@ impl PeerManager {
         self.nodes.read().expect("nodes lock").get(id).cloned()
     }
 
-    /// OpenAI-compatible base URL for a peer node (for chat forwarding).
+    /// Base URL for a peer node's authenticated control plane.
     pub fn peer_base_url(&self, id: &str) -> Option<(String, String)> {
         let node = self.node(id)?;
         Some((
@@ -382,41 +388,58 @@ impl PeerManager {
     }
 }
 
+fn discovery_packet_valid(token: &str, payload: &Value) -> bool {
+    let Some(expected) = payload.get("hmac").and_then(Value::as_str) else {
+        return false;
+    };
+    let mut base = payload.clone();
+    if let Some(object) = base.as_object_mut() {
+        object.remove("hmac");
+    }
+    discovery_hmac(token, &base.to_string()) == expected
+}
+
+/// Compact HMAC-SHA256 for UDP discovery packets. Implemented directly on top
+/// of `sha2` so the wire format is stable and no extra dependency is needed.
+fn discovery_hmac(token: &str, message: &str) -> String {
+    let mut key_block = [0u8; 64];
+    let key = token.as_bytes();
+    if key.len() > 64 {
+        let hash = Sha256::digest(key);
+        key_block[..hash.len()].copy_from_slice(&hash);
+    } else {
+        key_block[..key.len()].copy_from_slice(key);
+    }
+    let mut ipad = [0x36u8; 64];
+    let mut opad = [0x5cu8; 64];
+    for (index, byte) in key_block.iter().enumerate() {
+        ipad[index] ^= byte;
+        opad[index] ^= byte;
+    }
+    let mut inner = Sha256::new();
+    inner.update(ipad);
+    inner.update(message.as_bytes());
+    let inner = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(opad);
+    outer.update(inner);
+    hex::encode(outer.finalize())
+}
+
 /// Remote tool adapter: calls a peer node's `/api/v1/peer/*` routes with the
 /// shared peer token. The provider enforces its own exposure policy.
 #[derive(Clone)]
 pub struct HttpPeerAdapter {
+    node_id: String,
     base_url: String,
     token: String,
     client: reqwest::blocking::Client,
     tools_cache: ToolsCache,
 }
 
-/// Remote tool metadata is slow-changing; cache it so the agent loop and the
-/// control plane never wait on a peer round trip for every request.
+/// Remote tool metadata is slow-changing; cache it so the control plane does
+/// not wait on a peer round trip for every request.
 const PEER_TOOLS_TTL: Duration = Duration::from_secs(15);
-
-/// Forwards a chat turn to a peer node, stripping the `peer:<node>:`
-/// prefix from the model name before the OpenAI-compatible request is sent.
-pub struct PeerChatBackend {
-    pub inner: lociant_agent::backend::CloudBackend,
-    pub model_id: String,
-}
-
-#[async_trait]
-impl ChatBackend for PeerChatBackend {
-    async fn stream_turn(&self, body: &Value, events: mpsc::Sender<TurnEvent>) -> TurnOutcome {
-        let mut body = body.clone();
-        body["model"] = json!(self.model_id);
-        self.inner.stream_turn(&body, events).await
-    }
-
-    async fn complete_turn(&self, body: &Value) -> TurnOutcome {
-        let mut body = body.clone();
-        body["model"] = json!(self.model_id);
-        self.inner.complete_turn(&body).await
-    }
-}
 
 impl DeviceAdapter for HttpPeerAdapter {
     fn is_peer(&self) -> bool {
@@ -438,20 +461,30 @@ impl DeviceAdapter for HttpPeerAdapter {
     }
 
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError> {
-        let mut request = self
-            .client
-            .post(format!("{}/api/v1/peer/tools/{name}/calls", self.base_url));
+        let prefix = format!("peer:{}:", self.node_id);
+        let Some(tool_name) = name.strip_prefix(&prefix) else {
+            return Err(ToolError::Adapter(format!(
+                "peer tool {name} does not belong to node {}",
+                self.node_id
+            )));
+        };
+        let mut request = self.client.post(format!(
+            "{}/api/v1/peer/tools/{tool_name}/calls",
+            self.base_url
+        ));
         if !self.token.is_empty() {
             request = request.bearer_auth(&self.token);
         }
         let response = request
             .json(&json!({ "arguments": arguments }))
             .send()
-            .map_err(|error| ToolError::Adapter(format!("peer {name} call failed: {error}")))?;
+            .map_err(|error| {
+                ToolError::Adapter(format!("peer {tool_name} call failed: {error}"))
+            })?;
         let status = response.status();
         let body = response
             .json::<Value>()
-            .map_err(|_| ToolError::Adapter(format!("peer {name} bad response")))?;
+            .map_err(|_| ToolError::Adapter(format!("peer {tool_name} bad response")))?;
         if !status.is_success() {
             return Err(ToolError::Adapter(
                 body.get("detail")
@@ -461,7 +494,7 @@ impl DeviceAdapter for HttpPeerAdapter {
             ));
         }
         serde_json::from_value(body.get("data").cloned().unwrap_or_default())
-            .map_err(|_| ToolError::Adapter(format!("peer {name} result parse failed")))
+            .map_err(|_| ToolError::Adapter(format!("peer {tool_name} result parse failed")))
     }
 }
 
@@ -469,7 +502,15 @@ impl HttpPeerAdapter {
     /// Fetches the peer's tool list and stores the result — including
     /// failures, so an offline peer cannot stall request paths repeatedly.
     fn refresh_tools(&self) -> Vec<ToolDescriptor> {
-        let tools: Vec<ToolDescriptor> = self.fetch_tools().unwrap_or_default();
+        let tools: Vec<ToolDescriptor> = self
+            .fetch_tools()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|mut tool| {
+                tool.name = format!("peer:{}:{}", self.node_id, tool.name);
+                tool
+            })
+            .collect();
         if let Ok(mut cache) = self.tools_cache.lock() {
             cache.replace((Instant::now(), tools.clone()));
         }
@@ -543,5 +584,22 @@ mod tests {
             .expect_err("invalid host should not fall back to localhost");
         assert!(error.contains("invalid peer host"));
         assert!(manager.nodes().is_empty());
+    }
+
+    #[test]
+    fn discovery_hmac_rejects_tampered_packets() {
+        let payload = json!({
+            "id": "node-a",
+            "name": "Node A",
+            "platform": "linux",
+            "port": 11434,
+        });
+        let mut signed = payload.clone();
+        signed["hmac"] = json!(discovery_hmac("secret", &payload.to_string()));
+        assert!(discovery_packet_valid("secret", &signed));
+
+        let mut tampered = signed.clone();
+        tampered["port"] = json!(9999);
+        assert!(!discovery_packet_valid("secret", &tampered));
     }
 }

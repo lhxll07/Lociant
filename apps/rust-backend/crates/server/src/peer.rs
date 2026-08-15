@@ -7,7 +7,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
-use crate::error::{Problem, RequireAuth, RequireChatAuth, RequirePeerAuth};
+use crate::error::{Problem, RequireAuth, RequirePeerAuth};
 use crate::models::collect_local_models;
 use crate::state::AppState;
 
@@ -36,7 +36,10 @@ pub async fn call_peer_tool(
         .and_then(Value::as_str)
         .unwrap_or("action")
         .to_owned();
-    match state.tools.call_remote(&tool_name, arguments, &exposure) {
+    match state
+        .tools
+        .call_remote_local(&tool_name, arguments, &exposure)
+    {
         Ok(result) => Ok(Json(json!({ "data": result }))),
         Err(error) => Err(Problem::bad_request(
             error.to_string(),
@@ -78,7 +81,7 @@ pub async fn list_nodes(State(state): State<AppState>, _: RequireAuth) -> Json<V
 }
 
 /// `/api/v1/baby/state` — 眠安智护监控快照（需在配置中启用 babyCamera）。
-pub async fn baby_state(State(state): State<AppState>, _: RequireChatAuth) -> Json<Value> {
+pub async fn baby_state(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
     match &state.baby {
         Some(baby) => Json(baby.snapshot()),
         None => Json(json!({ "error": "baby monitor not enabled (set babyCamera in config)" })),

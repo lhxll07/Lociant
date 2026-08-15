@@ -63,7 +63,7 @@ fn default_exposure() -> String {
 }
 
 /// The single execution envelope returned by every tool, regardless of
-/// whether the caller is the agent loop, the control API or MCP.
+/// whether the caller is the control API, MCP or a local runtime component.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolResult {
@@ -95,7 +95,7 @@ impl ToolResult {
     }
 }
 
-/// A tool call emitted by the model, in OpenAI-compatible shape.
+/// A tool call emitted by a local model runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelToolCall {
@@ -133,24 +133,8 @@ pub struct RuntimeState {
     pub model_loading: bool,
     pub max_output_tokens: u32,
     pub hard_max_output_tokens: u32,
-    pub cpu_threads: u32,
-    pub max_cpu_threads: u32,
-    pub inference_backend: String,
-    pub context_profile: String,
-    pub history_limit: u32,
-    pub agent_max_rounds: u32,
-    pub agent_policy: Value,
-    pub cloud_enabled: bool,
-    pub cloud_model: String,
-    pub cloud_base_url: String,
-    pub cloud_api_key: String,
-    pub cloud_max_output_tokens: u32,
-    pub cloud_context_window: u32,
-    pub cloud_history_limit: u32,
     pub tool_exposure: String,
     pub auto_start: bool,
-    pub current_session_id: String,
-    pub sessions: Vec<SessionSummary>,
     pub request_count: u64,
     pub recent_requests: Vec<Value>,
     pub last_error: String,
@@ -181,24 +165,8 @@ impl Default for RuntimeState {
             model_loading: false,
             max_output_tokens: 512,
             hard_max_output_tokens: 32768,
-            cpu_threads: 4,
-            max_cpu_threads: 16,
-            inference_backend: "model".into(),
-            context_profile: "balanced".into(),
-            history_limit: 64,
-            agent_max_rounds: 32,
-            agent_policy: json!({ "roundsMin": 8, "roundsMax": 64, "maxToolCalls": 64 }),
-            cloud_enabled: false,
-            cloud_model: String::new(),
-            cloud_base_url: String::new(),
-            cloud_api_key: String::new(),
-            cloud_max_output_tokens: 4096,
-            cloud_context_window: 131072,
-            cloud_history_limit: 256,
             tool_exposure: "action".into(),
             auto_start: false,
-            current_session_id: String::new(),
-            sessions: Vec::new(),
             request_count: 0,
             recent_requests: Vec::new(),
             last_error: String::new(),

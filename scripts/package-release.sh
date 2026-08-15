@@ -73,8 +73,8 @@ Maintainer: Lociant <noreply@lociant.io>
 Depends: libc6, libstdc++6, libgtk-3-0 | libgtk-3-0t64
 Installed-Size: $(du -sk "$DESKTOP_ROOT" | cut -f1)
 Homepage: https://github.com/lhxll07/Lociant
-Description: Local agent runtime and desktop client
- Lociant connects local models, device tools, and networked agent nodes.
+Description: Lociant edge runtime and desktop control console
+ Lociant connects local models, device tools, and networked edge nodes.
 EOF
 build_deb "$DESKTOP_ROOT" "$DESKTOP_DEB"
 
@@ -100,7 +100,7 @@ Maintainer: Lociant <noreply@lociant.io>
 Depends: adduser, libc6, libgcc-s1, systemd
 Installed-Size: $(du -sk "$NODE_ROOT" | cut -f1)
 Homepage: https://github.com/lhxll07/Lociant
-Description: Lociant headless agent node for arm64
+Description: Lociant headless edge node for arm64
  Runs the Rust server, RKLLM integration, and terminal client as a systemd service.
 EOF
 build_deb "$NODE_ROOT" "$NODE_DEB"

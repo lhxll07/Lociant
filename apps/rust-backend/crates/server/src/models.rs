@@ -1,5 +1,5 @@
 //! Model management: local model list, catalog, install jobs and delete.
-//! Install mirrors the Android market (ModelScope repos, MNN file set) with
+//! Install mirrors the Android market with
 //! progress surfaced through the same job resource the Flutter UI polls.
 
 use std::collections::HashSet;
@@ -39,9 +39,9 @@ pub async fn list_models(
     Ok(Json(json!({ "models": models })))
 }
 
-/// The models this node can serve: installed MNN packages, local MNN models
-/// from the device layer, the built-in RKLLM model, the configured cloud
-/// model, and models forwarded from discovered peers (`peer:<id>:<model>`).
+/// The models this node can serve: installed local packages, models from the
+/// device layer, built-in native runtimes, and models forwarded from
+/// discovered peers (`peer:<id>:<model>`).
 pub fn collect_models(state: &AppState) -> Vec<Value> {
     let mut models = collect_local_models(state);
     if let Some(peers) = &state.peers {
@@ -77,7 +77,6 @@ pub fn collect_local_models(state: &AppState) -> Vec<Value> {
                 "ready": true,
                 "installed": true,
                 "missingFiles": [],
-                "cloud": false,
             }),
         };
         models.push(json);
@@ -101,20 +100,26 @@ pub fn collect_local_models(state: &AppState) -> Vec<Value> {
                 .and_then(Value::as_str)
                 .unwrap_or(&id)
                 .to_owned();
+            let runtime = model
+                .get("runtime")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_owned();
+            let kind = model
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or("chat")
+                .to_owned();
             models.push(json!({
                 "id": id,
                 "name": name,
-                "runtime": "mnn",
-                "type": "chat",
+                "runtime": runtime,
+                "type": kind,
                 "ready": true,
                 "installed": true,
                 "missingFiles": [],
-                "cloud": false,
             }));
         }
-    }
-    if let Some(cloud) = cloud_model(state) {
-        models.push(cloud);
     }
     if state.rkllm.is_some() {
         let id = state
@@ -135,7 +140,23 @@ pub fn collect_local_models(state: &AppState) -> Vec<Value> {
                 "ready": true,
                 "installed": true,
                 "missingFiles": [],
-                "cloud": false,
+            }));
+        }
+    }
+    if let Some(llama) = &state.llama {
+        let id = llama.model.clone();
+        if !models
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(id.as_str()))
+        {
+            models.push(json!({
+                "id": id,
+                "name": id,
+                "runtime": "llama",
+                "type": "chat",
+                "ready": true,
+                "installed": true,
+                "missingFiles": [],
             }));
         }
     }
@@ -289,81 +310,12 @@ pub async fn delete_model(
     if let Ok(mut installs) = state.installs.lock() {
         installs.remove(&model_id);
     }
-    Ok(StatusCode::NO_CONTENT)
-}
-
-pub async fn openai_models(
-    State(state): State<AppState>,
-    _: RequireAuth,
-) -> Result<Json<Value>, Problem> {
-    let mut data = Vec::new();
-    for installed in state
-        .store
-        .list_models()
-        .map_err(|e| Problem::internal(e.to_string()))?
-    {
-        data.push(json!({
-            "id": installed.id,
-            "object": "model",
-            "created": 0,
-            "owned_by": installed.runtime,
-        }));
-    }
     if let Some(device) = &state.device {
-        for model in device.models() {
-            let id = model
-                .get("id")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_owned();
-            if !id.is_empty()
-                && data
-                    .iter()
-                    .all(|m| m.get("id").and_then(Value::as_str) != Some(id.as_str()))
-            {
-                data.push(json!({
-                    "id": id,
-                    "object": "model",
-                    "created": 0,
-                    "owned_by": "mnn",
-                }));
-            }
+        if let Err(error) = device.invalidate_models() {
+            tracing::warn!("device model cache invalidation failed: {error}");
         }
     }
-    if let Some(cloud) = cloud_model(&state) {
-        data.push(json!({
-            "id": cloud["id"],
-            "object": "model",
-            "created": 0,
-            "owned_by": "lociant",
-        }));
-    }
-    Ok(Json(json!({ "object": "list", "data": data })))
-}
-
-pub(crate) fn cloud_model(state: &AppState) -> Option<Value> {
-    let settings = state.settings_snapshot();
-    let enabled = settings
-        .get("cloudEnabled")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let id = settings
-        .get("cloudModel")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    if !enabled || id.is_empty() {
-        return None;
-    }
-    Some(json!({
-        "id": id,
-        "name": id,
-        "runtime": "cloud",
-        "type": "chat",
-        "ready": true,
-        "installed": true,
-        "missingFiles": [],
-        "cloud": true,
-    }))
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn run_install(state: AppState, entry: CatalogEntry) {
@@ -373,11 +325,7 @@ async fn run_install(state: AppState, entry: CatalogEntry) {
         _ => match catalog::repo_files(&state.download_http, &entry.repo).await {
             Ok(files) if !files.is_empty() => files,
             Ok(_) => {
-                fail_install(
-                    &state,
-                    &entry.id,
-                    "model repo has no downloadable MNN files",
-                );
+                fail_install(&state, &entry.id, "model repo has no supported model files");
                 return;
             }
             Err(error) => {
@@ -446,14 +394,21 @@ async fn run_install(state: AppState, entry: CatalogEntry) {
         .store
         .insert_model(&entry.id, &entry.name, &entry.runtime, &entry.kind)
     {
-        Ok(()) => update_job(
-            &state,
-            &entry.id,
-            Some(1.0),
-            "Model installed",
-            false,
-            "done",
-        ),
+        Ok(()) => {
+            if let Some(device) = &state.device {
+                if let Err(error) = device.invalidate_models() {
+                    tracing::warn!("device model cache invalidation failed: {error}");
+                }
+            }
+            update_job(
+                &state,
+                &entry.id,
+                Some(1.0),
+                "Model installed",
+                false,
+                "done",
+            )
+        }
         Err(error) => {
             fail_install(
                 &state,

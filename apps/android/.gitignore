@@ -7,4 +7,5 @@ build/
 .cxx/
 *.apk
 *.aab
-app/src/main/jniLibs/arm64-v8a/liblociant_server.so
+app/src/main/jniLibs/arm64-v8a/
+tools/llama-android/

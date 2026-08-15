@@ -3,68 +3,60 @@ package io.lociant.runtime.model
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FilterInputStream
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 
-class ModelInstaller(
-    private val context: Context,
-    private val modelManager: ModelManager,
-) {
-    fun installFromUri(uri: Uri, onProgress: (Double?, String) -> Unit = { _, _ -> }): ModelStatus {
-        val installParent = File((context.getExternalFilesDir(null) ?: context.filesDir), "models").apply { mkdirs() }
-        val tempRoot = File(installParent, ".install-${System.currentTimeMillis()}-${Thread.currentThread().id}").apply { mkdirs() }
-        var targetDir: File? = null
-        var backupDir: File? = null
-        var targetPrepared = false
+/** Imports a GGUF file for the Rust-owned llama.cpp runtime. */
+class ModelInstaller(private val context: Context) {
+    fun installFromUri(uri: Uri, onProgress: (Double?, String) -> Unit = { _, _ -> }): JSONObject {
+        val installParent = File(
+            context.getExternalFilesDir(null) ?: context.filesDir,
+            "models",
+        ).apply { mkdirs() }
+        val tempRoot = File(
+            installParent,
+            ".install-${System.currentTimeMillis()}-${Thread.currentThread().id}",
+        ).apply { mkdirs() }
 
         return try {
-            unzipSafely(uri, tempRoot, onProgress)
-            val modelRoot = findModelRoot(tempRoot)
-            val spec = modelManager.inferMnnSpec(modelRoot) ?: error("unknown MNN model package")
-            val missing = spec.requiredFiles.filterNot { File(modelRoot, it).isFile }
-            require(missing.isEmpty()) { "Missing model files: ${missing.joinToString(", ")}" }
-            // Keep extraction outside the lock; this section only commits the prepared model.
-            modelManager.withModelLock(spec.id) {
-                targetDir = modelManager.externalModelDir(spec)
-                backupDir = File(installParent, ".backup-${spec.id}").apply { deleteRecursively() }
-                try {
-                    onProgress(0.96, "Preparing model")
-                    if (targetDir!!.exists()) {
-                        require(targetDir!!.renameTo(backupDir!!)) { "Cannot replace existing model" }
-                    }
-                    targetPrepared = true
-                    if (!modelRoot.renameTo(targetDir!!)) {
-                        onProgress(null, "Writing model files")
-                        modelRoot.copyRecursively(targetDir!!, overwrite = true)
-                    }
-                    tempRoot.deleteRecursively()
-                    backupDir!!.deleteRecursively()
-                    modelManager.invalidateCache()
-                    onProgress(1.0, "Model installed")
-                    modelManager.resolve(spec.id)
-                } catch (error: Throwable) {
-                    // A failed copy must never leave a partial model in the live directory.
-                    if (targetPrepared) targetDir?.deleteRecursively()
-                    val target = targetDir
-                    if (target != null && backupDir?.exists() == true) require(backupDir!!.renameTo(target)) { "Cannot restore previous model" }
-                    throw error
-                }
+            val displayName = displayName(uri)
+            val source = if (displayName.endsWith(".gguf", ignoreCase = true)) {
+                copyGguf(uri, tempRoot, displayName, onProgress)
+            } else {
+                extractGguf(uri, tempRoot, onProgress)
             }
-        } catch (error: Throwable) {
+            val target = File(installParent, safeGgufName(source.name))
+            val staging = File(installParent, ".${target.name}.part")
+            staging.delete()
+            source.copyTo(staging, overwrite = true)
+            require(staging.renameTo(target)) { "Cannot commit model file" }
+            onProgress(1.0, "Model installed")
+            modelJson(target)
+        } finally {
             tempRoot.deleteRecursively()
-            modelManager.invalidateCache()
-            throw error
         }
     }
 
-    private fun findModelRoot(tempRoot: File): File {
-        return modelManager.findMnnModelDirs(tempRoot).singleOrNull()
-            ?: error("model package must contain exactly one MNN config.json model root")
+    private fun copyGguf(
+        uri: Uri,
+        tempRoot: File,
+        name: String,
+        onProgress: (Double?, String) -> Unit,
+    ): File {
+        val target = File(tempRoot, safeGgufName(name))
+        copyStream(uri, target, onProgress)
+        return target
     }
 
-    private fun unzipSafely(uri: Uri, destDir: File, onProgress: (Double?, String) -> Unit) {
+    private fun extractGguf(
+        uri: Uri,
+        tempRoot: File,
+        onProgress: (Double?, String) -> Unit,
+    ): File {
         val totalBytes = contentLength(uri)
         require(totalBytes <= MAX_ARCHIVE_BYTES || totalBytes < 0L) { "Model package is too large" }
         var lastProgressAt = 0L
@@ -72,7 +64,6 @@ class ModelInstaller(
         var totalUncompressed = 0L
         val entryNames = HashSet<String>()
 
-        // Bound archive metadata, compressed input, and decompressed output before writing files.
         context.contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "Cannot open model package" }
             val countingInput = CountingInputStream(input)
@@ -85,26 +76,17 @@ class ModelInstaller(
                     require(isSafeRelativePath(name)) { "Invalid zip entry: $name" }
                     require(entryNames.add(name)) { "Duplicate zip entry: $name" }
 
-                    val outFile = File(destDir, name)
-                    require(isInside(destDir, outFile)) { "Zip entry escaped target dir" }
-
-                    if (entry.isDirectory) {
-                        outFile.mkdirs()
-                    } else {
-                        outFile.parentFile?.mkdirs()
-                        outFile.outputStream().use { output ->
+                    if (!entry.isDirectory && name.endsWith(".gguf", ignoreCase = true)) {
+                        require(totalUncompressed == 0L) { "Model package must contain exactly one GGUF file" }
+                        val output = File(tempRoot, safeGgufName(name.substringAfterLast('/')))
+                        output.outputStream().use { stream ->
                             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                            var entryBytes = 0L
                             while (true) {
                                 val read = zip.read(buffer)
                                 if (read < 0) break
-                                entryBytes += read.toLong()
                                 totalUncompressed += read.toLong()
-                                require(countingInput.bytesRead <= MAX_ARCHIVE_BYTES) { "Model package is too large" }
-                                require(entryBytes <= MAX_ENTRY_UNCOMPRESSED_BYTES) { "Model archive entry is too large" }
-                                require(totalUncompressed <= MAX_TOTAL_UNCOMPRESSED_BYTES) { "Model package expands beyond limit" }
-                                output.write(buffer, 0, read)
-
+                                require(totalUncompressed <= MAX_MODEL_BYTES) { "Model file is too large" }
+                                stream.write(buffer, 0, read)
                                 val now = System.currentTimeMillis()
                                 if (now - lastProgressAt >= PROGRESS_INTERVAL_MS) {
                                     lastProgressAt = now
@@ -112,46 +94,100 @@ class ModelInstaller(
                                 }
                             }
                         }
+                    } else {
+                        while (zip.read() >= 0) {
+                            // Consume non-model entries without materializing them.
+                        }
                     }
                     zip.closeEntry()
                 }
-                require(countingInput.bytesRead <= MAX_ARCHIVE_BYTES) { "Model package is too large" }
+            }
+        }
+
+        return tempRoot.listFiles()?.singleOrNull { it.isFile && it.extension.equals("gguf", true) }
+            ?: error("Model package must contain exactly one GGUF file")
+    }
+
+    private fun copyStream(uri: Uri, target: File, onProgress: (Double?, String) -> Unit) {
+        val totalBytes = contentLength(uri)
+        require(totalBytes <= MAX_MODEL_BYTES || totalBytes < 0L) { "Model file is too large" }
+        context.contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "Cannot open model file" }
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var copied = 0L
+            var lastProgressAt = 0L
+            target.outputStream().use { output ->
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    copied += read.toLong()
+                    require(copied <= MAX_MODEL_BYTES) { "Model file is too large" }
+                    output.write(buffer, 0, read)
+                    val now = System.currentTimeMillis()
+                    if (now - lastProgressAt >= PROGRESS_INTERVAL_MS) {
+                        lastProgressAt = now
+                        onProgress(readProgress(copied, totalBytes), "Importing model")
+                    }
+                }
             }
         }
     }
 
-    private fun contentLength(uri: Uri): Long {
-        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null).use { cursor ->
-            if (cursor != null && cursor.moveToFirst()) {
-                val index = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (index >= 0) return cursor.getLong(index)
-            }
-        }
-        return -1L
+    private fun modelJson(file: File): JSONObject = JSONObject()
+        .put("id", file.nameWithoutExtension)
+        .put("name", file.nameWithoutExtension)
+        .put("runtime", "llama")
+        .put("type", "chat")
+        .put("source", "external")
+        .put("entry", file.name)
+        .put("ready", true)
+        .put("installed", true)
+        .put("path", file.absolutePath)
+        .put("missingFiles", JSONArray())
+
+    private fun displayName(uri: Uri): String = context.contentResolver.query(
+        uri,
+        arrayOf(OpenableColumns.DISPLAY_NAME),
+        null,
+        null,
+        null,
+    )?.use { cursor ->
+        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+    }?.takeIf { it.isNotBlank() } ?: "model.gguf"
+
+    private fun contentLength(uri: Uri): Long = context.contentResolver.query(
+        uri,
+        arrayOf(OpenableColumns.SIZE),
+        null,
+        null,
+        null,
+    )?.use { cursor ->
+        val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+        if (index >= 0 && cursor.moveToFirst()) cursor.getLong(index) else -1L
+    } ?: -1L
+
+    private fun safeGgufName(value: String): String {
+        val base = value.substringAfterLast('/').replace(Regex("[^A-Za-z0-9._-]"), "-")
+        val name = base.ifBlank { "model.gguf" }
+        return if (name.endsWith(".gguf", ignoreCase = true)) name else "$name.gguf"
     }
 
-    private fun readProgress(readBytes: Long, totalBytes: Long): Double? {
-        if (totalBytes <= 0L) return null
-        return (readBytes.toDouble() / totalBytes.toDouble()).coerceIn(0.0, 0.95)
-    }
+    private fun readProgress(readBytes: Long, totalBytes: Long): Double? =
+        if (totalBytes <= 0L) null else (readBytes.toDouble() / totalBytes).coerceIn(0.0, 0.95)
 
     private fun isSafeRelativePath(path: String): Boolean {
-        val normalized = path.replace('\\', '/').trimEnd('/')
+        val normalized = path.trimEnd('/')
         return normalized.isNotBlank() &&
             !normalized.startsWith('/') &&
-            !normalized.contains(":") &&
+            !normalized.contains(':') &&
             normalized.split('/').none { it == ".." || it.isBlank() }
-    }
-
-    private fun isInside(root: File, child: File): Boolean {
-        return child.canonicalFile.toPath().startsWith(root.canonicalFile.toPath())
     }
 
     companion object {
         private const val PROGRESS_INTERVAL_MS = 200L
-        private const val MAX_ZIP_ENTRIES = 4_096
-        private const val MAX_ENTRY_UNCOMPRESSED_BYTES = 8L * 1024L * 1024L * 1024L
-        private const val MAX_TOTAL_UNCOMPRESSED_BYTES = 16L * 1024L * 1024L * 1024L
+        private const val MAX_ZIP_ENTRIES = 4096
+        private const val MAX_MODEL_BYTES = 16L * 1024L * 1024L * 1024L
         private const val MAX_ARCHIVE_BYTES = 16L * 1024L * 1024L * 1024L
     }
 }
@@ -162,7 +198,7 @@ private class CountingInputStream(input: InputStream) : FilterInputStream(input)
 
     override fun read(): Int {
         val value = super.read()
-        if (value >= 0) bytesRead += 1
+        if (value >= 0) bytesRead++
         return value
     }
 

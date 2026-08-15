@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::baby::BabyMonitor;
 use crate::catalog::CatalogEntry;
 use crate::device::IpcDeviceAdapter;
+use crate::llama::LlamaServer;
 use crate::models::InstallJob;
 use crate::peers::PeerManager;
 
@@ -27,6 +28,7 @@ pub struct AppState {
     pub models_dir: PathBuf,
     pub installs: Arc<Mutex<HashMap<String, InstallJob>>>,
     pub rkllm: Option<Arc<Rkllm>>,
+    pub llama: Option<Arc<LlamaServer>>,
     pub peers: Option<Arc<PeerManager>>,
     pub baby: Option<Arc<dyn BabyMonitor>>,
     pub baby_cache: Arc<Mutex<HashMap<String, (std::time::Instant, Value)>>>,
@@ -98,6 +100,13 @@ impl AppState {
         if let Err(error) = self.store.set_json("settings", &next) {
             tracing::warn!("persist settings failed: {error}");
         }
+        // Keep the Android device layer configured from the same source of
+        // truth: the Rust settings are pushed down through the device IPC.
+        if let Some(device) = &self.device {
+            if let Err(error) = device.sync_settings(&next) {
+                tracing::warn!("device settings sync failed: {error}");
+            }
+        }
         next
     }
 
@@ -115,30 +124,50 @@ fn merge_settings_value(current: &mut Value, patch: &Value) {
     let (Some(current_obj), Some(patch_obj)) = (current.as_object_mut(), patch.as_object()) else {
         return;
     };
-    let clear_cloud_key = patch_obj
-        .get("clearCloudApiKey")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
     for (key, value) in patch_obj {
-        if key == "clearCloudApiKey" || key == "generateAuthToken" {
-            continue;
-        }
-        if key == "cloudApiKey" && value.as_str() == Some("") && !clear_cloud_key {
+        if key == "generateAuthToken"
+            || matches!(
+                key.as_str(),
+                "cpuThreads"
+                    | "maxCpuThreads"
+                    | "inferenceBackend"
+                    | "cloudEnabled"
+                    | "cloudBaseUrl"
+                    | "cloudApiKey"
+                    | "cloudModel"
+                    | "cloudMaxOutputTokens"
+                    | "cloudContextWindow"
+                    | "cloudHistoryLimit"
+                    | "clearCloudApiKey"
+            )
+        {
             continue;
         }
         current_obj.insert(key.clone(), value.clone());
-    }
-    if clear_cloud_key {
-        current_obj.insert("cloudApiKey".to_owned(), Value::String(String::new()));
     }
 }
 
 fn redact_settings(mut settings: Value) -> Value {
     if let Some(object) = settings.as_object_mut() {
-        for key in ["authToken", "peerToken", "cloudApiKey"] {
+        for key in ["authToken", "peerToken"] {
             if object.contains_key(key) {
                 object.insert(key.to_owned(), Value::String(String::new()));
             }
+        }
+        for key in [
+            "cloudEnabled",
+            "cpuThreads",
+            "maxCpuThreads",
+            "inferenceBackend",
+            "cloudBaseUrl",
+            "cloudApiKey",
+            "cloudModel",
+            "cloudMaxOutputTokens",
+            "cloudContextWindow",
+            "cloudHistoryLimit",
+            "clearCloudApiKey",
+        ] {
+            object.remove(key);
         }
     }
     settings
@@ -159,22 +188,19 @@ mod tests {
         }));
         assert_eq!(settings["authToken"], "");
         assert_eq!(settings["peerToken"], "");
-        assert_eq!(settings["cloudApiKey"], "");
-        assert_eq!(settings["cloudModel"], "model");
+        assert!(settings.get("cloudApiKey").is_none());
+        assert!(settings.get("cloudModel").is_none());
     }
 
     #[test]
-    fn blank_cloud_key_preserves_secret_until_explicit_clear() {
-        let mut settings = json!({ "cloudApiKey": "secret", "cloudModel": "old" });
+    fn obsolete_cloud_settings_are_ignored() {
+        let mut settings = json!({ "cloudApiKey": "secret", "modelId": "old" });
         merge_settings_value(
             &mut settings,
-            &json!({ "cloudApiKey": "", "cloudModel": "new" }),
+            &json!({ "cloudApiKey": "new", "cloudModel": "new", "modelId": "local" }),
         );
+        assert_eq!(settings["modelId"], "local");
         assert_eq!(settings["cloudApiKey"], "secret");
-        assert_eq!(settings["cloudModel"], "new");
-
-        merge_settings_value(&mut settings, &json!({ "clearCloudApiKey": true }));
-        assert_eq!(settings["cloudApiKey"], "");
-        assert!(settings.get("clearCloudApiKey").is_none());
+        assert!(settings.get("cloudModel").is_none());
     }
 }

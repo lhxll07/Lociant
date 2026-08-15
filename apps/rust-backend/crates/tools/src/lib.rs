@@ -1,5 +1,4 @@
-//! Tool contract and registry shared by the agent loop, the control API and
-//! (later) MCP.
+//! Tool contract and registry shared by the control API and MCP.
 //!
 //! The server never talks to a device directly: it talks to a
 //! [`DeviceAdapter`]. On Android the adapter will be a thin IPC client to the
@@ -37,7 +36,7 @@ impl std::error::Error for ToolError {}
 
 /// Platform capability provider. Implementations must be cheap to clone and
 /// thread-safe; tool calls may block (native inference, accessibility
-/// round-trips) so the agent loop runs them off the async runtime.
+/// round-trips) so callers can run them off the async runtime.
 pub trait DeviceAdapter: Send + Sync {
     fn tools(&self) -> Vec<ToolDescriptor>;
     fn call(&self, name: &str, arguments: Value) -> Result<ToolResult, ToolError>;
@@ -61,7 +60,7 @@ impl DeviceAdapter for NoopDevice {
     }
 }
 
-/// Owns the tool policy. All execution paths (agent loop, control API, MCP)
+/// Owns the tool policy. All execution paths (local runtime, control API, MCP)
 /// go through this type so metadata can never diverge from enforcement.
 ///
 /// Adapters are dynamic so peers (other Lociant nodes on the LAN) can be
@@ -110,7 +109,7 @@ impl ToolRegistry {
         let mut tools = Vec::new();
         if let Ok(adapters) = self.adapters.read() {
             for adapter in adapters.iter() {
-                tools.extend(adapter.tools());
+                push_unique(&mut tools, adapter.tools());
             }
         }
         tools
@@ -125,7 +124,7 @@ impl ToolRegistry {
                 if adapter.is_peer() {
                     continue;
                 }
-                tools.extend(adapter.tools());
+                push_unique(&mut tools, adapter.tools());
             }
         }
         tools
@@ -158,20 +157,24 @@ impl ToolRegistry {
         let (adapter, tool) = self
             .adapter_and_tool(name)
             .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
-        if !tool.remote_allowed {
-            return Err(ToolError::NotAllowed(format!(
-                "{name} may only run locally"
-            )));
-        }
-        if !exposure_allows(exposure, &tool.exposure) {
-            return Err(ToolError::NotAllowed(format!(
-                "{name} requires a higher exposure level than {exposure}"
-            )));
-        }
-        adapter.call(name, arguments)
+        call_adapter_remote(adapter, &tool, name, arguments, exposure)
     }
 
-    /// In-process execution (agent loop, local orchestration): exposure still
+    /// Remote execution restricted to local adapters. The peer plane uses
+    /// this so a sibling's tool call can never be routed back to another peer.
+    pub fn call_remote_local(
+        &self,
+        name: &str,
+        arguments: Value,
+        exposure: &str,
+    ) -> Result<ToolResult, ToolError> {
+        let (adapter, tool) = self
+            .local_adapter_and_tool(name)
+            .ok_or_else(|| ToolError::Unavailable(name.to_owned()))?;
+        call_adapter_remote(adapter, &tool, name, arguments, exposure)
+    }
+
+    /// In-process execution (local orchestration): exposure still
     /// applies, but `remote_allowed` does not — the loop is the runtime itself.
     pub fn call_local(
         &self,
@@ -199,6 +202,51 @@ impl ToolRegistry {
                 .find(|tool| tool.name == name)
                 .map(|tool| (adapter.clone(), tool))
         })
+    }
+
+    fn local_adapter_and_tool(
+        &self,
+        name: &str,
+    ) -> Option<(Arc<dyn DeviceAdapter>, ToolDescriptor)> {
+        let adapters = self.adapters.read().ok()?;
+        adapters
+            .iter()
+            .filter(|adapter| !adapter.is_peer())
+            .find_map(|adapter| {
+                adapter
+                    .tools()
+                    .into_iter()
+                    .find(|tool| tool.name == name)
+                    .map(|tool| (adapter.clone(), tool))
+            })
+    }
+}
+
+fn call_adapter_remote(
+    adapter: Arc<dyn DeviceAdapter>,
+    tool: &ToolDescriptor,
+    name: &str,
+    arguments: Value,
+    exposure: &str,
+) -> Result<ToolResult, ToolError> {
+    if !tool.remote_allowed {
+        return Err(ToolError::NotAllowed(format!(
+            "{name} may only run locally"
+        )));
+    }
+    if !exposure_allows(exposure, &tool.exposure) {
+        return Err(ToolError::NotAllowed(format!(
+            "{name} requires a higher exposure level than {exposure}"
+        )));
+    }
+    adapter.call(name, arguments)
+}
+
+fn push_unique(tools: &mut Vec<ToolDescriptor>, incoming: Vec<ToolDescriptor>) {
+    for tool in incoming {
+        if !tools.iter().any(|existing| existing.name == tool.name) {
+            tools.push(tool);
+        }
     }
 }
 
@@ -342,12 +390,48 @@ mod tests {
         tap.remote_allowed = false;
         let registry = registry(vec![tap]);
 
-        // The agent loop may run a local-only tool...
+        // A local runtime may run a local-only tool...
         assert!(registry.call_local("tap", Value::Null, "action").is_ok());
         // ...but remote callers still cannot.
         assert!(matches!(
             registry.call_remote("tap", Value::Null, "action"),
             Err(ToolError::NotAllowed(_))
         ));
+    }
+
+    #[test]
+    fn duplicate_tool_names_are_deduplicated_in_listings() {
+        let registry = registry(vec![read_tool("runtime_status")]);
+        registry.add_adapter(Arc::new(FakePeer {
+            tools: vec![read_tool("runtime_status"), read_tool("peer_only")],
+        }));
+        let names = |exposure: &str| -> Vec<String> {
+            registry
+                .visible(exposure)
+                .into_iter()
+                .map(|tool| tool.name)
+                .collect()
+        };
+        assert_eq!(names("action"), vec!["runtime_status", "peer_only"]);
+    }
+
+    #[test]
+    fn remote_local_execution_ignores_peer_adapters() {
+        let registry = registry(vec![read_tool("runtime_status")]);
+        registry.add_adapter(Arc::new(FakePeer {
+            tools: vec![read_tool("peer_only")],
+        }));
+
+        assert!(registry
+            .call_remote_local("runtime_status", Value::Null, "read")
+            .is_ok());
+        assert!(matches!(
+            registry.call_remote_local("peer_only", Value::Null, "read"),
+            Err(ToolError::Unavailable(_))
+        ));
+        // Remote callers can still reach peer tools.
+        assert!(registry
+            .call_remote("peer_only", Value::Null, "read")
+            .is_ok());
     }
 }

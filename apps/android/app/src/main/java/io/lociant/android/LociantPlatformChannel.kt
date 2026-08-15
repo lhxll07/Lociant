@@ -57,6 +57,7 @@ class LociantPlatformChannel(
         "installModelPackage" -> host.installModelPackage()
         "requestCameraPermission" -> host.requestCameraPermission()
         "requestNotificationPermission" -> host.requestNotificationPermission()
+        "requestSensorPermission" -> host.requestSensorPermission()
         "requestOverlayPermission" -> host.requestOverlayPermission()
         "requestBatteryOptimizationExemption" -> host.requestBatteryOptimizationExemption()
         "requestAccessibilityPermission" -> host.requestAccessibilityPermission()

@@ -3,16 +3,9 @@
 # Usage: bash scripts/dev-install.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/../apps/android"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+bash "$ROOT/scripts/build-apk.sh"
 
-export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk}"
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-if ! command -v flutter >/dev/null 2>&1; then
-  export PATH="${PATH}:${FLUTTER_BIN:-/home/lhx/flutter/bin}"
-fi
-
-bash gradlew :app:assembleDebug --console=plain
-
-APK="app/build/outputs/apk/debug/app-debug.apk"
+APK="$ROOT/apps/android/app/build/outputs/apk/debug/app-debug.apk"
 adb install -r "$APK"
 adb shell am start -n io.lociant.android/.MainActivity

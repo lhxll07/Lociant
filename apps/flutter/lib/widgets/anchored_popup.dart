@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// A button-triggered floating panel anchored below its child, mirroring the
-/// original web UI's popup sidebar / session list. Tapping the child toggles
+/// original web UI's popup sidebar. Tapping the child toggles
 /// the panel; tapping anywhere outside closes it.
 class AnchoredOverlay extends StatefulWidget {
   const AnchoredOverlay({

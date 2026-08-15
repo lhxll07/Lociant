@@ -1,7 +1,7 @@
 //! Model catalog: bundled by default, overridable via `LOCIANT_CATALOG`
 //! (a JSON file with the same shape). Install-time file discovery mirrors the
 //! Android market: when an entry has no explicit `files`, the ModelScope repo
-//! API is queried and the standard MNN file set is selected.
+//! API is queried and supported model files are selected.
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -92,7 +92,6 @@ pub fn installed_json(entry: &CatalogEntry) -> Value {
         "ready": true,
         "installed": true,
         "missingFiles": [],
-        "cloud": false,
     })
 }
 
@@ -104,8 +103,7 @@ pub fn model_id_valid(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-/// Lists the downloadable MNN file set of a ModelScope repo, mirroring the
-/// Android market's selection (config/tokenizer files + `.mnn`/`.weight`).
+/// Lists supported downloadable model files from a ModelScope repo.
 pub async fn repo_files(client: &reqwest::Client, repo: &str) -> Result<Vec<CatalogFile>, String> {
     let url = format!(
         "https://modelscope.cn/api/v1/models/{repo}/repo/files?Revision=master&Recursive=true"
@@ -179,9 +177,7 @@ fn is_model_file(path: &str) -> bool {
         "tokenizer.json",
     ];
     let name = path.rsplit('/').next().unwrap_or(path);
-    NAMES.contains(&name)
-        || (lower.ends_with(".mnn") && !lower.contains("visual"))
-        || (lower.ends_with(".weight") && !lower.contains("visual"))
+    NAMES.contains(&name) || lower.ends_with(".gguf")
 }
 
 pub(crate) fn safe_relative_path(path: &str) -> bool {

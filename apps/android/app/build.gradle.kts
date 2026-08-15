@@ -12,7 +12,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.lociant.android"
+        applicationId = "io.lociant.android" +
+            if (System.getenv("LOCIANT_CLONE") == "1") ".clone" else ""
         minSdk = 26
         targetSdk = 36
         versionCode = 20001
@@ -80,14 +81,6 @@ android {
             useLegacyPackaging = true
             pickFirsts += listOf(
                 "**/libc++_shared.so",
-                "**/libMNN.so",
-                "**/libMNN_Express.so",
-                "**/libMNN_Vulkan.so",
-                "**/libMNN_CL.so",
-                "**/libMNNOpenCV.so",
-                "**/libMNNAudio.so",
-                "**/libmnncore.so",
-                "**/libllm.so",
             )
             // Flutter debug 引擎自带的 Vulkan 验证层仅用于 GPU 调试，体积 ~80MB
             excludes += listOf("**/libVkLayer_khronos_validation.so")
@@ -122,6 +115,7 @@ dependencies {
 //   rustup target add aarch64-linux-android
 //   cargo install cargo-ndk   (or yay -S cargo-ndk)
 val rustBackendDir = rootProject.file("../rust-backend")
+val rustServerBinaryOutput = rustBackendDir.resolve("target/aarch64-linux-android/release/lociant-server")
 val rustNdkRoot = providers.environmentVariable("ANDROID_NDK_HOME").orElse(
     providers.provider {
         val ndkDir = File(android.sdkDirectory, "ndk")
@@ -138,6 +132,13 @@ tasks.register<Exec>("rustServerBinary") {
     description = "Cross-compiles the Rust server for arm64-v8a"
     workingDir = rustBackendDir
     environment("ANDROID_NDK_HOME", rustNdkRoot)
+    inputs.files(
+        rustBackendDir.resolve("Cargo.toml"),
+        rustBackendDir.resolve("Cargo.lock"),
+    )
+    inputs.dir(rustBackendDir.resolve("crates"))
+    inputs.dir(rustBackendDir.resolve("vendor"))
+    outputs.file(rustServerBinaryOutput)
     // -P 26: bionic getifaddrs 需要 API 24+（mdns/if-addrs 依赖）
     commandLine("cargo", "ndk", "-t", "arm64-v8a", "-P", "26", "build", "--release")
 }
@@ -146,11 +147,27 @@ tasks.register<Copy>("rustServerJniLib") {
     group = "build"
     description = "Copies the Rust server binary into jniLibs"
     dependsOn("rustServerBinary")
-    from(rustBackendDir.resolve("target/aarch64-linux-android/release/lociant-server"))
+    from(rustServerBinaryOutput)
     into(file("src/main/jniLibs/arm64-v8a"))
     rename { "liblociant_server.so" }
+    inputs.file(rustServerBinaryOutput)
+    outputs.file(file("src/main/jniLibs/arm64-v8a/liblociant_server.so"))
+}
+
+val llamaAndroidDir = rootProject.file("../../tools/llama-android/arm64-v8a")
+val llamaServerJniLibOutput = file("src/main/jniLibs/arm64-v8a/libllama_server.so")
+
+tasks.register<Copy>("llamaServerJniLib") {
+    group = "build"
+    description = "Copies an optional prebuilt Android llama-server binary and its .so libraries into jniLibs"
+    onlyIf { File(llamaAndroidDir, "llama-server").exists() }
+    from(llamaAndroidDir)
+    into(file("src/main/jniLibs/arm64-v8a"))
+    rename { name -> if (name == "llama-server") "libllama_server.so" else name }
+    inputs.dir(llamaAndroidDir)
+    outputs.file(llamaServerJniLibOutput)
 }
 
 tasks.named("preBuild") {
-    dependsOn("rustServerJniLib")
+    dependsOn("rustServerJniLib", "llamaServerJniLib")
 }

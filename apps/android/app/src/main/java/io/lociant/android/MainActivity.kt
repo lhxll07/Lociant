@@ -70,14 +70,19 @@ class MainActivity : FlutterFragmentActivity() {
         refreshRuntimeStateIfNeeded()
     }
 
+    private val requestSensorPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        refreshRuntimeStateIfNeeded()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DeviceInteraction.setActivityForeground(true)
         localStore = LociantRuntime.localStore(this)
         modelManager = LociantRuntime.modelManager(this)
-        modelInstaller = ModelInstaller(this, modelManager)
+        modelInstaller = ModelInstaller(this)
         lociantServer = LociantRuntime.server(this)
         windowSettings = loadWindowSettings()
+        ensureRuntimeStarted()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -121,6 +126,17 @@ class MainActivity : FlutterFragmentActivity() {
         runOnUiThread {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                refreshRuntimeStateIfNeeded()
+            }
+        }
+        return ok("permission_requested")
+    }
+
+    fun requestSensorPermission(): String {
+        runOnUiThread {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                requestSensorPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
             } else {
                 refreshRuntimeStateIfNeeded()
             }
@@ -216,6 +232,11 @@ class MainActivity : FlutterFragmentActivity() {
 
     // ---- Private helpers ----
 
+    private fun ensureRuntimeStarted() {
+        if (LociantRuntimeService.isActive()) return
+        startRuntimeService(JSONObject().put("mode", "interactive"))
+    }
+
     private fun startRuntimeService(payload: JSONObject = JSONObject()) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
             !hasPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -257,7 +278,10 @@ class MainActivity : FlutterFragmentActivity() {
                     notifyModelInstallResult(true, message, null, "installing", progress)
                 }
             }
-                .onSuccess { model -> notifyModelInstallResult(true, "installed", model.toJson()) }
+                .onSuccess { model ->
+                    notifyModelInstallResult(true, "installed", model)
+                    LociantRuntimeService.restartRuntime(this@MainActivity)
+                }
                 .onFailure { error -> notifyModelInstallResult(false, error.message ?: "install failed", null) }
         }
     }
@@ -287,6 +311,7 @@ class MainActivity : FlutterFragmentActivity() {
             .put("windowState", window.optString("state", "hidden"))
             .put("window", window)
             .put("notificationPermissionGranted", notificationPermissionGranted())
+            .put("sensorPermissionGranted", sensorPermissionGranted())
             .put("batteryOptimizationIgnored", isIgnoringBatteryOptimizations())
             .put("accessibilityPermissionGranted", isAccessibilityServiceEnabled())
     }
@@ -320,6 +345,10 @@ class MainActivity : FlutterFragmentActivity() {
     private fun notificationPermissionGranted(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+
+    private fun sensorPermissionGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            hasPermission(Manifest.permission.ACTIVITY_RECOGNITION)
 
     private fun showRuntimeWindowState(): JSONObject {
         if (!canDrawOverlays()) {

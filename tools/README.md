@@ -6,11 +6,12 @@
 
 | 目录 | 用途 |
 |---|---|
-| `mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan/` | MNN 3.6.1 Android 预编译库，包含 `arm64-v8a` 与 `armeabi-v7a`；arm64 支持 16 KB 内存页 |
-| `mnn_3.6.1_headers/` | 与上述二进制严格匹配的 MNN、Express、Plugin 和 LLM JNI 头文件 |
 | `ncnn-20260113-android-vulkan/` | NCNN Android Vulkan 预编译包，用于当前视觉检测链路 |
+| `llama-android/` | 可选的 Android `llama-server` 打包输入，不属于默认构建依赖 |
 
-Android 构建通过 `apps/android/local-runtime/build.gradle.kts` 和 `local-runtime/src/main/cpp/CMakeLists.txt` 引用这些目录。升级 Native 依赖时，必须在同一提交中同步修改 Gradle、CMake、目录说明和对应头文件，不能混用不同 MNN 版本的库与头文件。
+Android 构建通过 `apps/android/local-runtime/build.gradle.kts` 和
+`local-runtime/src/main/cpp/CMakeLists.txt` 引用 NCNN。升级 Native 依赖时，
+必须在同一提交中同步修改 Gradle、CMake、目录说明和对应头文件。
 
 ## 模型文件边界
 

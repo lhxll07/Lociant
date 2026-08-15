@@ -1,90 +1,77 @@
 # Lociant 配置指南（从零开始）
 
-这份指南面向第一次使用 Lociant 的人，覆盖全部三种玩法：安卓手机、Linux
-桌面和 RK 开发板（无头模式）。按你的设备挑对应的章节，照着做即可。
+Lociant 是边缘设备运行时和控制台。它把本地模型、设备工具、传感器和多
+节点连接集中到一个受策略保护的运行时中，不提供主页聊天或通用 Agent loop。
 
-## 三种玩法，选一个
+## 设备形态
 
-| 设备 | 玩法 | 适合场景 |
+| 设备 | 运行方式 | 适合场景 |
 |---|---|---|
-| 安卓手机 | 完整 Agent：本地/云端模型 + 手机工具（看屏、点击、传感器、相机） | 把旧手机变成能干活的 Agent |
-| Linux 桌面（x86_64） | Flutter UI + 内置 Rust 后端（sidecar） | 日常聊天、编排、连接板子/手机 |
-| RK 开发板（Armbian） | 无头服务 + NPU 本地推理（RKLLM）+ 终端 TUI | 7×24 常驻、低功耗、婴儿监控等 |
+| 安卓手机 | Flutter 控制台 + Rust 服务 + Kotlin 设备层 | GGUF/llama.cpp、无障碍、传感器、相机 |
+| Linux 桌面 | Flutter 控制台 + Rust sidecar | 本地文件/进程工具和节点控制 |
+| RK 开发板 | systemd + Rust 服务 + RKLLM + TUI | 7x24 常驻、低功耗边缘节点 |
 
-设备之间可以互联：手机、电脑、板子配同一个“节点令牌”后会自动发现彼此，
-互相借用模型和工具。详见[多节点互联](#多节点互联)。
-
----
+所有形态都提供相同的控制 API 和 MCP 入口。模型和工具的实际执行留在
+拥有硬件的节点上。
 
 ## 一、安卓手机
 
 ### 1.1 安装
 
-下载最新 APK 并安装（Android 8.0+，`arm64-v8a`）：
+下载并安装 arm64-v8a APK（Android 8.0+）：
 
 [下载 Lociant v2.0.1 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
 
-安装时系统提示“允许安装未知来源应用”，按提示允许即可。
+源码构建：
 
-### 1.2 新手引导与权限
+```bash
+bash scripts/dev-install.sh
+```
 
-第一次打开会自动进入新手引导，按引导配置即可。之后可在“设置 → 新手引导”
-重新进入。需要手动检查的权限（在“设置”里逐项开启）：
+### 1.2 首次配置
 
-1. **无障碍**：让 Lociant 读取屏幕并执行点击、滑动等操作（这是“动手”能力的关键）。
-2. **通知**：保持后台运行时显示服务状态。
-3. **相机**：需要拍照或视觉分析时再开。
-4. **悬浮窗**：在其他 App 上方显示运行状态时再开。
-5. **电池策略 → 不限制**：避免手机锁屏后服务被暂停。
+第一次打开会进入引导，也可以在设置中再次打开。按需授予以下权限：
 
-只聊天和调用普通接口时不需要全部权限；涉及屏幕和 UI 操作时，无障碍是关键。
+1. 无障碍：读取屏幕并执行点击、滑动和输入。
+2. 通知：保持后台运行并显示服务状态。
+3. 相机：启用视觉和相机工具。
+4. 悬浮窗：显示设备运行状态窗口。
+5. 电池策略：将后台运行设为不限制，避免服务被系统暂停。
 
-### 1.3 配置云端模型（可选，但推荐先用它跑通）
+在设置中配置 API 令牌和远程工具暴露级别。令牌为空时只适合可信局域网。
+暴露级别从 `read`、`sensor` 到 `action` 逐级增加能力。
 
-进入“设置 → 云端模型”，填入：
+### 1.3 本地模型
 
-- **服务地址**：OpenAI 兼容接口，如 `https://api.deepseek.com/v1`
-- **API Key**：你的密钥
-- **模型名**：如 `deepseek-chat`
+打开“模型”，导入 `.gguf` 文件或包含单个 `.gguf` 的压缩包。安装完成后
+在运行时视图中选择默认模型；llama.cpp 会在本地运行该 GGUF。模型文件位于
+应用的共享模型目录，Rust 后端
+通过 Android IPC 读取同一份模型清单。
 
-云端模型的好处是不占手机存储，先用它把 Agent 跑通，再考虑装本地模型。
+### 1.4 连接设备
 
-### 1.4 安装本地模型（可选）
-
-进入“模型”页，选一个模型点“安装”，等下载和初始化完成，再把它设为默认。
-
-> 模型会占存储和内存。旧设备建议先选小模型；第一次运行保持亮屏并接电源。
-
-### 1.5 启动运行时
-
-回到首页，点“启动运行时”。状态变为“运行中”后，先发一条简单消息确认模型
-正常，再让它干活。默认服务地址：
+启动运行时后，控制台首页会显示运行状态、模型、工具和节点。设备的局域网
+地址类似：
 
 ```text
 http://手机IP:11434
 ```
 
-手机 IP 在 Wi-Fi 详情里查看；电脑和手机需在同一局域网。
+MCP 地址为 `http://手机IP:11434/mcp`，控制 API 为
+`http://手机IP:11434/api/v1`。
 
-### 1.6 把手机能力接给外部 Agent（MCP）
+## 二、Linux 桌面
 
-手机、电脑、板子共用同一个 MCP 入口（`http://设备IP:11434/mcp`），具体
-配置方法见[第五章：MCP](#五mcp把设备能力接给外部-agent)。
+### 2.1 发布包
 
----
-
-## 二、Linux 桌面（x86_64）
-
-### 2.1 安装
-
-Debian / Ubuntu 推荐直接安装 DEB：
+Debian / Ubuntu：
 
 ```bash
 sudo apt install ./lociant_2.0.1_amd64.deb
 lociant
 ```
 
-其他发行版下载并解压（包内已内置 Rust 后端，无需额外安装服务）：
+其他发行版：
 
 ```bash
 tar -xzf lociant-2.0.1-linux-x86_64.tar.gz
@@ -92,278 +79,132 @@ cd lociant-2.0.1-linux-x86_64
 ./lociant_flutter
 ```
 
-首次运行可能需要 GTK3 依赖：
+源码运行：
 
 ```bash
-# Arch / Manjaro
-sudo pacman -S gtk3
-# Debian / Ubuntu
-sudo apt install libgtk3-0
+cd apps/rust-backend && cargo run
+cd apps/flutter && flutter run -d linux
 ```
 
-> ARM64 设备（如 RK 开发板）没有桌面 UI，请改用 **aarch64 发布包**——
-> 它包含 `lociant-server`、`lociant-tui` 和部署脚本，见
-> [第三章](#三rk-开发板无头模式--rkllm)。
+Flutter 会把 Rust 后端作为 sidecar 启动。Linux 默认工具包括文件系统和
+进程工具，工具暴露和执行都经过 `ToolRegistry`。
 
-### 2.2 启动后
+## 三、RK 开发板
 
-桌面 App 打开时会自动拉起内置的 Rust 后端（sidecar，端口 `11434`，监听
-局域网以便手机/板子连接）。界面和安卓一样：首页聊天、“模型”页、“节点”页、
-“设置”页。
+### 3.1 获取二进制
 
-- 云端模型：设置 → 云端模型（同安卓 1.3）。
-- 本地模型：桌面上暂时没有本地推理后端，先使用云端模型。
-- 作为节点：桌面端会广播自己，手机/板子配相同节点令牌后即可互连。
-
-### 2.3 从源码运行（开发者）
-
-```bash
-cd apps/rust-backend && cargo run          # 后端 http://127.0.0.1:11434
-cd apps/flutter && flutter run -d linux    # UI
-```
-
-需要 Rust 工具链和 Flutter SDK。
-
----
-
-## 三、RK 开发板（无头模式 + RKLLM）
-
-全程不需要显示器，SSH 即可。以 RK3576 / Armbian 为例，适用于同类 RK 板子。
-
-### 3.1 你需要的
-
-- 一台装好 Armbian 的开发板（SSH 可达，2GB 内存以上）
-- 一台 PC（Linux）用于上传文件（自己改代码编译时才需要 Rust 工具链和
-  `aarch64-linux-gnu-gcc`，见 3.2）
-- 一个 `.rkllm` 模型文件（转换方法见 3.4）
-
-### 3.2 获取后端和 TUI
-
-**推荐：直接下载 aarch64 发布包**（已按板子架构编译好，含 server、TUI
-和部署脚本）：
+下载 aarch64 发布包：
 
 [下载 Lociant v2.0.1 Linux aarch64](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
 
-```bash
-tar -xzf lociant-2.0.1-linux-aarch64.tar.gz
-cd lociant-2.0.1-linux-aarch64
-```
-
-改了源码需要自己编译时，在 PC 上先装交叉编译工具链：
+包内包含 `lociant-server`、`lociant-tui` 和部署文件。源码交叉编译：
 
 ```bash
 rustup target add aarch64-unknown-linux-gnu
-# Arch: sudo pacman -S aarch64-linux-gnu-gcc
-```
-
-然后进入 `apps/rust-backend` 编译，产物在
-`target/aarch64-unknown-linux-gnu/release/` 下（`lociant-server` 和
-`lociant-tui`）：
-
-```bash
+cd apps/rust-backend
 CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
 CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
 cargo build --release --target aarch64-unknown-linux-gnu
 ```
 
-也可在 Debian / Ubuntu / Armbian 上直接安装无头节点包：
+### 3.2 配置
 
-```bash
-sudo apt install ./lociant-node_2.0.1_arm64.deb
-sudo systemctl status lociant
-```
-
-DEB 默认仅监听 `127.0.0.1`。需要从局域网访问时，在
-`/etc/lociant/config.json` 中加入 `"host": "0.0.0.0"`，设置 API 令牌后
-重启服务。模型建议放在 `/var/lib/lociant/models/`。
-
-### 3.3 上传并安装服务
-
-把二进制和安装脚本传到板子：
-
-```bash
-# 从发布包目录执行（自己编译的话，把路径换成 target/.../release 下的产物）
-scp lociant-server lociant-tui deploy/install.sh 用户@板子IP:/tmp/
-```
-
-SSH 到板子上安装（自动注册 systemd 服务并启动）：
-
-```bash
-ssh 用户@板子IP
-sudo bash /tmp/install.sh /tmp/lociant-server
-sudo cp /tmp/lociant-tui /usr/local/bin/
-```
-
-> 安装脚本会使用执行 `sudo` 的当前用户运行服务，并自动写入对应的数据目录，
-> 不需要手动修改 service 文件里的用户占位符。
-
-### 3.4 初始化配置
-
-编辑 `/etc/lociant/config.json`（安装脚本已生成默认文件）：
+编辑 `/etc/lociant/config.json`：
 
 ```json
 {
-  "authToken": "改成你自己的令牌",
-  "peerToken": "所有设备共享的节点令牌",
+  "authToken": "replace-with-a-local-token",
+  "peerToken": "shared-lan-token",
   "peerName": "RK3576-Board",
   "host": "0.0.0.0",
   "port": 11434,
-  "rkllmModelPath": "/home/你的用户名/qwen3.5-0.8b.rkllm",
-  "rkllmModelName": "qwen3.5-0.8b",
-  "localModel": true
+  "rkllmModelPath": "/opt/models/qwen.rkllm",
+  "rkllmModelName": "qwen-local"
 }
 ```
 
-字段说明：
+关键字段：
 
-- `authToken`：访问 API 的令牌，电脑/手机/外部 Agent 都要带它。
-- `peerToken`：多节点互联用的共享令牌，所有设备必须一致。
-- `host: 0.0.0.0`：允许局域网访问（默认只监听本机）。
-- `rkllmModelPath`：`.rkllm` 模型文件路径。
-- `rkllmLibPath`：`librkllmrt.so` 路径，一般可留空让系统自动搜索。
-- `localModel: true`：本地推理默认不带工具定义，省 token。
+- `authToken`：控制 API 和 MCP 令牌。
+- `peerToken`：节点互联共享令牌，留空则关闭 mesh。
+- `host`：局域网访问使用 `0.0.0.0`，默认只监听本机。
+- `rkllmModelPath`：RKLLM 模型文件路径。
+- `rkllmLibPath`：`librkllmrt.so` 路径，可留空使用系统搜索。
+- `peerDiscovery`：设为 `false` 可关闭 UDP 自动发现。
 
-保存后重启并确认健康：
+也可以运行初始化向导：
+
+```bash
+sudo lociant-server --init
+sudo systemctl restart lociant
+```
+
+### 3.3 运行和检查
 
 ```bash
 sudo systemctl restart lociant
 curl http://127.0.0.1:11434/health
+lociant-tui --connect http://127.0.0.1:11434 --token YOUR_TOKEN
 ```
 
-返回 `ok` 即服务就绪。也可以用交互式向导代替手写配置：
+TUI 是边缘节点控制台，不是聊天客户端。它展示运行时、模型、节点和工具，
+支持 `/refresh`、`/models`、`/nodes`、`/tools`、`/help` 和 `/quit`。
+
+RKLLM 加载日志：
 
 ```bash
-sudo /usr/local/bin/lociant-server --init
-sudo systemctl restart lociant
+sudo journalctl -u lociant -n 50 --no-pager | grep -i rkllm
 ```
 
-### 3.5 RKLLM 本地模型（NPU 推理）
-
-模型文件一般用 rknn-llm-gui 转换。要点：
-
-- 板子（如 RK3576）对应的 `target_platform` 要和模型转换时一致。
-- **W4A16 量化请用 `optimization_level=0` 导出**，否则会静默回退 W8A8
-  （两者文件大小差不多，光看大小分辨不出来）。
-- 上传模型后（如 `~/qwen3.5-0.8b.rkllm`），按 3.4 填好
-  `rkllmModelPath`，重启服务。
-
-确认加载成功：
-
-```bash
-sudo journalctl -u lociant -n 30 --no-pager | grep -i rkllm
-```
-
-出现 `RKLLM loaded: ...` 即为成功；日志里的 `model_dtype` 会显示实际量化
-类型（W4A16 应显示 `W4A16_G128`）。
-
-验证一条聊天：
-
-```bash
-curl http://127.0.0.1:11434/v1/chat/completions \
-  -H "Authorization: Bearer 你的令牌" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"qwen3.5-0.8b","messages":[{"role":"user","content":"你好"}],"stream":false}'
-```
-
-### 3.6 用 TUI 在终端聊天
-
-无头板子没有 UI，直接用终端聊天：
-
-```bash
-lociant-tui                        # 连本机 127.0.0.1:11434
-lociant-tui --connect http://板子IP:11434 --token 你的令牌   # 从任意机器连
-```
-
-界面：顶部状态栏（在线状态/当前模型/节点数），中间对话区，底部输入框。
-命令：
-
-```text
-/help    /models    /model <id>    /nodes    /clear    /quit
-```
-
-### 3.7 常见问题
-
-- **局域网连不上**：确认监听地址是 `0.0.0.0`、systemd 里没被覆盖，并检查防火墙。
-- **内存吃紧**：RK3576 只有 2GB，建议开 zram/swap；W4A16 能省约 300MB。
-- **模型加载失败**：确认 `.rkllm` 的 `target_platform` 与板子一致、库路径
-  正确，再看 `journalctl -u lociant` 里 `rkllm init failed` 的具体原因。
-- **改配置不生效**：`/etc/lociant/config.json` 每次启动都会重新合并，
-  改完记得 `sudo systemctl restart lociant`。
-
----
+W4A16 模型导出应使用 `optimization_level=0`，并确认日志显示目标平台和
+实际量化类型。
 
 ## 四、多节点互联
 
-手机、电脑、板子在同一局域网，且配置**相同的 `peerToken`**，即可自动发现
-彼此（UDP 广播，无需手动配置）。节点令牌为空时发现仍可用，但不提供额外认证；
-节点令牌不同或网络隔离时，可以在“节点”页手动添加（主机:端口）。
+同一局域网的设备设置相同 `peerToken` 后会通过 UDP 自动发现。节点页和
+`GET /api/v1/nodes` 可以查看节点；其他节点的工具和模型会以 peer 名称出现。
 
-- **看节点**：UI 的“节点”页，或 `curl http://节点IP:11434/api/v1/nodes`。
-- **互借模型**：其他节点的模型会以 `peer:节点id:模型id` 出现在“模型”页，
-  直接选用即可（例如手机用板子的 RKLLM 模型）。
-- **互借工具**：对等调用走 `/api/v1/peer/*`，能暴露什么由**提供方**自己的
-  “远程工具”级别（读取/传感器/操作）决定。
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://NODE_IP:11434/api/v1/nodes
+```
 
----
+节点工具调用走 `/api/v1/peer/*`，提供方的暴露级别和 `remoteAllowed` 仍然
+会在执行前校验。令牌不同、网络隔离或 `peerDiscovery=false` 时可以手动添加
+节点。
 
-## 五、MCP：把设备能力接给外部 Agent
+## 五、MCP 接入
 
-MCP 是一个标准接口：Claude、OpenCode 等外部 Agent 通过它“看到”并调用
-Lociant 的设备工具（看屏幕、点击、传感器、相机、模型等）。手机、板子、
-电脑都能作为 MCP 服务器，入口统一是：
+使用以下地址接入 Claude、Codex、OpenCode、RikkaHub 或自建客户端：
 
 ```text
 http://设备IP:11434/mcp
 ```
 
-### 5.1 准备工作
+设置 `Authorization: Bearer YOUR_TOKEN`。连接后执行 `tools/list`，再通过
+`tools/call` 调用设备工具。建议先使用 `read` 暴露级别验证连接，再按需启用
+传感器和操作能力。
 
-1. **设置 API 令牌（推荐）**：手机/电脑在“设置”里填写并保存 API 令牌；板子改
-   `/etc/lociant/config.json` 的 `authToken`（见 3.4）。留空时接口对可信局域网开放，
-   不要把这种模式暴露到公网。
-2. **选择工具暴露级别**（“设置 → 远程工具”）：
-   - `读取`：只读状态和模型信息，最安全；
-   - `传感器`：加上传感器和屏幕上下文；
-   - `操作`：全部能力，包括点击、滑动等改动设备状态的操作。
-3. **确认设备地址**：手机/板子的 IP 在“设置”或 Wi-Fi 详情里看（界面上的
-   `lanUrl` 就是）。电脑用 `http://127.0.0.1:11434` 或局域网 IP。
+完整协议和控制 API 见 [边缘运行时接入文档](agent-integration.md)。
 
-### 5.2 客户端配置
+## 六、验证脚本
 
-OpenCode、RikkaHub 和其他 MCP 客户端所需的完整 JSON 配置统一维护在
-[Agent 与 HTTP API 文档](agent-integration.md#mcp-configuration)。连接地址使用
-上面的 MCP 入口；配置了 API 令牌时，发送
-`Authorization: Bearer 你的API令牌`。
-
-### 5.3 验证是否接上
-
-连接后先问外部 Agent 一句：“你有哪些工具？”它应该能列出 Lociant 的
-`runtime_status`、`ui_*`、`sensor_*`、`camera_capture` 等工具。也可以在
-电脑上跑官方探测脚本做完整验证：
+脚本验证健康检查、认证、模型清单、工具调用和 MCP：
 
 ```bash
-python scripts/lociant_test.py full \
+python scripts/lociant_test.py quick \
   --base-url http://设备IP:11434 \
-  --api-key 你的API令牌 \
+  --api-key YOUR_TOKEN \
   --expect-auth
 ```
 
-工具清单、调用参数等接口细节见 [Agent 接入文档](agent-integration.md)。
+## 安全
 
----
+Lociant 面向局域网使用，接口使用明文 HTTP。不要把 `11434` 直接暴露到公网。
+绑定 `0.0.0.0` 前设置 API 令牌，并为 mesh 使用单独的 `peerToken`。
 
-## 安全提醒
-
-节点发现默认通过 UDP 广播启用。设置配置项 `peerDiscovery` 为 `false` 可关闭
-自动发现和广播；手动配置的节点仍然可用。
-
-Lociant 面向局域网使用，接口为 HTTP。空 API 令牌只适用于可信局域网；要把
-服务绑定到非可信网络前，请设置 API 令牌，不要把 `11434` 端口直接暴露到公网。
-
----
-
-## 开发者与接口参考
+## 参考
 
 - [架构](architecture.md)
-- [Agent 与 HTTP API](agent-integration.md)
+- [边缘运行时接入](agent-integration.md)
 - [Android 开发说明](../apps/android/README.md)

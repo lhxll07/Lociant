@@ -327,10 +327,10 @@ mod tests {
         let store = tmp_store("settings");
         assert!(store.get_json("settings").unwrap().is_none());
         store
-            .set_json("settings", &json!({"cloudEnabled": true, "apiToken": "t"}))
+            .set_json("settings", &json!({"modelId": "local", "apiToken": "t"}))
             .unwrap();
         let loaded = store.get_json("settings").unwrap().unwrap();
-        assert_eq!(loaded["cloudEnabled"], true);
+        assert_eq!(loaded["modelId"], "local");
         store
             .set_json("settings", &json!({"apiToken": "u"}))
             .unwrap();
@@ -345,13 +345,13 @@ mod tests {
         let store = tmp_store("models");
         assert!(store.list_models().unwrap().is_empty());
         store
-            .insert_model("qwen3.5-2b-mnn", "Qwen3.5-2B", "mnn", "chat")
+            .insert_model("qwen3.5-0.8b-gguf", "Qwen3.5-0.8B", "llama", "chat")
             .unwrap();
-        let model = store.get_model("qwen3.5-2b-mnn").unwrap().unwrap();
-        assert_eq!(model.name, "Qwen3.5-2B");
+        let model = store.get_model("qwen3.5-0.8b-gguf").unwrap().unwrap();
+        assert_eq!(model.name, "Qwen3.5-0.8B");
         assert_eq!(model.kind, "chat");
         assert_eq!(store.list_models().unwrap().len(), 1);
-        assert!(store.delete_model("qwen3.5-2b-mnn").unwrap());
-        assert!(store.get_model("qwen3.5-2b-mnn").unwrap().is_none());
+        assert!(store.delete_model("qwen3.5-0.8b-gguf").unwrap());
+        assert!(store.get_model("qwen3.5-0.8b-gguf").unwrap().is_none());
     }
 }

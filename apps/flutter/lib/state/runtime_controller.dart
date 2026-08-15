@@ -24,7 +24,6 @@ class RuntimeController extends ChangeNotifier {
   final SharedPreferences prefs;
 
   RuntimeUiState? state;
-  bool chatInFlight = false;
   Timer? _pollTimer;
   StreamSubscription<Map<String, dynamic>>? _subscription;
   bool _refreshing = false;
@@ -45,16 +44,11 @@ class RuntimeController extends ChangeNotifier {
     try {
       final next = await platform.call('runtimeState');
       if (next.isEmpty) return;
-      if (chatInFlight && next.containsKey('sessions')) {
-        // Keep live session previews while a chat is streaming; the in-flight
-        // turn is not persisted yet.
-        next.remove('sessions');
-      }
       final parsed = RuntimeUiState.fromJson(next);
       await _adoptLocalToken(parsed.authToken);
       if (state == null || _changed(state!, parsed)) {
         state = parsed;
-        api.baseUrl = parsed.baseUrl;
+        api.syncPort(parsed.port);
         notifyListeners();
       }
     } catch (error) {
@@ -70,14 +64,11 @@ class RuntimeController extends ChangeNotifier {
     if (payload is! Map) return;
     if (type == 'runtimeMessage') {
       final map = _stringMap(payload);
-      if (chatInFlight && map.containsKey('sessions')) {
-        map.remove('sessions');
-      }
       final parsed = RuntimeUiState.fromJson(map);
       unawaited(_adoptLocalToken(parsed.authToken));
       if (state == null || _changed(state!, parsed)) {
         state = parsed;
-        api.baseUrl = parsed.baseUrl;
+        api.syncPort(parsed.port);
         notifyListeners();
       }
     } else if (type == 'modelInstallResult') {
@@ -90,9 +81,13 @@ class RuntimeController extends ChangeNotifier {
   };
 
   Future<void> _adoptLocalToken(String token) async {
-    if (token.isEmpty || token == api.authToken) return;
+    if (token == api.authToken) return;
     api.authToken = token;
-    await prefs.setString('api_auth_token', token);
+    if (token.isEmpty) {
+      await prefs.remove('api_auth_token');
+    } else {
+      await prefs.setString('api_auth_token', token);
+    }
   }
 
   bool _changed(RuntimeUiState before, RuntimeUiState after) {
@@ -135,11 +130,6 @@ class RuntimeController extends ChangeNotifier {
   }
 
   Future<void> releaseModel() => callAndRefresh('releaseRuntimeModel');
-  Future<void> createSession() => callAndRefresh('createSession');
-  Future<void> selectSession(String sessionId) =>
-      callAndRefresh('selectSession', {'sessionId': sessionId});
-  Future<void> deleteSession(String sessionId) =>
-      callAndRefresh('deleteSession', {'sessionId': sessionId});
   Future<void> startVision([Map<String, dynamic>? payload]) =>
       callAndRefresh('startVision', payload);
   Future<void> stopVision() => callAndRefresh('stopVision');
@@ -150,6 +140,7 @@ class RuntimeController extends ChangeNotifier {
   Future<void> requestCamera() => callAndRefresh('requestCameraPermission');
   Future<void> requestNotification() =>
       callAndRefresh('requestNotificationPermission');
+  Future<void> requestSensor() => callAndRefresh('requestSensorPermission');
   Future<void> requestOverlay() => callAndRefresh('requestOverlayPermission');
   Future<void> requestBattery() =>
       callAndRefresh('requestBatteryOptimizationExemption');
@@ -162,10 +153,6 @@ class RuntimeController extends ChangeNotifier {
       callAndRefresh('openPermissionSettings', {'kind': kind});
   Future<void> openModelPackagePicker() =>
       callAndRefresh('installModelPackage');
-
-  Future<Map<String, dynamic>> sessionDetails(String sessionId) async {
-    return platform.call('sessionDetails', {'sessionId': sessionId});
-  }
 
   @override
   void dispose() {

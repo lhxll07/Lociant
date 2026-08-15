@@ -15,13 +15,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navMenu => 'Menu';
 
   @override
-  String get navHome => 'Home';
+  String get navHome => 'Overview';
 
   @override
   String get navModels => 'Models';
 
   @override
   String get navNodes => 'Nodes';
+
+  @override
+  String get navExtensions => 'Extensions';
 
   @override
   String get navSettings => 'Settings';
@@ -43,6 +46,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodesOffline => 'Offline';
+
+  @override
+  String get nodesGridHint =>
+      'Tap a device card for details and available actions';
+
+  @override
+  String get nodesAddress => 'Address';
+
+  @override
+  String get nodesPlatform => 'Platform';
+
+  @override
+  String get nodesNodeId => 'Node ID';
+
+  @override
+  String get nodesNameOptional => 'Name (optional)';
+
+  @override
+  String get nodesAvailableActions => 'Available actions';
+
+  @override
+  String get nodesOpenModels => 'Open models';
+
+  @override
+  String get nodesSelfHint =>
+      'This is the current device and its local runtime.';
+
+  @override
+  String get nodesDevicePhone => 'Phone';
+
+  @override
+  String get nodesDeviceComputer => 'Computer';
+
+  @override
+  String get nodesDeviceBoard => 'Board';
+
+  @override
+  String get nodesDeviceOther => 'Device';
 
   @override
   String get nodesEmpty =>
@@ -69,7 +110,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodesGuideStep3 =>
-      'Open a node card to share models (peer: prefix), view baby monitoring or chat directly';
+      'Open a node card to share models (peer: prefix) or view baby monitoring';
 
   @override
   String get nodesGuideOpenSettings => 'Open settings';
@@ -135,15 +176,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodesDeleteFailed => 'Failed to delete node';
 
   @override
-  String get nodesChat => 'Chat';
-
-  @override
-  String get nodesChatSelectModel => 'Choose a model';
-
-  @override
-  String get nodesChatNoModel => 'No available models on this node';
-
-  @override
   String get commonCancel => 'Cancel';
 
   @override
@@ -161,6 +193,53 @@ class AppLocalizationsEn extends AppLocalizations {
       'Desktop service runs automatically with the app (built-in Rust backend)';
 
   @override
+  String get extensionsTitle => 'Extensions';
+
+  @override
+  String get extensionsSubtitle =>
+      'Manage edge capabilities available on this device';
+
+  @override
+  String get extensionsInstalledTitle => 'Installed extensions';
+
+  @override
+  String get extensionsBuiltInHint =>
+      'These extensions are bundled with Lociant and use this device\'s permissions.';
+
+  @override
+  String get extensionsBabyDescription =>
+      'Monitor baby activity, record events and notify parents when attention is needed.';
+
+  @override
+  String get extensionsBabyPermissions =>
+      'Requires camera, notifications and background operation';
+
+  @override
+  String get extensionsStatusChecking => 'Checking';
+
+  @override
+  String get extensionsStatusEnabled => 'Enabled';
+
+  @override
+  String get extensionsStatusNotConfigured => 'Not configured';
+
+  @override
+  String get extensionsStatusUnavailable => 'Temporarily unavailable';
+
+  @override
+  String get extensionsUnavailableHint =>
+      'Unable to reach the current node. Make sure the service is running.';
+
+  @override
+  String get extensionsOpen => 'Open';
+
+  @override
+  String get extensionsRefresh => 'Refresh status';
+
+  @override
+  String get extensionsOpenSettings => 'Manage permissions';
+
+  @override
   String get statusIdle => 'Idle';
 
   @override
@@ -173,58 +252,136 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusStopped => 'Stopped';
 
   @override
-  String get homePlaceholder => 'Ask Lociant, or describe a tool task';
+  String get edgeOverviewTitle => 'Edge runtime';
 
   @override
-  String get homeSend => 'Send';
+  String get edgeOverviewSubtitle => 'Control plane for this device';
 
   @override
-  String get homeNewChat => 'New chat';
+  String get edgeMetricModels => 'Models';
 
   @override
-  String get homeHistory => 'Recent chats';
+  String get edgeMetricNodes => 'Nodes';
 
   @override
-  String get homeEmptyReply => 'No reply';
+  String get edgeMetricTools => 'Tools';
 
   @override
-  String get homeThinking => 'Thinking…';
+  String get edgeMetricStatus => 'Status';
 
   @override
-  String get homeThought => 'Thought';
+  String get edgeNodesTitle => 'Connected devices';
 
   @override
-  String homeRunStatusTool(Object round, Object tool) {
-    return 'Running tool $tool (round $round)…';
-  }
+  String get edgeNodesEmpty => 'No devices to show yet.';
 
   @override
-  String homeRunStatusRound(Object round) {
-    return 'Calling model (round $round)…';
-  }
+  String get edgeViewAll => 'View all';
 
   @override
-  String get homeRunStatusRetry => 'Retrying…';
+  String get edgeEndpointsTitle => 'Control endpoints';
 
   @override
-  String homeRoundLabel(Object n) {
-    return 'Round $n';
-  }
+  String get edgeControlApi => 'Control API';
 
   @override
-  String get homeToolRunDone => 'Tools completed without a text reply.';
+  String get edgeToolsTitle => 'Available tools';
 
   @override
-  String get homeImageAttached => 'Image attached';
+  String get edgeToolsEmpty =>
+      'No tools are available at the current exposure level';
 
   @override
-  String get homeRemoveImage => 'Remove image';
+  String get toolDescriptionGeneric =>
+      'Device capability available to controllers.';
 
   @override
-  String get homeUploadImage => 'Upload photo';
+  String get toolDescriptionRuntimeStatus => 'Check runtime status.';
 
   @override
-  String get homeDeleteChat => 'Delete chat';
+  String get toolDescriptionModelList => 'List available models.';
+
+  @override
+  String get toolDescriptionDeviceStatus => 'Check basic device information.';
+
+  @override
+  String get toolDescriptionClipboardRead => 'Read the clipboard.';
+
+  @override
+  String get toolDescriptionClipboardWrite => 'Write text to the clipboard.';
+
+  @override
+  String get toolDescriptionAppOpen => 'Open an app.';
+
+  @override
+  String get toolDescriptionUiScreenState =>
+      'Read the current screen structure.';
+
+  @override
+  String get toolDescriptionUiClickNode => 'Click a screen element.';
+
+  @override
+  String get toolDescriptionUiTap => 'Tap a screen position.';
+
+  @override
+  String get toolDescriptionUiSwipe => 'Swipe across the screen.';
+
+  @override
+  String get toolDescriptionUiWait => 'Wait for the screen to change.';
+
+  @override
+  String get toolDescriptionUiPaste => 'Paste text into the current field.';
+
+  @override
+  String get toolDescriptionUiSetText => 'Fill in a text field.';
+
+  @override
+  String get toolDescriptionVisionStatus => 'Check vision service status.';
+
+  @override
+  String get toolDescriptionVisionStart => 'Start the vision service.';
+
+  @override
+  String get toolDescriptionCameraCapture => 'Take a camera photo.';
+
+  @override
+  String get toolDescriptionVisionStop => 'Stop the vision service.';
+
+  @override
+  String get toolDescriptionSensorStatus => 'Check sensor status.';
+
+  @override
+  String get toolDescriptionSensorRead => 'Read sensor data.';
+
+  @override
+  String get toolDescriptionSensorStart => 'Start sensor collection.';
+
+  @override
+  String get toolDescriptionSensorStop => 'Stop sensor collection.';
+
+  @override
+  String get toolDescriptionFileList => 'List files in a directory.';
+
+  @override
+  String get toolDescriptionFileRead => 'Read a text file.';
+
+  @override
+  String get toolDescriptionFileWrite => 'Write a text file.';
+
+  @override
+  String get toolDescriptionProcessList => 'List running processes.';
+
+  @override
+  String get toolDescriptionProcessRun => 'Run a system command.';
+
+  @override
+  String get edgeOpenModels => 'Open models';
+
+  @override
+  String get edgeOpenNodes => 'Open nodes';
+
+  @override
+  String get edgeOpenSettings => 'Settings';
 
   @override
   String get onboardingSkip => 'Skip';
@@ -240,21 +397,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingWelcomeBody =>
-      'Turn any device into a local agent that runs models, reads the screen, controls the UI and senses its environment — callable from Claude, Codex and other agents over MCP.';
+      'Turn any device into an edge runtime that runs local models, exposes device tools and senses its environment through a controlled API and MCP.';
 
   @override
-  String get onboardingCloudTitle => 'Start with a cloud model';
+  String get onboardingLocalTitle => 'Prepare a local model';
 
   @override
-  String get onboardingCloudBody =>
-      'Go to Settings → Cloud model, enter the API base URL, key and model name (e.g. DeepSeek) and you can chat right away. To work offline, install a local model from the Models page later.';
+  String get onboardingLocalBody =>
+      'Import or install a local model under Models so inference stays on the edge device.';
 
   @override
-  String get onboardingPermissionTitle => 'Give the agent hands';
+  String get onboardingPermissionTitle => 'Enable device capabilities';
 
   @override
   String get onboardingPermissionBody =>
-      'Enable permissions in Settings: accessibility lets it read the screen, tap and swipe; notifications keep it alive in the background; camera is for photos and vision; set battery to unrestricted so it isn\'t paused when the screen locks.';
+      'Enable permissions in Settings: accessibility provides screen and UI tools; notifications keep the runtime alive; camera powers vision; set battery to unrestricted for reliable background operation.';
 
   @override
   String get onboardingNodesTitle => 'Connect your devices';
@@ -268,7 +425,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingReadyBody =>
-      'Start the runtime on the home page, send a message to confirm the model works, then let it do things. Later you can also connect the device from MCP-capable clients like Claude and OpenCode.';
+      'Start the runtime from the overview, inspect the available tools and connect external clients through the control API or MCP.';
 
   @override
   String get settingsOnboardingTitle => 'Onboarding';
@@ -317,19 +474,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get modelsMarketTitle => 'Model market';
 
   @override
-  String get modelsMarketSub => 'ModelScope MNN models';
+  String get modelsMarketSub => 'ModelScope GGUF models';
 
   @override
   String get modelsRuntimeTitle => 'Runtime';
 
   @override
   String get modelsRuntimeSub => 'Default model and API';
-
-  @override
-  String get modelsCloudTitle => 'Cloud model';
-
-  @override
-  String get modelsCloudSub => 'OpenAI-compatible cloud API';
 
   @override
   String get modelsImport => 'Import';
@@ -380,6 +531,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsFollowSystem => 'System';
 
   @override
+  String get settingsLanguageChinese => 'Chinese';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsAppearanceTitle => 'Appearance';
+
+  @override
+  String get settingsSectionsTitle => 'Settings';
+
+  @override
+  String get settingsSecurityTitle => 'Security';
+
+  @override
+  String get settingsSecuritySub =>
+      'API access, peer connections and tool permissions';
+
+  @override
+  String get settingsLocalModelTitle => 'Local model';
+
+  @override
+  String get settingsLocalModelSub =>
+      'Default model and local inference behavior';
+
+  @override
+  String get settingsAboutSub => 'Version and runtime information';
+
+  @override
   String get settingsRuntimeTitle => 'Runtime';
 
   @override
@@ -395,33 +575,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsModelTitle => 'Default model';
 
   @override
-  String get settingsModelSub => 'Model and CPU threads';
-
-  @override
-  String get settingsAgentTitle => 'Agent';
-
-  @override
-  String get settingsAgentSub => 'Tool-loop behavior';
+  String get settingsModelSub => 'Installed model and response length';
 
   @override
   String get settingsAdvancedTitle => 'Advanced';
 
   @override
-  String get settingsAdvancedSub => 'Sessions and diagnostics';
-
-  @override
-  String get settingsAgentRounds => 'Max tool rounds';
-
-  @override
-  String settingsAgentRoundsSub(Object max, Object min) {
-    return 'Model↔tool iterations per task ($min–$max)';
-  }
-
-  @override
-  String get settingsToolCalls => 'Tool call cap';
-
-  @override
   String get settingsPermissionsTitle => 'Permissions';
+
+  @override
+  String get settingsPermissionsHint =>
+      'These permissions control device tools; remote tool scope is set by the level below.';
 
   @override
   String get settingsWindowVision => 'Window & vision';
@@ -445,13 +609,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsToolAction => 'Action';
 
   @override
+  String get settingsToolExposureHint =>
+      'Choose which device capabilities remote clients can use.';
+
+  @override
   String get settingsGenerate => 'Generate';
 
   @override
   String get settingsClear => 'Clear';
-
-  @override
-  String get settingsSessions => 'Sessions';
 
   @override
   String get settingsPerformanceMode => 'Performance mode';
@@ -464,24 +629,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPerformanceFast => 'Fast';
-
-  @override
-  String get settingsInferenceBackend => 'Inference backend';
-
-  @override
-  String get settingsBackendModel => 'Follow model';
-
-  @override
-  String get settingsBackendAuto => 'Auto';
-
-  @override
-  String get settingsBackendCpu => 'CPU';
-
-  @override
-  String get settingsBackendOpencl => 'OpenCL (GPU)';
-
-  @override
-  String get settingsBackendVulkan => 'Vulkan (GPU)';
 
   @override
   String get settingsResponseLength => 'Response length';
@@ -514,29 +661,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsRelease => 'Release';
 
   @override
-  String get settingsCloudTitle => 'Cloud model';
-
-  @override
-  String get settingsCloudBaseUrl => 'API base URL';
-
-  @override
-  String get settingsCloudApiKey => 'API key';
-
-  @override
-  String get settingsCloudModel => 'Model name';
-
-  @override
-  String get settingsCloudResponseLengthSub =>
-      'Max output tokens (0 = provider default)';
-
-  @override
-  String get settingsCloudContextWindow => 'Context window';
-
-  @override
-  String get settingsCloudHistoryLimit => 'History messages';
-
-  @override
-  String get connectionOpenaiUrl => 'OpenAI Base URL';
+  String get settingsReleaseModelHint =>
+      'Free memory used by the loaded model.';
 
   @override
   String get connectionMcpUrl => 'MCP URL';
@@ -570,6 +696,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsApiToken => 'API token';
 
   @override
+  String get settingsApiTokenHint =>
+      'Protects control API and remote tool calls.';
+
+  @override
+  String get settingsShowToken => 'Show token';
+
+  @override
+  String get settingsHideToken => 'Hide token';
+
+  @override
+  String get settingsModelStatus => 'Model status';
+
+  @override
+  String get settingsModelLoading => 'Loading';
+
+  @override
+  String get settingsModelReady => 'Ready';
+
+  @override
+  String get settingsModelNotLoaded => 'Not loaded';
+
+  @override
+  String get settingsModelHint => 'Use an installed model ID as the default.';
+
+  @override
+  String settingsOutputTokensHint(Object max) {
+    return 'Maximum $max tokens per response.';
+  }
+
+  @override
+  String get settingsAboutBody =>
+      'Lociant turns phones, desktops and boards into edge runtimes for local models, device tools and controlled connections.';
+
+  @override
+  String get settingsAboutRuntime => 'Edge runtime';
+
+  @override
+  String get settingsAboutRuntimeSub =>
+      'Local model inference and device capability control';
+
+  @override
   String get settingsAutoStart => 'Start on boot';
 
   @override
@@ -588,7 +755,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsPermissionBattery => 'Background power';
 
   @override
+  String get settingsPermissionBackground => 'Background operation';
+
+  @override
   String get settingsPermissionAccessibility => 'Accessibility';
+
+  @override
+  String get settingsPermissionSensor => 'Sensors';
+
+  @override
+  String get settingsPermissionNotificationHint =>
+      'Keep the runtime visible and active in the background.';
+
+  @override
+  String get settingsPermissionBackgroundHint =>
+      'Reduce system limits on the background service.';
+
+  @override
+  String get settingsPermissionAccessibilityHint =>
+      'Read screen structure and perform UI actions.';
+
+  @override
+  String get settingsPermissionCameraHint =>
+      'Let vision tools capture camera frames.';
+
+  @override
+  String get settingsPermissionSensorHint =>
+      'Let sensor tools read motion, light and other data.';
+
+  @override
+  String get settingsPermissionOverlayHint =>
+      'Let the runtime display a floating control.';
+
+  @override
+  String get settingsPermissionFileRead => 'File reading';
+
+  @override
+  String get settingsPermissionFileReadHint =>
+      'Only paths accessible to the current system user can be read.';
+
+  @override
+  String get settingsPermissionSystemManaged => 'System managed';
+
+  @override
+  String get settingsPermissionAllowed => 'Allowed';
+
+  @override
+  String get settingsPermissionRequired => 'Needs access';
+
+  @override
+  String get settingsPermissionChecking => 'Checking';
+
+  @override
+  String get settingsPermissionManage => 'Manage';
 
   @override
   String get settingsDesktopPermissionsHint =>

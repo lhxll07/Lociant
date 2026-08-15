@@ -1,64 +1,83 @@
-# Agent Integration And HTTP API
+# Lociant Edge Runtime Integration
 
-Lociant is a local agent runtime. Planning and long-lived orchestration stay
-in the external agent; Lociant provides model inference and explicit device
-capabilities through one HTTP surface served by the Rust backend on port
-`11434` (the Android phone or the Linux desktop).
+Lociant is an edge-device runtime. It exposes local models, device tools,
+sensors and peer-node capabilities through a small authenticated HTTP surface.
+It does not plan tasks or run a general-purpose Agent loop. An external
+client may use MCP to orchestrate the capabilities, while the runtime keeps
+execution and policy enforcement on the device.
 
-## Preferred Connection Order
+The Rust backend listens on port `11434` on Linux, headless boards and Android
+when the foreground runtime is enabled.
 
-1. Use MCP Streamable HTTP at `http://HOST:11434/mcp` for tools.
-2. Use OpenAI Chat Completions at `http://HOST:11434/v1` for direct model
-   inference.
-3. Use `/api/v1` only for management resources (documented below).
+## Interfaces
 
-Do not scrape the app UI or depend on the Android method channel; the channel
-is an internal UI boundary, not a remote integration contract.
+| Interface | Purpose |
+|---|---|
+| `POST /mcp` | MCP Streamable HTTP for tool discovery and calls |
+| `/api/v1` | Runtime status, settings, models, peers and direct tool calls |
+| `GET /health` | Unauthenticated liveness check |
+| Android device IPC | Internal localhost bridge between Rust and Kotlin |
 
-## MCP Configuration
+There is no OpenAI chat-completions data plane and no `/api/v1/sessions`
+resource. The old `/v1/models` and `/v1/chat/completions` paths are removed.
+Use `GET /api/v1/models` for model inventory and MCP or the control tool route
+for execution.
 
-`POST /mcp` is an MCP Streamable HTTP endpoint implemented by the Rust backend
-as a stateless JSON-RPC server. It supports `initialize`, `ping`,
-`tools/list`, `tools/call` and notifications (202 no body); responses are
-JSON. Client requirements:
+Do not scrape the UI or depend on the Android method channel. The method
+channel is an internal boundary for permissions, lifecycle, windows and
+vision; remote integrations use HTTP or MCP.
 
-- `Content-Type: application/json` on POST bodies;
-- `Accept: application/json` (both JSON and `text/event-stream` accepted);
-- Bearer auth via `Authorization: Bearer TOKEN` (or `X-Lociant-Token`) when a
-  token is configured.
+## MCP
 
-### RikkaHub (phone client)
+`POST /mcp` implements the stateless JSON-RPC subset needed by MCP clients:
+`initialize`, `ping`, `tools/list`, `tools/call` and notifications. Responses
+are JSON. Notifications receive HTTP `202` with no body.
 
-设置 → MCP → 导入，粘贴以下 JSON（Streamable HTTP 的 `type` 固定为
-`streamable_http`；`headers` 是 `[name, value]` 对数组）：
+Requests should send:
+
+```http
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Authorization: Bearer TOKEN
+```
+
+The authorization header is optional only when the runtime has no
+`authToken`. `X-Lociant-Token` is also accepted.
+
+Example MCP initialization:
 
 ```json
 {
-  "type": "streamable_http",
-  "commonOptions": {
-    "name": "Lociant 设备工具",
-    "enable": true,
-    "headers": [
-      ["Authorization", "Bearer TOKEN"]
-    ]
-  },
-  "url": "http://HOST:11434/mcp"
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-03-26",
+    "capabilities": {},
+    "clientInfo": {"name": "my-client", "version": "1.0"}
+  }
 }
 ```
 
-导入后在“助手设置 → MCP 服务器”中勾选该服务器；对会改动设备状态的工具
-建议开启“需要审批”。
-
-### OpenCode (desktop agent)
-
-`opencode.json` 的远程 MCP 类型固定为 `remote`。OpenCode 默认 MCP 请求
-超时只有 5 秒，而本地工具（如 `llm_chat`、`ui_screen_state`）经常超过，
-必须显式调大 `timeout`（毫秒）；老版本 OpenCode 不会自动发送
-`Accept` 头，也请显式带上：
+Example tool call:
 
 ```json
 {
-  "$schema": "https://opencode.ai/config.json",
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "runtime_status",
+    "arguments": {}
+  }
+}
+```
+
+For OpenCode, use a remote MCP entry and set a timeout suitable for native
+device operations:
+
+```json
+{
   "mcp": {
     "lociant": {
       "type": "remote",
@@ -74,234 +93,122 @@ JSON. Client requirements:
 }
 ```
 
-`HOST` 和 `TOKEN` 可在 Lociant 主页/设置里看到（`lanUrl` 与 API Token）。
-Clients limited to stdio may run a transport translator against the same URL.
-
-## Tool Discovery
+## Tool Policy
 
 ```http
 GET /api/v1/tools
 Authorization: Bearer TOKEN
 ```
 
-Tool definitions include Lociant policy metadata. The visible list depends on
-the configured exposure level:
+The response uses `{ "data": [...] }`. Each descriptor includes the tool
+schema and policy metadata. The configured exposure level is cumulative:
 
-- `read`: passive status and model information;
-- `sensor`: read plus interactive sensor/screen context;
-- `action`: read, sensor and device-changing actions.
+- `read`: passive status and read-only tools;
+- `sensor`: read tools plus sensor/context tools;
+- `action`: all exposed device operations.
 
-The Rust `ToolRegistry` repeats the policy check during execution
-(`remote_allowed` for HTTP/MCP callers). A stale or forged manifest cannot
-bypass exposure or `remoteAllowed`.
+`ToolRegistry` enforces the exposure level and `remoteAllowed` again when a
+call arrives. A client cannot bypass policy by altering a cached descriptor.
+Peer tools are namespaced as `peer:<nodeId>:<toolName>`.
 
-## Core Tool Families
-
-| Family | Examples | Notes |
-|---|---|---|
-| Runtime/model | `runtime_status`, `model_list`, `llm_status`, `llm_chat` | Local runtime and model inference |
-| Device | `device_status`, `clipboard_read`, `clipboard_write`, `app_open` | Android privacy rules still apply |
-| Sensors | `sensor_status`, `sensor_read`, `sensor_start`, `sensor_stop` | Aggregated summaries only |
-| Screen/UI | `ui_screen_state`, `ui_click_node`, `ui_tap`, `ui_swipe`, `ui_paste`, `ui_set_text` | Requires accessibility on Android |
-| Vision | `vision_status`, `vision_start`, `camera_capture`, `vision_stop` | Requires camera permission and unlocked interactive state |
-
-Tool names are current 1.0 contracts.
-
-## Cloud Model Provider
-
-Lociant is local-first but can opt into an OpenAI-compatible cloud model.
-Configure `cloudBaseUrl`, `cloudApiKey`, `cloudModel` and `cloudEnabled` in
-settings; the cloud model then appears in the model list and chat requests
-for it are routed to that endpoint. The API key stays in local settings.
-
-## LLM Tool
-
-`llm_chat` accepts either a prompt or message list:
-
-```json
-{
-  "name": "llm_chat",
-  "arguments": {
-    "prompt": "Describe the current task briefly.",
-    "model": "qwen3.5-2b-mnn",
-    "maxTokens": 128
-  }
-}
-```
-
-Optional image inputs include `image`, `images`, `useCameraFrame` and
-`useScreenFrame`. Supplying `sessionId` requires an existing Lociant session;
-omitting it keeps the call stateless.
-
-## OpenAI-Compatible API
-
-A deliberately small OpenAI data plane. Model management, sessions, storage
-and runtime commands stay under `/api/v1`, never under `/v1`.
-
-## Connection
-
-```text
-Base URL: http://HOST:11434/v1
-API key:  token configured in the Lociant app
-Model:    one id returned by GET /v1/models
-```
-
-When a token is configured, endpoints require `Authorization: Bearer TOKEN`
-or `X-Lociant-Token`. `GET /health` is public.
-
-## Models
+Direct calls use the same registry:
 
 ```http
-GET /v1/models
-```
-
-Standard list shape, containing only ready chat-capable models (installed
-local models plus the configured cloud model). Complete model status and
-management live at `/api/v1/models`.
-
-## Chat Completions
-
-```http
-POST /v1/chat/completions
+POST /api/v1/tools/runtime_status/calls
 Content-Type: application/json
+Authorization: Bearer TOKEN
 ```
 
 ```json
-{
-  "model": "qwen3.5-2b-mnn",
-  "messages": [
-    {"role": "system", "content": "Answer briefly."},
-    {"role": "user", "content": "Hello"}
-  ],
-  "max_tokens": 128,
-  "stream": false
-}
+{"arguments": {}}
 ```
 
-Message content accepts plain strings and OpenAI content arrays containing
-`text` and base64/data-URL `image_url` items (VLM required for images). The
-response includes standard `choices` and `usage`.
+The result is a `ToolResult` envelope with `ok`, `content`, `structured` and
+an optional `error`.
 
-## Streaming
+## Local Models
 
-Set `"stream": true` for `text/event-stream` chunks ending with
-`data: [DONE]`. Request a final usage chunk with
-`"stream_options": {"include_usage": true}`.
+Model inventory is exposed through the control API. Android imports a single
+`.gguf` file, or a package containing one `.gguf`, into its shared model
+directory. When an ARM64 `llama-server` bundle is installed, the Rust backend
+starts it locally and reports the model with `runtime: llama`.
 
-## Tool Calls
+```http
+GET /api/v1/models
+```
 
-OpenAI `tools` and `tool_choice` are accepted. The Lociant extension
-`execute_tools: true` runs the multi-round agent loop: allowed tools execute
-through the shared registry and the model continues. Clients that need
-portable OpenAI behavior should omit it and execute returned tool calls
-themselves.
-
-## Sessions
-
-OpenAI has no standard session resource. Lociant offers an explicit opt-in:
-pass an existing session id as `sessionId` in the request body (or the
-`X-Lociant-Session-Id` header). Unknown IDs return `404`. Omitting a session
-runs a stateless request.
-
-## Errors
-
-OpenAI endpoint errors use an OpenAI error object; HTTP status remains
-authoritative. Control errors use `application/problem+json`.
-
-## Removed Interfaces
-
-Lociant does not implement Ollama `/api/chat`, old session headers, or
-product-control routes under `/v1`.
+The llama.cpp process is private to the runtime. External clients use the
+control API and MCP for device tools; they do not call the child server
+directly. Android's NCNN runtime remains dedicated to camera and vision
+operations, while headless boards can load RKLLM models in process.
 
 ## Control API
 
-The control plane manages Lociant-owned resources under `/api/v1`. It uses
-the same optional token authentication as MCP and OpenAI endpoints.
+All routes below use the same optional bearer authentication.
 
-### Errors
+### Runtime and settings
 
-Failures use `application/problem+json` with `type`, `title`, HTTP `status`,
-`detail`, stable `code`, and request `instance`. Successful responses do not
-add a redundant top-level `ok`; tool calls retain their execution envelope
-because tool failure is domain output.
-
-### Runtime And Settings
-
-```text
+```http
 GET /api/v1/runtime
 GET /api/v1/settings
 PUT /api/v1/settings
 ```
 
-Runtime reports server, model and device state. Start/stop is intentionally
-absent: Android's foreground service owns the process, while desktop keeps
-the sidecar running. `PUT settings` merges supplied fields. Changing `port`
-takes effect on the next service start.
+The runtime snapshot reports the process, selected model, device information,
+endpoint URLs and tool exposure. Android-specific
+permission and window state is merged into the UI snapshot through the local
+platform service.
 
-Common settings include `modelId`, `maxOutputTokens`, `inferenceBackend`,
-cloud provider fields, session limits, `agentMaxRounds`, `authToken`,
-`toolExposure`, peer settings and `currentSessionId`.
+Settings are merged at the top level and persisted by the Rust Store. Common
+fields are `modelId`, `maxOutputTokens`, `authToken`, `toolExposure`,
+`autoStart`, `peerToken`, `peerDiscovery`, `peerName`, `rkllmModelPath` and the
+optional llama.cpp settings. Cloud-provider and general-agent settings are
+ignored as legacy input.
 
-### Model Management
+### Models
 
-```text
-GET    /api/v1/models?refresh=false
+```http
+GET    /api/v1/models
 DELETE /api/v1/models/{modelId}
-GET    /api/v1/catalog/models?q=QUERY&refresh=false
+GET    /api/v1/catalog/models?q=QUERY
 POST   /api/v1/model-installations
 GET    /api/v1/model-installations/{jobId}
 ```
 
-Installation accepts `{"modelId":"MODEL_ID"}` and returns `202` with a job
-ID. Progress includes `state`, `active`, `progress`, and `message`; terminal
-states are `done` and `error`. `refresh=true` is reserved for changes made
-outside Lociant because normal install/delete operations invalidate snapshots.
+Model installation accepts `{"modelId":"MODEL_ID"}` and returns a job
+resource. Progress contains `state`, `active`, `progress` and `message`; the
+terminal states are `done` and `error`.
 
-### Sessions
+### Nodes and peers
 
-```text
-GET    /api/v1/sessions
-POST   /api/v1/sessions
-GET    /api/v1/sessions/{sessionId}
-DELETE /api/v1/sessions/{sessionId}
+```http
+GET    /api/v1/nodes
+POST   /api/v1/peers
+DELETE /api/v1/peers/{nodeId}
+GET    /api/v1/peer/tools
+POST   /api/v1/peer/tools/{toolName}/calls
+GET    /api/v1/peer/models
 ```
 
-Creation returns `201`. Valid IDs contain 1-96 ASCII letters, digits, dots,
-underscores or hyphens. Reads and deletes never generate or normalize IDs;
-an unknown valid ID returns `404`.
+Peer networking is disabled until every node has a shared `peerToken`. UDP
+discovery is controlled by `peerDiscovery`; manually added peers remain
+available when discovery is disabled.
 
-### Direct Tool Calls
+## Authentication and Network
 
-```text
-GET  /api/v1/tools
-POST /api/v1/tools/{name}/calls
-```
-
-Call body: `{"arguments":{"package":"com.example.app"}}`. These routes use
-the same registry and policy as MCP and OpenAI tool execution. Streaming chat
-uses SSE directly; there is no `/api/v1/chat-requests` queue resource.
-
-## Authentication And Network
-
-`/health` is always public. When `authToken` is empty, the control, MCP and
-chat surfaces are intentionally open for trusted local-network development;
-configure a non-empty token before binding Lociant to an untrusted LAN.
-With a token configured, MCP, OpenAI and control requests accept bearer auth
-or `X-Lociant-Token`.
-
-Lociant uses cleartext HTTP for local-network interoperability. Treat the
-local network and token as security boundaries; do not expose the port
-directly to the public Internet.
+`/health` is public. If `authToken` is empty, control and MCP routes are open
+for trusted local development. Set a token before binding to a LAN that is not
+fully trusted. Lociant uses cleartext HTTP for local-network interoperability;
+do not expose port `11434` directly to the public Internet.
 
 ## Verification
 
+The probe script checks the current edge contract: health, authentication,
+model inventory, tool discovery, direct tool calls and MCP:
+
 ```bash
-python scripts/lociant_test.py full \
+python scripts/lociant_test.py quick \
   --base-url http://HOST:11434 \
   --api-key TOKEN \
   --expect-auth
 ```
-
-The full probe verifies health, authenticated model/tool discovery, direct
-tool calls, MCP initialization/listing, OpenAI non-streaming chat, forced
-tool calls and SSE termination.

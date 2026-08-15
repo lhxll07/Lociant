@@ -12,11 +12,11 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Thin HTTP client for the Lociant control/OpenAI plane.
+/// Thin HTTP client for the Lociant control plane.
 ///
 /// [baseUrl] and [authToken] are refreshed by the runtime controller whenever
 /// the native runtime state changes, so this client works both when the server
-/// is running and (for settings/sessions via the platform channel) when it is
+/// is running and when it is
 /// not.
 class ApiClient {
   ApiClient({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
@@ -32,6 +32,19 @@ class ApiClient {
   final http.Client client = http.Client();
   String baseUrl;
   String authToken = '';
+
+  /// Keeps an explicitly configured remote host while following a runtime
+  /// port change reported by the backend.
+  void syncPort(int port) {
+    if (port <= 0) return;
+    final current = Uri.tryParse(baseUrl);
+    if (current == null || !current.hasScheme || current.host.isEmpty) return;
+    try {
+      baseUrl = current.replace(port: port).toString();
+    } catch (_) {
+      // Keep the existing URL when it cannot be safely rewritten.
+    }
+  }
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
@@ -65,11 +78,18 @@ class ApiClient {
         // Leave null; the error path below falls back to a generic message.
       }
     }
-    if (response.statusCode >= 400) {
+    // A few legacy routes return an error object with HTTP 200. Treat the
+    // same payload as a failed request so callers cannot render it as data.
+    if (response.statusCode >= 400 || _isErrorPayload(json)) {
       throw ApiException(_errorMessage(json, path), response.statusCode);
     }
     return json;
   }
+
+  bool _isErrorPayload(dynamic json) =>
+      json is Map &&
+      json['error'] is String &&
+      (json['error'] as String).trim().isNotEmpty;
 
   String _errorMessage(dynamic json, String path) {
     if (json is Map) {
@@ -77,6 +97,7 @@ class ApiClient {
       final problem = map['detail'];
       final openAi = map['error'];
       if (problem is String && problem.isNotEmpty) return '$path: $problem';
+      if (openAi is String && openAi.isNotEmpty) return '$path: $openAi';
       if (openAi is Map) {
         final message = openAi['message'];
         if (message is String && message.isNotEmpty) return '$path: $message';

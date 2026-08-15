@@ -42,30 +42,11 @@ android {
         }
     }
 
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDir("../../../tools/mnn_3.6.1_android_armv7_armv8_cpu_opencl_vulkan")
-        }
-    }
-
     packaging {
         resources {
             excludes += listOf(
                 "META-INF/INDEX.LIST",
                 "META-INF/io.netty.versions.properties",
-            )
-        }
-        jniLibs {
-            pickFirsts += listOf(
-                "**/libc++_shared.so",
-                "**/libMNN.so",
-                "**/libMNN_Express.so",
-                "**/libMNN_Vulkan.so",
-                "**/libMNN_CL.so",
-                "**/libMNNOpenCV.so",
-                "**/libMNNAudio.so",
-                "**/libmnncore.so",
-                "**/libllm.so",
             )
         }
     }

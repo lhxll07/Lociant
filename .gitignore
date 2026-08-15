@@ -30,12 +30,7 @@ __pycache__/
 node_modules/
 
 # Large model files (too big for git)
-models/Qwen3.5-2B-MNN/
-models/Qwen3.5-2B-MNN.zip
-models/Qwen3.5-4B-MNN/
-models/Qwen3.5-4B-MNN.zip
-models/Qwen3___5-4B-Claude-4___6-Opus-Reasoning-Distilled-MNN/
-models/Qwen3___5-4B-Claude-4___6-Opus-Reasoning-Distilled-MNN.zip
+models/**/*.gguf
 
 # Distribution builds (pre-built APKs and scene packs)
 dist/
@@ -44,3 +39,4 @@ dist/
 # Temporary files
 *.tmp
 *.log
+tools/llama-android/

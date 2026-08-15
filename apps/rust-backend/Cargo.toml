@@ -4,7 +4,6 @@ members = [
     "crates/core",
     "crates/store",
     "crates/tools",
-    "crates/agent",
     "crates/rkllm",
     "crates/server",
     "crates/tui",

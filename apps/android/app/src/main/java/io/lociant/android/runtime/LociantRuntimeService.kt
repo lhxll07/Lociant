@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -36,6 +38,7 @@ class LociantRuntimeService : Service(), LifecycleOwner {
 
     override fun onCreate() {
         super.onCreate()
+        active = true
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         ensureChannel()
     }
@@ -53,6 +56,7 @@ class LociantRuntimeService : Service(), LifecycleOwner {
     }
 
     override fun onDestroy() {
+        active = false
         runtimeWindow().hide()
         deviceAdapter?.stop()
         deviceAdapter = null
@@ -206,6 +210,7 @@ class LociantRuntimeService : Service(), LifecycleOwner {
     }
 
     companion object {
+        @Volatile private var active = false
         private const val CHANNEL_ID = "lociant_runtime"
         private const val NOTIFICATION_ID = 1001
         private const val EXTRA_PAYLOAD = "payload"
@@ -213,6 +218,8 @@ class LociantRuntimeService : Service(), LifecycleOwner {
         private const val MODE_HEADLESS = "headless"
         private const val ACTION_START_RUNTIME = "io.lociant.android.runtime.START_RUNTIME"
         private const val ACTION_STOP_RUNTIME = "io.lociant.android.runtime.STOP_RUNTIME"
+
+        fun isActive(): Boolean = active
 
         fun startRuntime(context: Context, payload: JSONObject = JSONObject()) {
             val intent = Intent(context, LociantRuntimeService::class.java)
@@ -223,6 +230,11 @@ class LociantRuntimeService : Service(), LifecycleOwner {
 
         fun stopRuntime(context: Context) {
             context.startService(Intent(context, LociantRuntimeService::class.java).setAction(ACTION_STOP_RUNTIME))
+        }
+
+        fun restartRuntime(context: Context, payload: JSONObject = JSONObject()) {
+            stopRuntime(context)
+            Handler(Looper.getMainLooper()).postDelayed({ startRuntime(context, payload) }, 500L)
         }
 
         fun showFloatingWindow(context: Context): JSONObject =

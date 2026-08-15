@@ -1,11 +1,7 @@
 package io.lociant.android.runtime
 
 import android.util.Log
-import io.lociant.core.tools.ToolExposure
 import io.lociant.android.server.LociantServer
-import io.lociant.android.server.ModelApiMapper
-import io.lociant.core.model.ModelChatResult
-import io.lociant.core.model.ModelToolCall
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -18,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Exposes the Kotlin device-layer tools (accessibility, sensors, window,
- * camera, local inference) to the Rust server over a localhost TCP JSON
+ * camera and model inventory) to the Rust server over a localhost TCP JSON
  * request/response protocol:
  *
  *   {"token": "…", "method": "tools.list"}
@@ -69,11 +65,11 @@ class DeviceAdapterServer(
     }
 
     private fun handle(client: java.net.Socket) {
-        // Chat generation can take minutes; one daemon thread per connection
-        // keeps tools.list responsive while a model is running.
+        // Device operations can block on Android APIs; one daemon thread per
+        // connection keeps discovery responsive while an operation is running.
         Thread {
             try {
-                // Long read timeout for chat streams; short requests finish early.
+                // Allow slow camera and device operations to finish.
                 client.soTimeout = 600_000
                 val request = JSONObject(
                     BufferedReader(InputStreamReader(client.getInputStream())).readLine() ?: return@Thread
@@ -83,18 +79,23 @@ class DeviceAdapterServer(
                         respond(client, JSONObject().put("ok", false).put("error", "unauthorized"))
                     request.optString("method") == "tools.list" ->
                         respond(client, JSONObject().put("ok", true)
-                            .put("tools", server.toolRegistry().definitions(ToolExposure.Action)))
+                            .put("tools", server.toolRegistry().definitions()))
                     request.optString("method") == "tools.call" ->
                         respond(client, server.toolRegistry().call(
                             name = request.optString("name"),
                             args = request.optJSONObject("arguments") ?: JSONObject(),
-                            exposure = ToolExposure.Action,
                         ))
                     request.optString("method") == "models.list" ->
                         respond(client, JSONObject().put("ok", true)
                             .put("models", JSONArray(server.modelManager().listModelsJson(refresh = false))))
-                    request.optString("method") == "chat.invoke" ->
-                        handleChat(client, request)
+                    request.optString("method") == "models.invalidate" -> {
+                        server.modelManager().invalidateCache()
+                        respond(client, JSONObject().put("ok", true))
+                    }
+                    request.optString("method") == "settings.sync" -> {
+                        server.applyRuntimeSettings(request.optJSONObject("settings") ?: JSONObject())
+                        respond(client, JSONObject().put("ok", true))
+                    }
                     else -> respond(client, JSONObject().put("ok", false).put("error", "unknown method"))
                 }
             } catch (error: Throwable) {
@@ -105,56 +106,6 @@ class DeviceAdapterServer(
         }.apply {
             isDaemon = true
             start()
-        }
-    }
-
-    private fun handleChat(client: java.net.Socket, request: JSONObject) {
-        val out = client.getOutputStream()
-        fun emit(payload: JSONObject) {
-            out.write((payload.toString() + "\n").toByteArray())
-            out.flush()
-        }
-        val body = request.optJSONObject("request")
-        if (body == null) {
-            emit(JSONObject().put("type", "done").put("ok", false).put("message", "missing request"))
-            return
-        }
-        val chatRequest = ModelApiMapper.parseOpenAiChat(body.toString())
-        emit(JSONObject().put("type", "start"))
-        val result: ModelChatResult = server.chatController().streamOneTurn(
-            request = chatRequest,
-            onChunk = { text, _ ->
-                if (text.isNotEmpty()) emit(JSONObject().put("type", "chunk").put("text", text))
-            },
-            onReasoning = { reasoning, _ ->
-                if (reasoning.isNotEmpty()) {
-                    emit(JSONObject().put("type", "reasoning").put("text", reasoning))
-                }
-            },
-            onToolCall = { call: ModelToolCall ->
-                emit(JSONObject()
-                    .put("type", "tool_call")
-                    .put("id", call.id)
-                    .put("name", call.name)
-                    .put("arguments", call.arguments))
-            },
-        )
-        if (result.ok) {
-            val calls = JSONArray(result.toolCalls.map { call ->
-                JSONObject().put("id", call.id).put("name", call.name).put("arguments", call.arguments)
-            })
-            emit(JSONObject()
-                .put("type", "done")
-                .put("ok", true)
-                .put("text", result.text)
-                .put("reasoning", result.reasoning)
-                .put("toolCalls", calls)
-                .put("usage", JSONObject()
-                    .put("prompt_tokens", result.promptTokens)
-                    .put("completion_tokens", result.generatedTokens)
-                    .put("total_tokens", result.totalTokens)))
-        } else {
-            emit(JSONObject().put("type", "done").put("ok", false).put("message", result.message))
         }
     }
 

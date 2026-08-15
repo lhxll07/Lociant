@@ -1,5 +1,5 @@
 [Unit]
-Description=Lociant headless agent node
+Description=Lociant headless edge runtime
 After=network-online.target
 Wants=network-online.target
 

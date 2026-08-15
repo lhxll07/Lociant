@@ -16,7 +16,7 @@ abstract class PlatformService {
   Stream<Map<String, dynamic>> events();
 }
 
-/// Talks to the local Rust backend over HTTP. Runtime/session operations map
+/// Talks to the local Rust backend over HTTP. Runtime operations map
 /// to `/api/v1` resources; Android-only operations (permissions, floating
 /// window, vision, lifecycle) are no-ops returning the current state, since
 /// on desktop the server is always the runtime.
@@ -33,20 +33,6 @@ class HttpPlatformService implements PlatformService {
     switch (method) {
       case 'runtimeState':
         return _map(await api.get('/api/v1/runtime'));
-      case 'createSession':
-        return _map(await api.post('/api/v1/sessions', payload));
-      case 'selectSession':
-        final id = payload?['sessionId'] as String? ?? '';
-        await api.put('/api/v1/settings', {'currentSessionId': id});
-        return _map(await api.get('/api/v1/runtime'));
-      case 'deleteSession':
-        final id = payload?['sessionId'] as String? ?? '';
-        await api.delete('/api/v1/sessions/$id');
-        return _map(await api.get('/api/v1/runtime'));
-      case 'sessionDetails':
-        final id = payload?['sessionId'] as String? ?? '';
-        final details = _map(await api.get('/api/v1/sessions/$id'));
-        return {'session': details};
       case 'updateRuntimeSettings':
         return _map(await api.put('/api/v1/settings', payload));
       case 'releaseRuntimeModel':
@@ -60,6 +46,7 @@ class HttpPlatformService implements PlatformService {
       case 'updateRuntimeWindow':
       case 'requestCameraPermission':
       case 'requestNotificationPermission':
+      case 'requestSensorPermission':
       case 'requestOverlayPermission':
       case 'requestBatteryOptimizationExemption':
       case 'requestAccessibilityPermission':
@@ -80,7 +67,7 @@ class HttpPlatformService implements PlatformService {
       value is Map<String, dynamic> ? value : const {};
 }
 
-/// Android hybrid: core server state (runtime, sessions, settings, models)
+/// Android hybrid: core server state (runtime, settings, models)
 /// comes from the Rust backend over HTTP; Android-only operations
 /// (lifecycle, permissions, floating window, vision, file import) still go to
 /// the Kotlin host through the method channel.
@@ -101,6 +88,7 @@ class AndroidPlatformService extends HttpPlatformService {
     'updateRuntimeWindow',
     'requestCameraPermission',
     'requestNotificationPermission',
+    'requestSensorPermission',
     'requestOverlayPermission',
     'requestBatteryOptimizationExemption',
     'requestAccessibilityPermission',

@@ -1,7 +1,8 @@
 {
   "authToken": "change-me",
-  "cloudEnabled": false,
-  "cloudBaseUrl": "https://api.openai.com/v1",
-  "cloudApiKey": "",
-  "cloudModel": ""
+  "host": "127.0.0.1",
+  "port": 11434,
+  "peerToken": "",
+  "peerDiscovery": true,
+  "toolExposure": "action"
 }
