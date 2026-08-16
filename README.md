@@ -4,9 +4,9 @@
 
 # Lociant
 
-### Turn an old Android phone into a local edge device
+### A local runtime for overlooked edge devices
 
-*Run models and device capabilities where the hardware is.*
+*Local execution for the devices between cloud and desktop.*
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/lhxll07/Lociant.svg?style=social&label=Star)](https://github.com/lhxll07/Lociant)
@@ -15,26 +15,30 @@
 
 </div>
 
-Lociant is a local edge runtime built around old Android phones. It runs local
-GGUF models, exposes hardware-backed capabilities, reports runtime state, and
-connects nearby Lociant nodes over an authenticated LAN. Linux desktops and
-Rockchip boards can join the same system as control consoles, compute nodes, or
-headless edge nodes.
+Lociant is a local runtime for low-power, always-on devices close to the
+physical world. It turns phones, boards, and small Linux systems into
+controlled edge nodes: local models, hardware-backed capabilities, runtime
+state, and authenticated LAN connections stay with the device. Cloud services
+and desktop clients can use these nodes through MCP or the control API, while
+execution and policy remain at the edge.
 
 Lociant is not a chat client and does not run a general-purpose Agent loop.
-External clients may use MCP or the control API to orchestrate individual
-capability calls, while execution and policy remain on the device that owns the
-hardware.
+Cloud or desktop clients may orchestrate individual capability calls, while
+the edge node owns execution, permissions, and lifecycle.
 
 ## The core idea
 
-- **Give old hardware a useful role.** A phone can become a local model host,
-  a screen and accessibility node, a sensor and camera node, or a combination
-  of all four.
-- **Keep execution local.** GGUF inference and device operations stay on the
-  owning device instead of passing through a hosted chatbot or cloud service.
-- **Connect devices without centralizing them.** Phones, desktops, and boards
-  can share model inventory and selected tools across a trusted LAN.
+- **Make overlooked hardware useful at the edge.** Phones, boards, and small
+  Linux systems can become local model hosts and physical-world capability
+  nodes.
+- **Keep execution close to hardware.** Local inference, sensor reads, and
+  device operations stay on the node instead of requiring a round trip to a
+  cloud service.
+- **Let larger systems do what they do best.** Cloud services and desktop
+  clients can provide heavy compute or orchestration; Lociant handles local
+  execution and policy.
+- **Connect heterogeneous nodes.** Different edge devices can share selected
+  models and tools across a trusted LAN without centralizing execution.
 - **Make the boundary explicit.** Tool exposure levels and remote-call policy
   are checked by the runtime before a capability runs.
 
@@ -42,27 +46,28 @@ hardware.
 
 | Capability | Examples |
 |---|---|
-| Local models | Import GGUF models and run them with llama.cpp on the device |
-| Phone tools | Read the screen, tap and type through accessibility, open apps |
-| Device sensing | Read sensors and capture camera frames when permissions allow |
-| Local networking | Discover peers and expose selected models and tools over LAN |
-| External access | Connect through MCP Streamable HTTP or the control API |
+| Local models | Import GGUF models and run them with llama.cpp on the node |
+| Device tools | Use screen, accessibility, app, file, or process capabilities where supported |
+| Physical-world sensing | Read sensors and capture camera frames when permissions allow |
+| Edge networking | Discover nodes and expose selected models and tools over LAN |
+| External control | Connect through MCP Streamable HTTP or the control API |
 
 ## Supported roles
 
 | Device | Role | Runtime |
 |---|---|---|
-| Android phone | Primary device node and local model host | Flutter console + Rust backend + Kotlin device layer |
-| Linux desktop | Control console and filesystem/process node | Flutter console + bundled Rust backend |
+| Android phone | Full edge node for device capabilities and local models | Flutter console + Rust backend + Kotlin device layer |
 | Rockchip board | Low-power headless edge node | Rust service + RKLLM NPU runtime + terminal TUI |
+| Linux desktop | Controller and development host | Flutter console + bundled Rust backend |
 
-All roles use the same control API and MCP surface. The board can run without a
-graphical UI, and a desktop or phone can inspect and control another node over
-the LAN.
+Android phones and Rockchip boards are the primary edge targets. The Linux
+desktop provides a graphical controller and development host, and can also
+expose desktop capabilities. All roles use the same control API and MCP
+surface.
 
 ## Get started
 
-### Android phone (recommended)
+### Android phone (first edge target)
 
 1. Download and install the [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk).
 2. Open Lociant and complete the short setup flow. On Android 13+, allow
@@ -73,7 +78,7 @@ the LAN.
 4. Set an API token before exposing the runtime to a network you do not fully
    trust. The runtime starts with the app; its LAN address and copyable MCP/API
    endpoints are shown on the overview page.
-5. Import a `.gguf` model from **Models** when you want local inference.
+5. Import a `.gguf` model from **Models** when this node needs local inference.
 
 For Linux, headless boards, model formats, peer networking, and the complete
 permission matrix, see the **[setup guide](docs/setup-guide.md)**.
@@ -86,7 +91,7 @@ Current v2.0.1 packages:
 - [Debian desktop package (amd64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb)
 - [Debian headless node package (arm64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb)
 
-## Connect to a node
+## Connect to an edge node
 
 When the runtime is running, the Rust backend exposes one local HTTP surface on
 port `11434`:
@@ -113,10 +118,10 @@ MCP examples, API routes, and client configuration.
 
 ## Architecture
 
-The Rust backend owns the shared control plane, model inventory, peer
-networking, and tool policy. Android supplies capabilities that require the
-Android framework; Linux supplies desktop capabilities; headless boards run
-the backend directly.
+The Rust backend is the shared edge runtime core. Device layers supply
+platform-specific capabilities, while the control plane owns model inventory,
+peer networking, and tool policy. Headless boards run the backend directly;
+desktop and mobile UIs act as control consoles.
 
 ```text
 Flutter console (Android / Linux desktop)
@@ -171,10 +176,10 @@ the full toolchain and test commands.
 
 ## Scope
 
-Lociant stays focused on local models, device capabilities, controlled
-connections, and edge-node networking. Chat UI, a general-purpose Agent loop,
-NAS/file-server features, and dedicated monitoring applications are outside
-the core runtime.
+Lociant focuses on low-power, always-on edge devices close to the physical
+world: local execution, device capabilities, controlled connections, and
+node lifecycle. Chat UI, a general-purpose Agent loop, NAS/file-server
+features, and dedicated monitoring applications are outside the core runtime.
 
 ## License
 

@@ -30,7 +30,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesTitle => '节点';
 
   @override
-  String get nodesSubtitle => '局域网内的 Lociant 设备';
+  String get nodesSubtitle => '局域网内的 Lociant 边缘节点';
 
   @override
   String get nodesRefresh => '刷新';
@@ -90,7 +90,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesGuideTitle => '让设备们互联';
 
   @override
-  String get nodesGuideBody => '手机、电脑、开发板配置相同的节点令牌，在同一局域网内会自动互相发现，互借模型和工具。';
+  String get nodesGuideBody =>
+      '手机、开发板和其他 Lociant 节点配置相同的令牌后，可以在可信局域网内互相发现，并共享选定的模型和工具。';
 
   @override
   String get nodesGuideStep1 => '在每台设备的“设置 → 服务器”里填同一个节点令牌';
@@ -156,7 +157,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get edgeOverviewTitle => '边缘运行时';
 
   @override
-  String get edgeOverviewSubtitle => '这台设备的控制台';
+  String get edgeOverviewSubtitle => '这台边缘节点的本地控制台';
 
   @override
   String get edgeMetricModels => '模型';
@@ -295,33 +296,34 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get onboardingWelcomeBody =>
-      '让一台设备成为边缘运行时：运行本地模型、暴露设备工具、感知环境，并通过受控 API 与 MCP 接入。';
+      '让被忽视的设备成为边缘节点：运行本地模型、暴露硬件能力，并通过受控 API 或 MCP 接入。';
 
   @override
-  String get onboardingLocalTitle => '准备本地模型';
+  String get onboardingLocalTitle => '补充本地算力';
 
   @override
-  String get onboardingLocalBody => '在“模型”中导入或安装本地模型，让设备在边缘侧完成推理。';
+  String get onboardingLocalBody => '节点需要本地推理时，在“模型”中导入 GGUF。设备工具不依赖本地模型也可以运行。';
 
   @override
-  String get onboardingPermissionTitle => '启用设备能力';
+  String get onboardingPermissionTitle => '启用硬件能力';
 
   @override
   String get onboardingPermissionBody =>
-      '在“设置”里开启权限：无障碍提供屏幕和界面工具；通知保持运行时存活；相机用于视觉；电池设为“不限制”以保证后台稳定运行。';
+      '只授予这台节点需要的权限。Android 权限可以启用屏幕、相机、传感器和后台能力；其他平台提供各自的工具。';
 
   @override
-  String get onboardingNodesTitle => '把设备们连起来';
+  String get onboardingNodesTitle => '连接边缘节点';
 
   @override
   String get onboardingNodesBody =>
-      '手机、电脑、开发板在同一局域网并配置相同的节点令牌后，会自动互相发现。在“节点”页查看设备、互借模型和工具——比如手机直接用板子上的 RKLLM 模型。';
+      '使用相同的节点令牌，把手机、开发板和其他 Lociant 节点接入可信局域网。桌面端可以查看和控制它们。';
 
   @override
   String get onboardingReadyTitle => '准备就绪';
 
   @override
-  String get onboardingReadyBody => '从概览启动运行时，检查可用工具，并通过控制 API 或 MCP 接入外部客户端。';
+  String get onboardingReadyBody =>
+      '启动运行时，检查这台节点的能力，再通过控制 API 或 MCP 接入桌面或云端客户端。';
 
   @override
   String get settingsOnboardingTitle => '新手引导';
@@ -357,7 +359,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get modelsTitle => '模型';
 
   @override
-  String get modelsSubtitle => '安装、选择和管理本地推理';
+  String get modelsSubtitle => '管理可选的本地推理';
 
   @override
   String get modelsLocalTitle => '本地模型';
@@ -616,13 +618,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAboutBody =>
-      'Lociant 将手机、电脑和开发板变成边缘运行时，用于运行本地模型、控制设备能力，并提供受控连接。';
+      'Lociant 是面向低算力、常驻、靠近物理世界设备的本地运行时，提供本地执行、硬件能力和受控连接。';
 
   @override
   String get settingsAboutRuntime => '边缘运行时';
 
   @override
-  String get settingsAboutRuntimeSub => '本地模型推理与设备能力控制';
+  String get settingsAboutRuntimeSub => '本地执行与硬件能力控制';
 
   @override
   String get settingsAutoStart => '开机启动';

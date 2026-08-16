@@ -30,7 +30,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodesTitle => 'Nodes';
 
   @override
-  String get nodesSubtitle => 'Lociant devices on your LAN';
+  String get nodesSubtitle => 'Lociant edge nodes on your LAN';
 
   @override
   String get nodesRefresh => 'Refresh';
@@ -95,7 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodesGuideBody =>
-      'Give your phone, desktop and board the same node token; on the same LAN they discover each other automatically and share models and tools.';
+      'Give your phones, boards and other Lociant nodes the same token; on a trusted LAN they discover each other and share selected models and tools.';
 
   @override
   String get nodesGuideStep1 =>
@@ -165,7 +165,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get edgeOverviewTitle => 'Edge runtime';
 
   @override
-  String get edgeOverviewSubtitle => 'Control plane for this device';
+  String get edgeOverviewSubtitle => 'Local control for this edge node';
 
   @override
   String get edgeMetricModels => 'Models';
@@ -307,35 +307,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingWelcomeBody =>
-      'Turn any device into an edge runtime that runs local models, exposes device tools and senses its environment through a controlled API and MCP.';
+      'Give an overlooked device a useful role at the edge: run local models, expose hardware capabilities and connect through a controlled API or MCP.';
 
   @override
-  String get onboardingLocalTitle => 'Prepare a local model';
+  String get onboardingLocalTitle => 'Add local compute';
 
   @override
   String get onboardingLocalBody =>
-      'Import or install a local model under Models so inference stays on the edge device.';
+      'Import a GGUF model under Models when this node needs local inference. Device tools can run without a local model.';
 
   @override
-  String get onboardingPermissionTitle => 'Enable device capabilities';
+  String get onboardingPermissionTitle => 'Enable hardware capabilities';
 
   @override
   String get onboardingPermissionBody =>
-      'Enable permissions in Settings: accessibility provides screen and UI tools; notifications keep the runtime alive; camera powers vision; set battery to unrestricted for reliable background operation.';
+      'Grant only what this node needs. Android permissions unlock screen, camera, sensor and background capabilities; other platforms expose their own tools.';
 
   @override
-  String get onboardingNodesTitle => 'Connect your devices';
+  String get onboardingNodesTitle => 'Connect edge nodes';
 
   @override
   String get onboardingNodesBody =>
-      'Phones, desktops and boards on the same LAN with the same node token discover each other automatically. Use the Nodes page to view devices and share models and tools — e.g. let your phone use the RKLLM model running on the board.';
+      'Use a shared node token to connect phones, boards and other Lociant nodes on a trusted LAN. The desktop can inspect and control them.';
 
   @override
   String get onboardingReadyTitle => 'Ready';
 
   @override
   String get onboardingReadyBody =>
-      'Start the runtime from the overview, inspect the available tools and connect external clients through the control API or MCP.';
+      'Start the runtime, verify this node\'s capabilities and connect a desktop or cloud client through the control API or MCP.';
 
   @override
   String get settingsOnboardingTitle => 'Onboarding';
@@ -372,7 +372,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get modelsTitle => 'Models';
 
   @override
-  String get modelsSubtitle => 'Install, select and manage local inference';
+  String get modelsSubtitle => 'Manage optional local inference';
 
   @override
   String get modelsLocalTitle => 'Local models';
@@ -637,14 +637,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAboutBody =>
-      'Lociant turns phones, desktops and boards into edge runtimes for local models, device tools and controlled connections.';
+      'Lociant is a local runtime for low-power, always-on devices close to the physical world. It provides local execution, hardware capabilities and controlled connections.';
 
   @override
   String get settingsAboutRuntime => 'Edge runtime';
 
   @override
   String get settingsAboutRuntimeSub =>
-      'Local model inference and device capability control';
+      'Local execution and hardware capability control';
 
   @override
   String get settingsAutoStart => 'Start on boot';

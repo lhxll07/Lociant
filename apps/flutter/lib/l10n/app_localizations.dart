@@ -143,7 +143,7 @@ abstract class AppLocalizations {
   /// No description provided for @nodesSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Lociant devices on your LAN'**
+  /// **'Lociant edge nodes on your LAN'**
   String get nodesSubtitle;
 
   /// No description provided for @nodesRefresh.
@@ -263,7 +263,7 @@ abstract class AppLocalizations {
   /// No description provided for @nodesGuideBody.
   ///
   /// In en, this message translates to:
-  /// **'Give your phone, desktop and board the same node token; on the same LAN they discover each other automatically and share models and tools.'**
+  /// **'Give your phones, boards and other Lociant nodes the same token; on a trusted LAN they discover each other and share selected models and tools.'**
   String get nodesGuideBody;
 
   /// No description provided for @nodesGuideStep1.
@@ -389,7 +389,7 @@ abstract class AppLocalizations {
   /// No description provided for @edgeOverviewSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Control plane for this device'**
+  /// **'Local control for this edge node'**
   String get edgeOverviewSubtitle;
 
   /// No description provided for @edgeMetricModels.
@@ -665,43 +665,43 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingWelcomeBody.
   ///
   /// In en, this message translates to:
-  /// **'Turn any device into an edge runtime that runs local models, exposes device tools and senses its environment through a controlled API and MCP.'**
+  /// **'Give an overlooked device a useful role at the edge: run local models, expose hardware capabilities and connect through a controlled API or MCP.'**
   String get onboardingWelcomeBody;
 
   /// No description provided for @onboardingLocalTitle.
   ///
   /// In en, this message translates to:
-  /// **'Prepare a local model'**
+  /// **'Add local compute'**
   String get onboardingLocalTitle;
 
   /// No description provided for @onboardingLocalBody.
   ///
   /// In en, this message translates to:
-  /// **'Import or install a local model under Models so inference stays on the edge device.'**
+  /// **'Import a GGUF model under Models when this node needs local inference. Device tools can run without a local model.'**
   String get onboardingLocalBody;
 
   /// No description provided for @onboardingPermissionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Enable device capabilities'**
+  /// **'Enable hardware capabilities'**
   String get onboardingPermissionTitle;
 
   /// No description provided for @onboardingPermissionBody.
   ///
   /// In en, this message translates to:
-  /// **'Enable permissions in Settings: accessibility provides screen and UI tools; notifications keep the runtime alive; camera powers vision; set battery to unrestricted for reliable background operation.'**
+  /// **'Grant only what this node needs. Android permissions unlock screen, camera, sensor and background capabilities; other platforms expose their own tools.'**
   String get onboardingPermissionBody;
 
   /// No description provided for @onboardingNodesTitle.
   ///
   /// In en, this message translates to:
-  /// **'Connect your devices'**
+  /// **'Connect edge nodes'**
   String get onboardingNodesTitle;
 
   /// No description provided for @onboardingNodesBody.
   ///
   /// In en, this message translates to:
-  /// **'Phones, desktops and boards on the same LAN with the same node token discover each other automatically. Use the Nodes page to view devices and share models and tools — e.g. let your phone use the RKLLM model running on the board.'**
+  /// **'Use a shared node token to connect phones, boards and other Lociant nodes on a trusted LAN. The desktop can inspect and control them.'**
   String get onboardingNodesBody;
 
   /// No description provided for @onboardingReadyTitle.
@@ -713,7 +713,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingReadyBody.
   ///
   /// In en, this message translates to:
-  /// **'Start the runtime from the overview, inspect the available tools and connect external clients through the control API or MCP.'**
+  /// **'Start the runtime, verify this node\'s capabilities and connect a desktop or cloud client through the control API or MCP.'**
   String get onboardingReadyBody;
 
   /// No description provided for @settingsOnboardingTitle.
@@ -785,7 +785,7 @@ abstract class AppLocalizations {
   /// No description provided for @modelsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Install, select and manage local inference'**
+  /// **'Manage optional local inference'**
   String get modelsSubtitle;
 
   /// No description provided for @modelsLocalTitle.
@@ -1289,7 +1289,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAboutBody.
   ///
   /// In en, this message translates to:
-  /// **'Lociant turns phones, desktops and boards into edge runtimes for local models, device tools and controlled connections.'**
+  /// **'Lociant is a local runtime for low-power, always-on devices close to the physical world. It provides local execution, hardware capabilities and controlled connections.'**
   String get settingsAboutBody;
 
   /// No description provided for @settingsAboutRuntime.
@@ -1301,7 +1301,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAboutRuntimeSub.
   ///
   /// In en, this message translates to:
-  /// **'Local model inference and device capability control'**
+  /// **'Local execution and hardware capability control'**
   String get settingsAboutRuntimeSub;
 
   /// No description provided for @settingsAutoStart.
