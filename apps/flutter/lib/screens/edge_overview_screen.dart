@@ -84,93 +84,88 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
             children: [
-              _RuntimePanel(
-                state: state,
-                title: l10n.edgeOverviewTitle,
-                subtitle: l10n.edgeOverviewSubtitle,
-                onRefresh: _loading ? null : _refresh,
-              ),
-              const SizedBox(height: 14),
-              _MetricGrid(
-                modelCount: _modelCount,
-                nodeCount: _nodeCount,
-                toolCount: _tools.length,
-                state: state,
-                l10n: l10n,
-                onModels: () => _openTab(1),
-                onNodes: () => _openTab(2),
-              ),
-              const SizedBox(height: 24),
-              _SectionTitle(
-                title: l10n.edgeNodesTitle,
-                action: TextButton.icon(
-                  onPressed: () => _openTab(2),
-                  icon: const Icon(Icons.arrow_forward_outlined, size: 17),
-                  label: Text(l10n.edgeViewAll),
-                ),
-              ),
-              const SizedBox(height: 4),
-              if (_nodes.isEmpty)
-                _InlineMessage(message: l10n.edgeNodesEmpty)
-              else
-                _NodeSummary(nodes: _nodes, onOpen: () => _openTab(2)),
-              const SizedBox(height: 22),
-              _SectionTitle(
-                title: l10n.edgeEndpointsTitle,
-                action: IconButton(
-                  tooltip: l10n.commonCopy,
-                  icon: const Icon(Icons.copy_outlined, size: 19),
-                  onPressed: () => _copy('$lan/api/v1'),
-                ),
-              ),
-              _EndpointRow(label: l10n.edgeControlApi, value: '$lan/api/v1'),
-              _EndpointRow(label: l10n.connectionMcpUrl, value: '$lan/mcp'),
-              _EndpointRow(
-                label: l10n.connectionAuthHeader,
-                value: runtime.api.authToken.isEmpty
-                    ? l10n.connectionAuthDisabled
-                    : l10n.connectionAuthHeaderValue(runtime.api.authToken),
-              ),
-              const SizedBox(height: 24),
-              _SectionTitle(
-                title: l10n.edgeToolsTitle,
-                action: TextButton.icon(
-                  onPressed: () => _openTab(3),
-                  icon: const Icon(Icons.settings_outlined, size: 17),
-                  label: Text(l10n.edgeOpenSettings),
-                ),
-              ),
-              if (_error != null)
-                _InlineMessage(
-                  message: _error!,
-                  action: TextButton(
-                    onPressed: _refresh,
-                    child: Text(l10n.commonRefresh),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 920),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _RuntimePanel(
+                        state: state,
+                        title: l10n.edgeOverviewTitle,
+                        subtitle: l10n.edgeOverviewSubtitle,
+                        onRefresh: _loading ? null : _refresh,
+                      ),
+                      const SizedBox(height: 12),
+                      _StatsStrip(
+                        modelCount: _modelCount,
+                        nodeCount: _nodeCount,
+                        toolCount: _tools.length,
+                        onModels: () => _openTab(1),
+                        onNodes: () => _openTab(2),
+                      ),
+                      const SizedBox(height: 26),
+                      _SectionHeader(
+                        icon: Icons.hub_outlined,
+                        title: l10n.edgeNodesTitle,
+                        action: TextButton.icon(
+                          onPressed: () => _openTab(2),
+                          icon: const Icon(
+                            Icons.arrow_forward_outlined,
+                            size: 17,
+                          ),
+                          label: Text(l10n.edgeViewAll),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_nodes.isEmpty)
+                        _InlineMessage(message: l10n.edgeNodesEmpty)
+                      else
+                        _OverviewNodeGrid(
+                          nodes: _nodes,
+                          onOpen: () => _openTab(2),
+                        ),
+                      const SizedBox(height: 26),
+                      _SectionHeader(
+                        icon: Icons.link_outlined,
+                        title: l10n.edgeEndpointsTitle,
+                      ),
+                      const SizedBox(height: 10),
+                      _EndpointPanel(
+                        apiUrl: '$lan/api/v1',
+                        mcpUrl: '$lan/mcp',
+                        authHeader: runtime.api.authToken.isEmpty
+                            ? l10n.connectionAuthDisabled
+                            : l10n.connectionAuthHeaderValue(
+                                runtime.api.authToken,
+                              ),
+                        authEnabled: runtime.api.authToken.isNotEmpty,
+                        onCopy: _copy,
+                      ),
+                      const SizedBox(height: 26),
+                      _SectionHeader(
+                        icon: Icons.build_outlined,
+                        title: l10n.edgeToolsTitle,
+                        action: TextButton.icon(
+                          onPressed: () => _openTab(3),
+                          icon: const Icon(Icons.settings_outlined, size: 17),
+                          label: Text(l10n.edgeOpenSettings),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_error != null)
+                        _InlineMessage(
+                          message: _error!,
+                          action: TextButton(
+                            onPressed: _refresh,
+                            child: Text(l10n.commonRefresh),
+                          ),
+                        )
+                      else
+                        _ToolsOverview(tools: _tools),
+                    ],
                   ),
-                )
-              else if (_tools.isEmpty)
-                _InlineMessage(message: l10n.edgeToolsEmpty)
-              else
-                _ToolsList(tools: _tools),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openTab(1),
-                      icon: const Icon(Icons.memory_outlined),
-                      label: Text(l10n.edgeOpenModels),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openTab(2),
-                      icon: const Icon(Icons.hub_outlined),
-                      label: Text(l10n.edgeOpenNodes),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -206,8 +201,9 @@ class _RuntimePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -241,14 +237,16 @@ class _OverviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final active = state?.running == true;
     final starting = state?.starting == true;
+    final l10n = AppLocalizations.of(context)!;
     final statusText = starting
-        ? AppLocalizations.of(context)!.statusStarting
+        ? l10n.statusStarting
         : active
-        ? AppLocalizations.of(context)!.statusRunning
-        : AppLocalizations.of(context)!.statusStopped;
+        ? l10n.statusRunning
+        : l10n.statusStopped;
     final statusColor = starting
         ? context.status.warning
         : active
@@ -261,13 +259,14 @@ class _OverviewHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 48,
-          height: 48,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(14),
+            color: statusColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: statusColor.withValues(alpha: 0.24)),
           ),
-          child: Icon(Icons.router_outlined, color: colorScheme.primary),
+          child: Icon(Icons.router_outlined, color: statusColor, size: 25),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -276,61 +275,82 @@ class _OverviewHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    statusText,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (message.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        message,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _RuntimeStatusBadge(
+                  text: statusText,
+                  color: statusColor,
+                ),
               ),
+              if (message.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         IconButton(
-          tooltip: AppLocalizations.of(context)!.commonRefresh,
+          tooltip: l10n.commonRefresh,
           icon: const Icon(Icons.refresh),
           onPressed: onRefresh,
           visualDensity: VisualDensity.compact,
         ),
       ],
+    );
+  }
+}
+
+class _RuntimeStatusBadge extends StatelessWidget {
+  const _RuntimeStatusBadge({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -374,7 +394,7 @@ class _RuntimeActions extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => homeShellKey.currentState?.switchTo(4),
+            onPressed: () => homeShellKey.currentState?.switchTo(3),
             icon: const Icon(Icons.tune_outlined),
             label: Text(l10n.navSettings),
           ),
@@ -384,13 +404,11 @@ class _RuntimeActions extends StatelessWidget {
   }
 }
 
-class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({
+class _StatsStrip extends StatelessWidget {
+  const _StatsStrip({
     required this.modelCount,
     required this.nodeCount,
     required this.toolCount,
-    required this.state,
-    required this.l10n,
     required this.onModels,
     required this.onNodes,
   });
@@ -398,57 +416,51 @@ class _MetricGrid extends StatelessWidget {
   final int modelCount;
   final int nodeCount;
   final int toolCount;
-  final RuntimeUiState? state;
-  final AppLocalizations l10n;
   final VoidCallback onModels;
   final VoidCallback onNodes;
 
   @override
   Widget build(BuildContext context) {
-    final status = state?.starting == true
-        ? l10n.statusStarting
-        : state?.running == true
-        ? l10n.statusRunning
-        : l10n.statusStopped;
-    return GridView(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 78,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 88,
+        child: Row(
+          children: [
+            Expanded(
+              child: _StatItem(
+                icon: Icons.memory_outlined,
+                label: AppLocalizations.of(context)!.edgeMetricModels,
+                value: '$modelCount',
+                onTap: onModels,
+              ),
+            ),
+            const _StatsDivider(),
+            Expanded(
+              child: _StatItem(
+                icon: Icons.hub_outlined,
+                label: AppLocalizations.of(context)!.edgeMetricNodes,
+                value: '$nodeCount',
+                onTap: onNodes,
+              ),
+            ),
+            const _StatsDivider(),
+            Expanded(
+              child: _StatItem(
+                icon: Icons.build_outlined,
+                label: AppLocalizations.of(context)!.edgeMetricTools,
+                value: '$toolCount',
+              ),
+            ),
+          ],
+        ),
       ),
-      children: [
-        _MetricTile(
-          icon: Icons.memory_outlined,
-          label: l10n.edgeMetricModels,
-          value: '$modelCount',
-          onTap: onModels,
-        ),
-        _MetricTile(
-          icon: Icons.hub_outlined,
-          label: l10n.edgeMetricNodes,
-          value: '$nodeCount',
-          onTap: onNodes,
-        ),
-        _MetricTile(
-          icon: Icons.build_outlined,
-          label: l10n.edgeMetricTools,
-          value: '$toolCount',
-        ),
-        _MetricTile(
-          icon: Icons.power_settings_new_outlined,
-          label: l10n.edgeMetricStatus,
-          value: status,
-        ),
-      ],
     );
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
+class _StatItem extends StatelessWidget {
+  const _StatItem({
     required this.icon,
     required this.label,
     required this.value,
@@ -462,63 +474,65 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(11),
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 3),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: scheme.primary),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-                child: Icon(icon, size: 19, color: colorScheme.primary),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (onTap != null)
-                Icon(Icons.chevron_right, size: 19, color: colorScheme.outline),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, this.action});
+class _StatsDivider extends StatelessWidget {
+  const _StatsDivider();
 
+  @override
+  Widget build(BuildContext context) {
+    return VerticalDivider(
+      width: 1,
+      indent: 18,
+      endIndent: 18,
+      color: Theme.of(
+        context,
+      ).colorScheme.outlineVariant.withValues(alpha: 0.45),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.icon, required this.title, this.action});
+
+  final IconData icon;
   final String title;
   final Widget? action;
 
@@ -526,6 +540,22 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 17,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 9),
         Expanded(
           child: Text(
             title,
@@ -540,28 +570,39 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _NodeSummary extends StatelessWidget {
-  const _NodeSummary({required this.nodes, required this.onOpen});
+class _OverviewNodeGrid extends StatelessWidget {
+  const _OverviewNodeGrid({required this.nodes, required this.onOpen});
 
   final List<Map<String, dynamic>> nodes;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final visible = nodes.take(3).toList(growable: false);
-    return Column(
-      children: [
-        for (var i = 0; i < visible.length; i++) ...[
-          _NodeSummaryRow(node: visible[i], onTap: onOpen),
-          if (i < visible.length - 1) const Divider(height: 1),
-        ],
-      ],
+    final visible = nodes.take(2).toList(growable: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = visible.length > 1 ? 10.0 : 0.0;
+        final width = visible.length > 1
+            ? (constraints.maxWidth - gap) / 2
+            : constraints.maxWidth;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final node in visible)
+              SizedBox(
+                width: width,
+                child: _OverviewNodeCard(node: node, onTap: onOpen),
+              ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _NodeSummaryRow extends StatelessWidget {
-  const _NodeSummaryRow({required this.node, required this.onTap});
+class _OverviewNodeCard extends StatelessWidget {
+  const _OverviewNodeCard({required this.node, required this.onTap});
 
   final Map<String, dynamic> node;
   final VoidCallback onTap;
@@ -575,45 +616,92 @@ class _NodeSummaryRow extends StatelessWidget {
     final port = intOf(node, 'port');
     final online = boolOf(node, 'online');
     final isSelf = boolOf(node, 'self');
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 2),
-      leading: _NodeIcon(platform: str(node, 'platform')),
-      title: Text(
-        isSelf ? '$name · ${l10n.nodesSelf}' : name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        '$host:$port',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: online
-                  ? context.status.success
-                  : theme.colorScheme.outline,
-              shape: BoxShape.circle,
+    final platform = str(node, 'platform');
+    final endpoint = port > 0 ? '$host:$port' : host;
+    final statusColor = online
+        ? context.status.success
+        : theme.colorScheme.outline;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 154,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _NodeIcon(platform: platform),
+                    const Spacer(),
+                    _RuntimeStatusBadge(
+                      text: online ? l10n.nodesOnline : l10n.nodesOffline,
+                      color: statusColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 11),
+                SizedBox(
+                  height: 36,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isSelf
+                      ? l10n.nodesSelf
+                      : platform.isEmpty
+                      ? l10n.nodesDeviceOther
+                      : platform,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lan_outlined,
+                      size: 15,
+                      color: theme.colorScheme.outline,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        endpoint,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_outlined,
+                      size: 17,
+                      color: theme.colorScheme.outline,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            online ? l10n.nodesOnline : l10n.nodesOffline,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: online
-                  ? context.status.success
-                  : theme.colorScheme.outline,
-            ),
-          ),
-        ],
+        ),
       ),
-      onTap: onTap,
     );
   }
 }
@@ -630,10 +718,14 @@ class _NodeIcon extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: scheme.primaryContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(11),
       ),
-      child: Icon(_nodeIconForPlatform(platform), size: 20),
+      child: Icon(
+        _nodeIconForPlatform(platform),
+        size: 20,
+        color: scheme.primary,
+      ),
     );
   }
 }
@@ -659,33 +751,47 @@ IconData _nodeIconForPlatform(String platform) {
   return Icons.devices_other_outlined;
 }
 
-class _EndpointRow extends StatelessWidget {
-  const _EndpointRow({required this.label, required this.value});
+class _EndpointPanel extends StatelessWidget {
+  const _EndpointPanel({
+    required this.apiUrl,
+    required this.mcpUrl,
+    required this.authHeader,
+    required this.authEnabled,
+    required this.onCopy,
+  });
 
-  final String label;
-  final String value;
+  final String apiUrl;
+  final String mcpUrl;
+  final String authHeader;
+  final bool authEnabled;
+  final Future<void> Function(String value) onCopy;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final l10n = AppLocalizations.of(context)!;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
+          _EndpointRow(
+            icon: Icons.code_outlined,
+            label: l10n.edgeControlApi,
+            value: apiUrl,
+            onCopy: () => onCopy(apiUrl),
           ),
-          Expanded(
-            child: SelectableText(
-              value,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
+          const Divider(height: 1),
+          _EndpointRow(
+            icon: Icons.hub_outlined,
+            label: l10n.connectionMcpUrl,
+            value: mcpUrl,
+            onCopy: () => onCopy(mcpUrl),
+          ),
+          const Divider(height: 1),
+          _EndpointRow(
+            icon: Icons.key_outlined,
+            label: l10n.connectionAuthHeader,
+            value: authHeader,
+            onCopy: authEnabled ? () => onCopy(authHeader) : null,
           ),
         ],
       ),
@@ -693,84 +799,180 @@ class _EndpointRow extends StatelessWidget {
   }
 }
 
-class _ToolsList extends StatelessWidget {
-  const _ToolsList({required this.tools});
+class _EndpointRow extends StatelessWidget {
+  const _EndpointRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onCopy,
+  });
 
-  final List<Map<String, dynamic>> tools;
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onCopy;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 280),
-      child: ListView.separated(
-        shrinkWrap: true,
-        itemCount: tools.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final tool = tools[index];
-          final name = tool['name']?.toString() ?? '--';
-          final exposure = tool['exposure']?.toString() ?? 'read';
-          return ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.build_circle_outlined, size: 20),
-            title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text(
-              _toolDescription(l10n, name),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
             ),
-            trailing: Text(
-              _toolExposureLabel(l10n, exposure),
-              style: Theme.of(context).textTheme.labelSmall,
+            child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  value,
+                  maxLines: 2,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: l10n.commonCopy,
+            icon: const Icon(Icons.copy_outlined, size: 18),
+            onPressed: onCopy,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          ),
+        ],
       ),
     );
   }
 }
 
-String _toolDescription(AppLocalizations l10n, String rawName) {
-  final name = rawName.split(':').last;
-  return switch (name) {
-    'runtime_status' => l10n.toolDescriptionRuntimeStatus,
-    'model_list' => l10n.toolDescriptionModelList,
-    'device_status' => l10n.toolDescriptionDeviceStatus,
-    'clipboard_read' => l10n.toolDescriptionClipboardRead,
-    'clipboard_write' => l10n.toolDescriptionClipboardWrite,
-    'app_open' => l10n.toolDescriptionAppOpen,
-    'ui_screen_state' => l10n.toolDescriptionUiScreenState,
-    'ui_click_node' => l10n.toolDescriptionUiClickNode,
-    'ui_tap' => l10n.toolDescriptionUiTap,
-    'ui_swipe' => l10n.toolDescriptionUiSwipe,
-    'ui_wait' => l10n.toolDescriptionUiWait,
-    'ui_paste' => l10n.toolDescriptionUiPaste,
-    'ui_set_text' => l10n.toolDescriptionUiSetText,
-    'vision_status' => l10n.toolDescriptionVisionStatus,
-    'vision_start' => l10n.toolDescriptionVisionStart,
-    'camera_capture' => l10n.toolDescriptionCameraCapture,
-    'vision_stop' => l10n.toolDescriptionVisionStop,
-    'sensor_status' => l10n.toolDescriptionSensorStatus,
-    'sensor_read' => l10n.toolDescriptionSensorRead,
-    'sensor_start' => l10n.toolDescriptionSensorStart,
-    'sensor_stop' => l10n.toolDescriptionSensorStop,
-    'file_list' => l10n.toolDescriptionFileList,
-    'file_read' => l10n.toolDescriptionFileRead,
-    'file_write' => l10n.toolDescriptionFileWrite,
-    'process_list' => l10n.toolDescriptionProcessList,
-    'process_run' => l10n.toolDescriptionProcessRun,
-    _ => l10n.toolDescriptionGeneric,
-  };
+class _ToolsOverview extends StatelessWidget {
+  const _ToolsOverview({required this.tools});
+
+  final List<Map<String, dynamic>> tools;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tools.isEmpty) {
+      return _InlineMessage(
+        message: AppLocalizations.of(context)!.edgeToolsEmpty,
+      );
+    }
+    final l10n = AppLocalizations.of(context)!;
+    final counts = {'read': 0, 'sensor': 0, 'action': 0};
+    for (final tool in tools) {
+      final exposure = tool['exposure']?.toString() ?? 'read';
+      final key = counts.containsKey(exposure) ? exposure : 'read';
+      counts[key] = counts[key]! + 1;
+    }
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 112,
+        child: Row(
+          children: [
+            Expanded(
+              child: _ToolScopeItem(
+                icon: Icons.visibility_outlined,
+                label: l10n.settingsToolRead,
+                value: '${counts['read']}',
+              ),
+            ),
+            const _StatsDivider(),
+            Expanded(
+              child: _ToolScopeItem(
+                icon: Icons.sensors_outlined,
+                label: l10n.settingsToolSensor,
+                value: '${counts['sensor']}',
+              ),
+            ),
+            const _StatsDivider(),
+            Expanded(
+              child: _ToolScopeItem(
+                icon: Icons.bolt_outlined,
+                label: l10n.settingsToolAction,
+                value: '${counts['action']}',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-String _toolExposureLabel(AppLocalizations l10n, String exposure) =>
-    switch (exposure) {
-      'sensor' => l10n.settingsToolSensor,
-      'action' => l10n.settingsToolAction,
-      _ => l10n.settingsToolRead,
-    };
+class _ToolScopeItem extends StatelessWidget {
+  const _ToolScopeItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 17, color: scheme.primary),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _InlineMessage extends StatelessWidget {
   const _InlineMessage({required this.message, this.action});

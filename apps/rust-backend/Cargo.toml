@@ -7,9 +7,6 @@ members = [
     "crates/rkllm",
     "crates/server",
     "crates/tui",
-    "vendor/slumberguard/crates/core",
-    "vendor/slumberguard/crates/source",
-    "vendor/slumberguard/crates/runtime",
 ]
 
 [workspace.package]

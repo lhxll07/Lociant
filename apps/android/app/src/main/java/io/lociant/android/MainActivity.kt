@@ -60,12 +60,12 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && startRuntimeAfterNotificationPermission) {
-            startRuntimeAfterNotificationPermission = false
-            LociantRuntimeService.startRuntime(this, pendingRuntimePayload)
-        } else {
-            startRuntimeAfterNotificationPermission = false
+        if (granted) {
+            if (startRuntimeAfterNotificationPermission) {
+                LociantRuntimeService.startRuntime(this, pendingRuntimePayload)
+            }
         }
+        startRuntimeAfterNotificationPermission = false
         pendingRuntimePayload = JSONObject()
         refreshRuntimeStateIfNeeded()
     }

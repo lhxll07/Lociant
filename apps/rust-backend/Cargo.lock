@@ -848,9 +848,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "slumberguard-core",
- "slumberguard-runtime",
- "slumberguard-source",
  "socket2 0.5.10",
  "tokio",
  "tokio-stream",
@@ -1451,27 +1448,6 @@ name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
-
-[[package]]
-name = "slumberguard-core"
-version = "2.0.1"
-
-[[package]]
-name = "slumberguard-runtime"
-version = "2.0.1"
-dependencies = [
- "anyhow",
- "slumberguard-core",
- "slumberguard-source",
-]
-
-[[package]]
-name = "slumberguard-source"
-version = "2.0.1"
-dependencies = [
- "anyhow",
- "slumberguard-core",
-]
 
 [[package]]
 name = "smallvec"

@@ -4,9 +4,9 @@
 
 # Lociant
 
-### Turn every device around you into an edge runtime
+### Turn an old Android phone into a local edge device
 
-*Your next AI device might not be a new computer — it might be the old phone in your drawer.*
+*Run models and device capabilities where the hardware is.*
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/lhxll07/Lociant.svg?style=social&label=Star)](https://github.com/lhxll07/Lociant)
@@ -15,127 +15,167 @@
 
 </div>
 
-Lociant turns an ordinary device — an old Android phone, a Linux desktop, or a Rockchip dev board — into a controllable edge runtime. It runs local models, exposes device capabilities, reports its state, and connects with other nodes over the LAN. External clients such as Claude, Codex and OpenCode can orchestrate those capabilities through MCP, while execution and policy stay on the device.
+Lociant is a local edge runtime built around old Android phones. It runs local
+GGUF models, exposes hardware-backed capabilities, reports runtime state, and
+connects nearby Lociant nodes over an authenticated LAN. Linux desktops and
+Rockchip boards can join the same system as control consoles, compute nodes, or
+headless edge nodes.
 
-## What it does
+Lociant is not a chat client and does not run a general-purpose Agent loop.
+External clients may use MCP or the control API to orchestrate individual
+capability calls, while execution and policy remain on the device that owns the
+hardware.
 
-- **Make an old phone useful 24/7.** It can expose screen, accessibility, sensor, camera and app capabilities to a trusted client.
-- **Works at the edge.** Phones can run local GGUF models through llama.cpp, while Rockchip boards use the RKLLM NPU runtime. The runtime does not depend on a hosted chatbot.
-- **Connect devices into a local mesh.** Phones, desktops and boards can share model inventory and device tools over an authenticated LAN.
-- **Connect any orchestrator.** MCP and the control API provide stable discovery and execution surfaces for Claude, Codex, OpenCode or your own client.
-- **Keep policy close to hardware.** Exposure levels and remote-call permissions are enforced by the owning runtime before a tool runs.
+## The core idea
 
-The result is a small, inspectable runtime that a client can use to open an app, read a screen, inspect sensors, capture a camera frame, or invoke one local model turn.
+- **Give old hardware a useful role.** A phone can become a local model host,
+  a screen and accessibility node, a sensor and camera node, or a combination
+  of all four.
+- **Keep execution local.** GGUF inference and device operations stay on the
+  owning device instead of passing through a hosted chatbot or cloud service.
+- **Connect devices without centralizing them.** Phones, desktops, and boards
+  can share model inventory and selected tools across a trusted LAN.
+- **Make the boundary explicit.** Tool exposure levels and remote-call policy
+  are checked by the runtime before a capability runs.
 
-## Three ways to run
+## What you can do
 
-| Device | What you get |
+| Capability | Examples |
 |---|---|
-| Android phone | Device runtime: local GGUF/llama.cpp + phone tools (screen, tap, sensors, camera) |
-| Linux desktop (x86_64) | Flutter control console + bundled Rust edge backend |
-| RK board (Armbian, headless) | systemd edge node + RKLLM NPU runtime + terminal TUI |
+| Local models | Import GGUF models and run them with llama.cpp on the device |
+| Phone tools | Read the screen, tap and type through accessibility, open apps |
+| Device sensing | Read sensors and capture camera frames when permissions allow |
+| Local networking | Discover peers and expose selected models and tools over LAN |
+| External access | Connect through MCP Streamable HTTP or the control API |
 
-## Quick start
+## Supported roles
 
-Pick your device and follow the matching chapter of the **[setup guide (from zero)](docs/setup-guide.md)**:
+| Device | Role | Runtime |
+|---|---|---|
+| Android phone | Primary device node and local model host | Flutter console + Rust backend + Kotlin device layer |
+| Linux desktop | Control console and filesystem/process node | Flutter console + bundled Rust backend |
+| Rockchip board | Low-power headless edge node | Rust service + RKLLM NPU runtime + terminal TUI |
 
-- **Android phone** — device runtime (local model + phone tools)
-- **Linux desktop** — Flutter UI + built-in Rust backend, one tarball
-- **RK board (headless)** — systemd service + RKLLM NPU inference + TUI
+All roles use the same control API and MCP surface. The board can run without a
+graphical UI, and a desktop or phone can inspect and control another node over
+the LAN.
 
-Current release (v2.0.1):
+## Get started
+
+### Android phone (recommended)
+
+1. Download and install the [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk).
+2. Open Lociant and complete the short setup flow. On Android 13+, allow
+   notifications so the foreground runtime can start.
+3. Grant only the capabilities you need under **Settings > Security**:
+   accessibility, camera, sensors, floating window, and unrestricted
+   background operation are optional and capability-specific.
+4. Set an API token before exposing the runtime to a network you do not fully
+   trust. The runtime starts with the app; its LAN address and copyable MCP/API
+   endpoints are shown on the overview page.
+5. Import a `.gguf` model from **Models** when you want local inference.
+
+For Linux, headless boards, model formats, peer networking, and the complete
+permission matrix, see the **[setup guide](docs/setup-guide.md)**.
+
+Current v2.0.1 packages:
 
 - [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
-- [Linux x86_64 desktop (tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz)
-- [Linux aarch64 board (tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
+- [Linux desktop (x86_64 tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz)
+- [Linux board (aarch64 tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
+- [Debian desktop package (amd64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb)
+- [Debian headless node package (arm64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb)
 
-On Debian/Ubuntu, install the [x86_64 desktop DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb) or the [arm64 headless node DEB](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb).
+## Connect to a node
 
-## Demo
+When the runtime is running, the Rust backend exposes one local HTTP surface on
+port `11434`:
 
-<video src="docs/media/lociant-1.1.0-demo.mp4" controls width="100%"></video>
+- **MCP Streamable HTTP:** `http://HOST:11434/mcp`
+- **Control API:** `http://HOST:11434/api/v1`
+- **Health check:** `http://HOST:11434/health`
 
-*Demo from v1.1.0 — the UI has moved on, but this shows the phone taking real actions.*
+MCP is the integration surface for external clients. The control API is useful
+for runtime state, settings, models, nodes, health checks, and direct tool
+calls. Set `authToken` before binding to a shared or untrusted network; do not
+expose port `11434` directly to the public Internet.
 
-## Connect to the runtime
+Tool exposure is cumulative:
 
-Lociant exposes one HTTP surface (port `11434`) from its Rust backend:
+- `read` for passive status and read-only tools;
+- `sensor` for sensor and contextual capabilities;
+- `action` for device operations such as screen input.
 
-- **MCP Streamable HTTP** — `http://HOST:11434/mcp` for device tools. Works with Claude Desktop/Code, Codex, OpenCode and RikkaHub.
-- **Control API** — `http://HOST:11434/api/v1` for runtime state, settings, models, nodes and direct tool calls.
-- **Health** — `http://HOST:11434/health` for liveness checks.
+The runtime enforces both the configured exposure level and each tool's
+`remoteAllowed` policy before an HTTP or MCP call reaches a device adapter.
+See the **[edge runtime integration guide](docs/edge-runtime-integration.md)** for
+MCP examples, API routes, and client configuration.
 
-Tool families exposed to external clients:
+## Architecture
 
-| Family | Examples |
-|---|---|
-| Runtime & model | `runtime_status`, `model_list` |
-| Device | `device_status`, `clipboard_read/write`, `app_open` |
-| Sensors | `sensor_status`, `sensor_read`, `sensor_start/stop` |
-| Screen & UI | `ui_screen_state`, `ui_click_node`, `ui_tap`, `ui_swipe`, `ui_paste`, `ui_set_text` |
-| Vision | `vision_status`, `camera_capture` |
-
-Every tool carries a policy: exposure levels (`read` < `sensor` < `action`) and `remote_allowed` are enforced by the backend before anything touches your device. Configure a token before binding Lociant to an untrusted network. See the [edge runtime integration docs](docs/agent-integration.md) for client configs and the full API.
-
-## How it works
-
-One Flutter UI + one Rust backend on every platform. Android keeps only the device layer the backend cannot reach directly; headless boards run the backend alone.
+The Rust backend owns the shared control plane, model inventory, peer
+networking, and tool policy. Android supplies capabilities that require the
+Android framework; Linux supplies desktop capabilities; headless boards run
+the backend directly.
 
 ```text
-Flutter UI (Android / Linux desktop)
-        │ HTTP (control /api/v1, MCP /mcp)
-        ▼
-Rust backend (axum) ── the single server core
-  ├─ core    domain types + JSON contract
-  ├─ store   SQLite: settings, models, legacy data tables
-  ├─ tools   tool contract + registry (single policy owner)
-  ├─ server  HTTP: control plane, MCP, peers
-  └─ rkllm   in-process RKLLM NPU inference (libloading)
-        │ device IPC (localhost TCP, token-gated)
-        ▼
+Flutter console (Android / Linux desktop)
+        | HTTP: /api/v1, /mcp
+        v
+Rust backend (shared control plane)
+  |- model inventory and local runtimes
+  |- ToolRegistry and policy enforcement
+  |- control API, MCP transport, and peer networking
+  `- RKLLM NPU runtime on supported boards
+        | token-gated localhost IPC on Android
+        v
 Android device layer (Kotlin)
-  ├─ foreground service spawns the Rust server subprocess
-  ├─ phone tools (accessibility, sensors, window, camera)
-  └─ llama.cpp GGUF models + NCNN vision
+  |- foreground service and lifecycle
+  |- accessibility, sensors, window, and camera tools
+  `- NCNN vision runtime
 ```
 
-Peer mesh (opt-in with a shared peer token): nodes discover each other via UDP broadcast (port `11435`) and share tools and model inventory through the control plane. Details in [architecture](docs/architecture.md).
+GGUF inference uses a local llama.cpp process. NCNN remains dedicated to
+Android camera and vision operations; RKLLM is used by supported headless
+Rockchip nodes.
 
 ## Documentation
 
-- [Setup guide (from zero)](docs/setup-guide.md) — install, configure and connect all platforms
-- [Edge runtime integration](docs/agent-integration.md) — MCP, control API and tool policy
-- [Architecture](docs/architecture.md) — components, seams, headless deployment
-- [Android development](apps/android/README.md)
+- [Setup guide](docs/setup-guide.md) - install, configure, and connect every platform
+- [Edge runtime integration](docs/edge-runtime-integration.md) - MCP, control API, and tool policy
+- [Architecture](docs/architecture.md) - ownership boundaries and deployment
+- [Android development](apps/android/README.md) - Android host, native runtime, and build flow
 
 ## Development
 
-- UI: Flutter (`apps/flutter`)
-- Backend: Rust (`apps/rust-backend`)
-- Android device layer: Kotlin (`apps/android`)
+- Flutter UI: `apps/flutter`
+- Rust backend: `apps/rust-backend`
+- Android device layer: `apps/android`
 
-Run on Linux desktop (two terminals):
+Run the Linux desktop console from two terminals:
 
 ```bash
-cd apps/rust-backend && cargo run          # http://127.0.0.1:11434
-cd apps/flutter && flutter run -d linux     # UI; LOCIANT_BASE_URL overridable
+cd apps/rust-backend && cargo run
+cd apps/flutter && flutter run -d linux
 ```
 
-Android: `bash scripts/dev-install.sh` builds the APK (Rust server included via `cargo ndk`), installs and launches it.
+Build, install, and launch the Android app with:
 
-## Roadmap
+```bash
+bash scripts/dev-install.sh
+```
 
-- [x] Rust backend, Flutter UI (Android + Linux desktop)
-- [x] Android device layer over IPC, llama.cpp GGUF models and NCNN vision
-- [x] Headless RK board deployment (aarch64, systemd) + RKLLM NPU inference
-- [x] Peer mesh: LAN discovery, shared tools, model forwarding
-- [x] Desktop local inference via first-class llama.cpp backend
-- [x] Desktop device adapter (filesystem / process tools)
+The Android build includes the Rust backend and requires the Rust Android
+target plus `cargo-ndk`. See [Android development](apps/android/README.md) for
+the full toolchain and test commands.
+
+## Scope
+
+Lociant stays focused on local models, device capabilities, controlled
+connections, and edge-node networking. Chat UI, a general-purpose Agent loop,
+NAS/file-server features, and dedicated monitoring applications are outside
+the core runtime.
 
 ## License
 
 [MIT](LICENSE)
-
----
-
-Star us if Lociant is useful — it tells us this direction matters. ⭐

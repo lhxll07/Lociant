@@ -24,9 +24,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navNodes => 'Nodes';
 
   @override
-  String get navExtensions => 'Extensions';
-
-  @override
   String get navSettings => 'Settings';
 
   @override
@@ -110,7 +107,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodesGuideStep3 =>
-      'Open a node card to share models (peer: prefix) or view baby monitoring';
+      'Open a node card to share models (peer: prefix) or inspect its connection details';
 
   @override
   String get nodesGuideOpenSettings => 'Open settings';
@@ -122,46 +119,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String nodesError(Object error) {
     return 'Failed to load nodes: $error';
   }
-
-  @override
-  String get babyTitle => 'Baby Monitor';
-
-  @override
-  String get babySubtitle => 'SlumberGuard: status & events';
-
-  @override
-  String get babyNotEnabled =>
-      'Baby monitor not enabled on this node\n(set babyCamera in config to enable)';
-
-  @override
-  String get babyState => 'State';
-
-  @override
-  String get babyMotion => 'Motion';
-
-  @override
-  String get babyEvents => 'Recent events';
-
-  @override
-  String get babyNoEvents => 'No events yet';
-
-  @override
-  String get babyStateIdle => 'Idle';
-
-  @override
-  String get babyStateCandidate => 'Observing';
-
-  @override
-  String get babyStateSoothing1 => 'Soothing 1';
-
-  @override
-  String get babyStateSoothing2 => 'Soothing 2';
-
-  @override
-  String get babyStateNotify => 'Notify parent';
-
-  @override
-  String get babyStateCooldown => 'Cooling down';
 
   @override
   String get nodesAdd => 'Add node';
@@ -191,53 +148,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsModelServerDesktop =>
       'Desktop service runs automatically with the app (built-in Rust backend)';
-
-  @override
-  String get extensionsTitle => 'Extensions';
-
-  @override
-  String get extensionsSubtitle =>
-      'Manage edge capabilities available on this device';
-
-  @override
-  String get extensionsInstalledTitle => 'Installed extensions';
-
-  @override
-  String get extensionsBuiltInHint =>
-      'These extensions are bundled with Lociant and use this device\'s permissions.';
-
-  @override
-  String get extensionsBabyDescription =>
-      'Monitor baby activity, record events and notify parents when attention is needed.';
-
-  @override
-  String get extensionsBabyPermissions =>
-      'Requires camera, notifications and background operation';
-
-  @override
-  String get extensionsStatusChecking => 'Checking';
-
-  @override
-  String get extensionsStatusEnabled => 'Enabled';
-
-  @override
-  String get extensionsStatusNotConfigured => 'Not configured';
-
-  @override
-  String get extensionsStatusUnavailable => 'Temporarily unavailable';
-
-  @override
-  String get extensionsUnavailableHint =>
-      'Unable to reach the current node. Make sure the service is running.';
-
-  @override
-  String get extensionsOpen => 'Open';
-
-  @override
-  String get extensionsRefresh => 'Refresh status';
-
-  @override
-  String get extensionsOpenSettings => 'Manage permissions';
 
   @override
   String get statusIdle => 'Idle';

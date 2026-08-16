@@ -80,14 +80,6 @@ pub async fn list_nodes(State(state): State<AppState>, _: RequireAuth) -> Json<V
     Json(json!({ "nodes": nodes }))
 }
 
-/// `/api/v1/baby/state` — 眠安智护监控快照（需在配置中启用 babyCamera）。
-pub async fn baby_state(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
-    match &state.baby {
-        Some(baby) => Json(baby.snapshot()),
-        None => Json(json!({ "error": "baby monitor not enabled (set babyCamera in config)" })),
-    }
-}
-
 /// `POST /api/v1/peers` — 手动添加节点（host/port/name），不依赖 mDNS。
 pub async fn add_peer(
     State(state): State<AppState>,
@@ -153,39 +145,4 @@ fn persist_manual_peers(state: &AppState) {
         })
         .collect();
     state.merge_settings(&json!({ "manualPeers": list }));
-}
-
-/// `GET /api/v1/peers/{node_id}/baby/state` — 查看某节点的眠安智护监控。
-pub async fn peer_baby_state(
-    State(state): State<AppState>,
-    _: RequireAuth,
-    Path(node_id): Path<String>,
-) -> Json<Value> {
-    let Some(peers) = &state.peers else {
-        return Json(json!({ "error": "peer networking not enabled" }));
-    };
-    let Some((base_url, token)) = peers.peer_base_url(&node_id) else {
-        return Json(json!({ "error": format!("peer node offline: {node_id}") }));
-    };
-    let base = base_url.trim_end_matches("/v1");
-    // Cache each node's snapshot for ~1s: the UI polls every 2s and the peer
-    // link (WiFi <-> wired, possibly AP-isolated) can add seconds of latency.
-    if let Some(cached) = state.baby_cache(&node_id) {
-        return Json(cached);
-    }
-    let response = state
-        .http
-        .get(format!("{base}/api/v1/baby/state"))
-        .bearer_auth(&token)
-        .send()
-        .await;
-    let body = match response {
-        Ok(response) => match response.json::<Value>().await {
-            Ok(body) => body,
-            Err(_) => json!({ "error": "bad response from peer" }),
-        },
-        Err(error) => json!({ "error": format!("peer request failed: {error}") }),
-    };
-    state.set_baby_cache(&node_id, body.clone());
-    Json(body)
 }

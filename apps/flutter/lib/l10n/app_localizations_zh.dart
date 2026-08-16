@@ -24,9 +24,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navNodes => '节点';
 
   @override
-  String get navExtensions => '扩展';
-
-  @override
   String get navSettings => '设置';
 
   @override
@@ -102,7 +99,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesGuideStep2 => '保持同一局域网，稍等片刻自动出现；也可以点右上角 + 手动添加';
 
   @override
-  String get nodesGuideStep3 => '点开节点卡片：互借模型（peer: 前缀）或查看婴儿监控';
+  String get nodesGuideStep3 => '点开节点卡片：互借模型（peer: 前缀）或查看连接详情';
 
   @override
   String get nodesGuideOpenSettings => '去设置';
@@ -114,45 +111,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String nodesError(Object error) {
     return '加载节点失败：$error';
   }
-
-  @override
-  String get babyTitle => '婴儿监控';
-
-  @override
-  String get babySubtitle => '眠安智护：状态与事件';
-
-  @override
-  String get babyNotEnabled => '当前节点未启用婴儿监控\n（在配置中设置 babyCamera 后启用）';
-
-  @override
-  String get babyState => '状态';
-
-  @override
-  String get babyMotion => '运动强度';
-
-  @override
-  String get babyEvents => '最近事件';
-
-  @override
-  String get babyNoEvents => '暂无事件';
-
-  @override
-  String get babyStateIdle => '待机';
-
-  @override
-  String get babyStateCandidate => '观察中';
-
-  @override
-  String get babyStateSoothing1 => '一级安抚';
-
-  @override
-  String get babyStateSoothing2 => '二级安抚';
-
-  @override
-  String get babyStateNotify => '提醒家长';
-
-  @override
-  String get babyStateCooldown => '冷却中';
 
   @override
   String get nodesAdd => '添加节点';
@@ -181,48 +139,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsModelServerDesktop => '桌面端服务随应用自动运行（内置 Rust 后端）';
-
-  @override
-  String get extensionsTitle => '扩展';
-
-  @override
-  String get extensionsSubtitle => '管理这台设备提供的边缘能力';
-
-  @override
-  String get extensionsInstalledTitle => '已安装扩展';
-
-  @override
-  String get extensionsBuiltInHint => '当前扩展随 Lociant 内置，并按设备权限提供能力。';
-
-  @override
-  String get extensionsBabyDescription => '持续观察婴儿状态，在需要时记录事件并提醒家长。';
-
-  @override
-  String get extensionsBabyPermissions => '需要摄像头、通知和后台运行权限';
-
-  @override
-  String get extensionsStatusChecking => '检查中';
-
-  @override
-  String get extensionsStatusEnabled => '已启用';
-
-  @override
-  String get extensionsStatusNotConfigured => '未配置';
-
-  @override
-  String get extensionsStatusUnavailable => '暂不可用';
-
-  @override
-  String get extensionsUnavailableHint => '无法连接到当前节点，请确认服务已启动。';
-
-  @override
-  String get extensionsOpen => '打开';
-
-  @override
-  String get extensionsRefresh => '刷新状态';
-
-  @override
-  String get extensionsOpenSettings => '管理权限';
 
   @override
   String get statusIdle => '待机';

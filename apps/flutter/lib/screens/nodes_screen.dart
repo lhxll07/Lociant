@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app.dart';
 import '../core/models.dart';
 import '../l10n/app_localizations.dart';
 import '../theme.dart';
-import 'baby_monitor_screen.dart';
 
 /// Top-level "Nodes" page: this device plus every discovered Lociant peer
 /// on the LAN. Peer models (with a `peer:` prefix) show up in the Models
@@ -106,7 +106,7 @@ class _NodesScreenState extends State<NodesScreen> {
                 : _nodes!.isEmpty
                 ? _NodesGuide(
                     onOpenSettings: () =>
-                        homeShellKey.currentState?.switchTo(4),
+                        homeShellKey.currentState?.switchTo(3),
                     onRefresh: _load,
                   )
                 : RefreshIndicator(
@@ -141,9 +141,9 @@ class _NodesScreenState extends State<NodesScreen> {
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  mainAxisExtent: 188,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
+                                  mainAxisExtent: 196,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
                                 ),
                           ),
                         ),
@@ -181,7 +181,7 @@ class _NodesScreenState extends State<NodesScreen> {
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
-              homeShellKey.currentState?.switchTo(4);
+              homeShellKey.currentState?.switchTo(3);
             },
             child: Text(l10n.nodesGuideOpenSettings),
           ),
@@ -253,19 +253,12 @@ class _NodesScreenState extends State<NodesScreen> {
 
   Future<void> _showNodeDetails(Map<String, dynamic> node) async {
     final isSelf = boolOf(node, 'self');
-    final online = boolOf(node, 'online');
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) => _NodeDetailsSheet(
         node: node,
-        onMonitor: isSelf || online
-            ? () {
-                Navigator.of(sheetContext).pop();
-                _openBabyMonitor(node);
-              }
-            : null,
         onOpenModels: () {
           Navigator.of(sheetContext).pop();
           homeShellKey.currentState?.switchTo(1);
@@ -276,20 +269,6 @@ class _NodesScreenState extends State<NodesScreen> {
                 Navigator.of(sheetContext).pop();
                 _deleteNode(str(node, 'id'));
               },
-      ),
-    );
-  }
-
-  void _openBabyMonitor(Map<String, dynamic> node) {
-    final isSelf = boolOf(node, 'self');
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => isSelf
-            ? const BabyMonitorScreen()
-            : BabyMonitorScreen(
-                nodeId: str(node, 'id'),
-                nodeName: str(node, 'name').isEmpty ? null : str(node, 'name'),
-              ),
       ),
     );
   }
@@ -332,11 +311,12 @@ class _NodeCard extends StatelessWidget {
     final platform = str(node, 'platform');
     final endpoint = port > 0 ? '$host:$port' : host;
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -348,16 +328,22 @@ class _NodeCard extends StatelessWidget {
                   _StatusLabel(online: online),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 36,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
@@ -374,15 +360,18 @@ class _NodeCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Text(
-                platform.isEmpty ? endpoint : platform,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
+              if (platform.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    platform,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
               Row(
                 children: [
                   Icon(
@@ -397,6 +386,7 @@ class _NodeCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -420,13 +410,11 @@ class _NodeDetailsSheet extends StatelessWidget {
   const _NodeDetailsSheet({
     required this.node,
     required this.onOpenModels,
-    this.onMonitor,
     this.onDelete,
   });
 
   final Map<String, dynamic> node;
   final VoidCallback onOpenModels;
-  final VoidCallback? onMonitor;
   final VoidCallback? onDelete;
 
   @override
@@ -500,17 +488,6 @@ class _NodeDetailsSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            if (onMonitor != null) ...[
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.tonalIcon(
-                  onPressed: onMonitor,
-                  icon: const Icon(Icons.child_care_outlined),
-                  label: Text(l10n.babyTitle),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -557,6 +534,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -581,6 +559,17 @@ class _InfoRow extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
           ),
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: value.trim().isEmpty || value == '-'
+                ? null
+                : () => _copyNodeValue(context, value),
+            tooltip: l10n.commonCopy,
+            icon: const Icon(Icons.copy_outlined, size: 18),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          ),
         ],
       ),
     );
@@ -597,23 +586,45 @@ class _StatusLabel extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final color = online ? context.status.success : theme.colorScheme.outline;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          online ? l10n.nodesOnline : l10n.nodesOffline,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-        ),
-      ],
+          const SizedBox(width: 5),
+          Text(
+            online ? l10n.nodesOnline : l10n.nodesOffline,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> _copyNodeValue(BuildContext context, String value) async {
+  try {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.toastCopied)),
+    );
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.toastCopyFailed)),
     );
   }
 }

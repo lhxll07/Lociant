@@ -5,7 +5,6 @@ import '../l10n/app_localizations.dart';
 import '../theme.dart';
 import '../widgets/anchored_popup.dart';
 import 'edge_overview_screen.dart';
-import 'extensions_screen.dart';
 import 'models_screen.dart';
 import 'nodes_screen.dart';
 import 'settings_screen.dart';
@@ -24,7 +23,6 @@ class HomeShellState extends State<HomeShell> {
     EdgeOverviewScreen(),
     ModelsScreen(),
     NodesScreen(),
-    ExtensionsScreen(),
     SettingsScreen(),
   ];
 
@@ -116,7 +114,6 @@ class _TopBar extends StatelessWidget {
   String _title(AppLocalizations l10n, int index) => switch (index) {
     1 => l10n.modelsTitle,
     2 => l10n.nodesTitle,
-    3 => l10n.extensionsTitle,
     _ => l10n.settingsTitle,
   };
 }
@@ -134,7 +131,6 @@ class _NavPopup extends StatelessWidget {
       (Icons.dashboard_outlined, l10n.navHome),
       (Icons.memory_outlined, l10n.navModels),
       (Icons.hub_outlined, l10n.navNodes),
-      (Icons.extension_outlined, l10n.navExtensions),
       (Icons.settings_outlined, l10n.navSettings),
     ];
     return Padding(

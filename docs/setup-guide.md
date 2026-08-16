@@ -185,7 +185,7 @@ http://设备IP:11434/mcp
 `tools/call` 调用设备工具。建议先使用 `read` 暴露级别验证连接，再按需启用
 传感器和操作能力。
 
-完整协议和控制 API 见 [边缘运行时接入文档](agent-integration.md)。
+完整协议和控制 API 见 [边缘运行时接入文档](edge-runtime-integration.md)。
 
 ## 六、验证脚本
 
@@ -206,5 +206,5 @@ Lociant 面向局域网使用，接口使用明文 HTTP。不要把 `11434` 直�
 ## 参考
 
 - [架构](architecture.md)
-- [边缘运行时接入](agent-integration.md)
+- [边缘运行时接入](edge-runtime-integration.md)
 - [Android 开发说明](../apps/android/README.md)

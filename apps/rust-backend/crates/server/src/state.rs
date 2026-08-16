@@ -8,7 +8,6 @@ use lociant_store::Store;
 use lociant_tools::ToolRegistry;
 use serde_json::Value;
 
-use crate::baby::BabyMonitor;
 use crate::catalog::CatalogEntry;
 use crate::device::IpcDeviceAdapter;
 use crate::llama::LlamaServer;
@@ -20,7 +19,6 @@ pub struct AppState {
     pub store: Arc<Store>,
     pub settings: Arc<Mutex<Value>>,
     pub port: u16,
-    pub http: reqwest::Client,
     pub download_http: reqwest::Client,
     pub tools: Arc<ToolRegistry>,
     pub device: Option<Arc<IpcDeviceAdapter>>,
@@ -30,8 +28,6 @@ pub struct AppState {
     pub rkllm: Option<Arc<Rkllm>>,
     pub llama: Option<Arc<LlamaServer>>,
     pub peers: Option<Arc<PeerManager>>,
-    pub baby: Option<Arc<dyn BabyMonitor>>,
-    pub baby_cache: Arc<Mutex<HashMap<String, (std::time::Instant, Value)>>>,
     pub tools_cache: Arc<Mutex<HashMap<String, (std::time::Instant, serde_json::Value)>>>,
 }
 
@@ -42,23 +38,6 @@ impl AppState {
 
     pub fn public_settings_snapshot(&self) -> Value {
         redact_settings(self.settings_snapshot())
-    }
-
-    /// Cached peer baby snapshot (1s TTL).
-    pub fn baby_cache(&self, node_id: &str) -> Option<Value> {
-        let cache = self.baby_cache.lock().expect("baby cache lock");
-        cache.get(node_id).and_then(|(at, body)| {
-            if at.elapsed() < std::time::Duration::from_secs(1) {
-                Some(body.clone())
-            } else {
-                None
-            }
-        })
-    }
-
-    pub fn set_baby_cache(&self, node_id: &str, body: Value) {
-        let mut cache = self.baby_cache.lock().expect("baby cache lock");
-        cache.insert(node_id.to_owned(), (std::time::Instant::now(), body));
     }
 
     /// Cached tool list (5s TTL), keyed by exposure so a policy change is

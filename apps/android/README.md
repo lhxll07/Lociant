@@ -1,6 +1,8 @@
 # Lociant Android Development
 
-This directory contains the complete Android runtime. Version 1.0 intentionally starts a new application identity, database, package tree, JNI surface, and HTTP contract.
+This directory contains the Android host for the Lociant edge runtime: the
+Flutter control console, the Rust backend process, and the Kotlin device layer
+that provides Android-only capabilities.
 
 ## Modules
 
@@ -38,7 +40,7 @@ MCP (`/mcp`); the method channel only carries Android-only device operations
 (permissions, floating window, vision, lifecycle) and `deviceState`. Data-plane
 behavior belongs in HTTP/MCP, not in the channel. See
 [architecture.md](../../docs/architecture.md) and
-[agent-integration.md](../../docs/agent-integration.md).
+[edge-runtime-integration.md](../../docs/edge-runtime-integration.md).
 
 ## HTTP Contracts
 

@@ -128,12 +128,6 @@ abstract class AppLocalizations {
   /// **'Nodes'**
   String get navNodes;
 
-  /// No description provided for @navExtensions.
-  ///
-  /// In en, this message translates to:
-  /// **'Extensions'**
-  String get navExtensions;
-
   /// No description provided for @navSettings.
   ///
   /// In en, this message translates to:
@@ -287,7 +281,7 @@ abstract class AppLocalizations {
   /// No description provided for @nodesGuideStep3.
   ///
   /// In en, this message translates to:
-  /// **'Open a node card to share models (peer: prefix) or view baby monitoring'**
+  /// **'Open a node card to share models (peer: prefix) or inspect its connection details'**
   String get nodesGuideStep3;
 
   /// No description provided for @nodesGuideOpenSettings.
@@ -307,84 +301,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to load nodes: {error}'**
   String nodesError(Object error);
-
-  /// No description provided for @babyTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Baby Monitor'**
-  String get babyTitle;
-
-  /// No description provided for @babySubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'SlumberGuard: status & events'**
-  String get babySubtitle;
-
-  /// No description provided for @babyNotEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Baby monitor not enabled on this node\n(set babyCamera in config to enable)'**
-  String get babyNotEnabled;
-
-  /// No description provided for @babyState.
-  ///
-  /// In en, this message translates to:
-  /// **'State'**
-  String get babyState;
-
-  /// No description provided for @babyMotion.
-  ///
-  /// In en, this message translates to:
-  /// **'Motion'**
-  String get babyMotion;
-
-  /// No description provided for @babyEvents.
-  ///
-  /// In en, this message translates to:
-  /// **'Recent events'**
-  String get babyEvents;
-
-  /// No description provided for @babyNoEvents.
-  ///
-  /// In en, this message translates to:
-  /// **'No events yet'**
-  String get babyNoEvents;
-
-  /// No description provided for @babyStateIdle.
-  ///
-  /// In en, this message translates to:
-  /// **'Idle'**
-  String get babyStateIdle;
-
-  /// No description provided for @babyStateCandidate.
-  ///
-  /// In en, this message translates to:
-  /// **'Observing'**
-  String get babyStateCandidate;
-
-  /// No description provided for @babyStateSoothing1.
-  ///
-  /// In en, this message translates to:
-  /// **'Soothing 1'**
-  String get babyStateSoothing1;
-
-  /// No description provided for @babyStateSoothing2.
-  ///
-  /// In en, this message translates to:
-  /// **'Soothing 2'**
-  String get babyStateSoothing2;
-
-  /// No description provided for @babyStateNotify.
-  ///
-  /// In en, this message translates to:
-  /// **'Notify parent'**
-  String get babyStateNotify;
-
-  /// No description provided for @babyStateCooldown.
-  ///
-  /// In en, this message translates to:
-  /// **'Cooling down'**
-  String get babyStateCooldown;
 
   /// No description provided for @nodesAdd.
   ///
@@ -439,90 +355,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Desktop service runs automatically with the app (built-in Rust backend)'**
   String get settingsModelServerDesktop;
-
-  /// No description provided for @extensionsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Extensions'**
-  String get extensionsTitle;
-
-  /// No description provided for @extensionsSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage edge capabilities available on this device'**
-  String get extensionsSubtitle;
-
-  /// No description provided for @extensionsInstalledTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Installed extensions'**
-  String get extensionsInstalledTitle;
-
-  /// No description provided for @extensionsBuiltInHint.
-  ///
-  /// In en, this message translates to:
-  /// **'These extensions are bundled with Lociant and use this device\'s permissions.'**
-  String get extensionsBuiltInHint;
-
-  /// No description provided for @extensionsBabyDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Monitor baby activity, record events and notify parents when attention is needed.'**
-  String get extensionsBabyDescription;
-
-  /// No description provided for @extensionsBabyPermissions.
-  ///
-  /// In en, this message translates to:
-  /// **'Requires camera, notifications and background operation'**
-  String get extensionsBabyPermissions;
-
-  /// No description provided for @extensionsStatusChecking.
-  ///
-  /// In en, this message translates to:
-  /// **'Checking'**
-  String get extensionsStatusChecking;
-
-  /// No description provided for @extensionsStatusEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Enabled'**
-  String get extensionsStatusEnabled;
-
-  /// No description provided for @extensionsStatusNotConfigured.
-  ///
-  /// In en, this message translates to:
-  /// **'Not configured'**
-  String get extensionsStatusNotConfigured;
-
-  /// No description provided for @extensionsStatusUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Temporarily unavailable'**
-  String get extensionsStatusUnavailable;
-
-  /// No description provided for @extensionsUnavailableHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Unable to reach the current node. Make sure the service is running.'**
-  String get extensionsUnavailableHint;
-
-  /// No description provided for @extensionsOpen.
-  ///
-  /// In en, this message translates to:
-  /// **'Open'**
-  String get extensionsOpen;
-
-  /// No description provided for @extensionsRefresh.
-  ///
-  /// In en, this message translates to:
-  /// **'Refresh status'**
-  String get extensionsRefresh;
-
-  /// No description provided for @extensionsOpenSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage permissions'**
-  String get extensionsOpenSettings;
 
   /// No description provided for @statusIdle.
   ///

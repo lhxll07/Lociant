@@ -25,7 +25,7 @@ void main() {
 
     final api = ApiClient(baseUrl: 'http://127.0.0.1:${server.port}');
     await expectLater(
-      api.get('/api/v1/peers/board/baby/state'),
+      api.get('/api/v1/peers/board/tools'),
       throwsA(
         isA<ApiException>().having(
           (error) => error.message,

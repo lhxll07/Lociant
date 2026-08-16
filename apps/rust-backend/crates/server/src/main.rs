@@ -1,4 +1,3 @@
-mod baby;
 mod catalog;
 mod control;
 mod device;
@@ -44,12 +43,15 @@ fn data_dir() -> PathBuf {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    if std::env::args().any(|arg| arg == "--init") {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--init") {
         return init::run();
     }
-    if std::env::args().any(|arg| arg == "--rkllm-test") {
-        let prompt = std::env::args()
+    if args.iter().any(|arg| arg == "--rkllm-test") {
+        let prompt = args
+            .iter()
             .next_back()
+            .cloned()
             .unwrap_or_else(|| "你好".to_owned());
         let config_path = std::env::var("LOCIANT_CONFIG")
             .unwrap_or_else(|_| "/etc/lociant/config.json".to_owned());
@@ -209,30 +211,12 @@ async fn main() -> anyhow::Result<()> {
         .cloned()
         .unwrap_or(Value::Array(Vec::new()));
 
-    let baby = settings
-        .get("babyCamera")
-        .and_then(Value::as_str)
-        .filter(|device| !device.is_empty())
-        .and_then(|device| {
-            let mic = settings
-                .get("babyMic")
-                .and_then(Value::as_str)
-                .filter(|s| !s.is_empty())
-                .unwrap_or("default")
-                .to_owned();
-            crate::baby::start(device, &mic)
-        });
-
     let llama = llama::start(&settings).await?;
     let bootstrap_settings = settings.clone();
     let state = AppState {
         store,
         settings: Arc::new(Mutex::new(settings)),
         port,
-        http: reqwest::Client::builder()
-            .connect_timeout(std::time::Duration::from_secs(15))
-            .timeout(std::time::Duration::from_secs(15))
-            .build()?,
         download_http: reqwest::Client::builder()
             .connect_timeout(std::time::Duration::from_secs(15))
             .timeout(std::time::Duration::from_secs(600))
@@ -245,8 +229,6 @@ async fn main() -> anyhow::Result<()> {
         rkllm,
         llama,
         peers,
-        baby,
-        baby_cache: Arc::new(Mutex::new(HashMap::new())),
         tools_cache: Arc::new(Mutex::new(HashMap::new())),
     };
 
@@ -300,13 +282,8 @@ async fn main() -> anyhow::Result<()> {
             post(peer::call_peer_tool),
         )
         .route("/api/v1/peer/models", get(peer::list_peer_models))
-        .route("/api/v1/baby/state", get(peer::baby_state))
         .route("/api/v1/peers", post(peer::add_peer))
         .route("/api/v1/peers/{node_id}", delete(peer::remove_peer))
-        .route(
-            "/api/v1/peers/{node_id}/baby/state",
-            get(peer::peer_baby_state),
-        )
         .route("/mcp", post(mcp::handle));
 
     let app = app.route("/api/v1/nodes", get(peer::list_nodes));

@@ -339,19 +339,6 @@ impl PeerManager {
         Ok(())
     }
 
-    pub fn node(&self, id: &str) -> Option<PeerNode> {
-        self.nodes.read().expect("nodes lock").get(id).cloned()
-    }
-
-    /// Base URL for a peer node's authenticated control plane.
-    pub fn peer_base_url(&self, id: &str) -> Option<(String, String)> {
-        let node = self.node(id)?;
-        Some((
-            format!("http://{}:{}/v1", node.host, node.port),
-            self.token.clone(),
-        ))
-    }
-
     /// Models exposed by peers as `peer:<nodeId>:<modelId>`.
     pub fn peer_models(&self) -> Vec<Value> {
         let mut models = Vec::new();
@@ -567,13 +554,13 @@ mod tests {
         manager
             .add_manual_peer("192.0.2.10".to_owned(), 11434, Some("test".to_owned()))
             .unwrap();
-        let node = manager.node("192.0.2.10:11434").expect("manual peer");
+        let node = manager
+            .nodes()
+            .into_iter()
+            .find(|node| node.id == "192.0.2.10:11434")
+            .expect("manual peer");
         assert_eq!(node.platform, "manual");
         assert_eq!(node.name, "test");
-        assert_eq!(
-            manager.peer_base_url(&node.id).expect("peer URL").0,
-            "http://192.0.2.10:11434/v1"
-        );
     }
 
     #[test]
