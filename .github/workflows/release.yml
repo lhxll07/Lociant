@@ -75,11 +75,31 @@ jobs:
         run: |
           rustup target add aarch64-linux-android
           cargo install cargo-ndk --locked
-          yes | sdkmanager \
+          androidSdkRoot="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sdkManager="$(command -v sdkmanager || true)"
+          if [[ -z "$sdkManager" || ! -x "$sdkManager" ]]; then
+            sdkManager="$androidSdkRoot/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          if [[ ! -x "$sdkManager" ]]; then
+            sdkManager="$(find "$androidSdkRoot/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          fi
+          if [[ -z "$sdkManager" || ! -x "$sdkManager" ]]; then
+            echo "Unable to locate Android sdkmanager under $androidSdkRoot" >&2
+            exit 1
+          fi
+          set +e
+          set +o pipefail
+          yes | "$sdkManager" --sdk_root="$androidSdkRoot" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "ndk;28.2.13676358" \
             "cmake;3.22.1"
+          sdkManagerStatus=${PIPESTATUS[1]}
+          set -o pipefail
+          set -e
+          if [[ "$sdkManagerStatus" -ne 0 ]]; then
+            exit "$sdkManagerStatus"
+          fi
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
