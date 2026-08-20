@@ -57,7 +57,7 @@ Android 手机和 Rockchip 开发板是当前主要的边缘设备形态。Linux
 
 ### Android 手机（首个边缘设备形态）
 
-1. 下载并安装 [Android APK（arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)。
+1. 下载并安装 [Android APK（arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-arm64-v8a-release.apk)。
 2. 打开 Lociant 并完成引导。Android 13 及以上版本需要允许通知，前台服务
    才能正常启动。
 3. 在 **设置 > 安全** 中只开启需要的能力：无障碍、相机、传感器、悬浮窗和
@@ -69,13 +69,14 @@ Android 手机和 Rockchip 开发板是当前主要的边缘设备形态。Linux
 Linux、无头开发板、模型格式、节点互联和完整权限说明见
 **[配置指南（从零开始）](docs/setup-guide.md)**。
 
-当前 v2.0.1 发布包：
+当前 v2.0.2 发布包：
 
-- [Android APK（arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
-- [Linux 桌面版（x86_64 tar.gz）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz)
-- [Linux 开发板版（aarch64 tar.gz）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
-- [Debian 桌面包（amd64）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb)
-- [Debian 无头节点包（arm64）](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb)
+- [Android APK（arm64-v8a）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-arm64-v8a-release.apk)
+- [Linux 桌面版（x86_64 tar.gz）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-x86_64.tar.gz)
+- [Linux 桌面版（AppImage）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-x86_64.AppImage)
+- [Linux 开发板版（aarch64 tar.gz）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-aarch64.tar.gz)
+- [Debian 桌面包（amd64）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant_2.0.2_amd64.deb)
+- [Debian 无头节点包（arm64）](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-node_2.0.2_arm64.deb)
 
 ## 连接边缘节点
 

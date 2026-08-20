@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app.dart';
+import '../core/api_client.dart';
+import '../core/edge_readiness.dart';
 import '../core/models.dart';
 import '../l10n/app_localizations.dart';
 import '../theme.dart';
@@ -19,6 +21,9 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
   List<Map<String, dynamic>> _nodes = const [];
   List<Map<String, dynamic>> _tools = const [];
   bool _loading = false;
+  bool? _healthOk;
+  bool? _toolsOk;
+  bool? _toolCallOk;
   String? _error;
 
   @override
@@ -35,32 +40,93 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
     });
     final api = AppScope.of(context).runtime.api;
     try {
-      final results = await Future.wait<dynamic>([
-        api.get('/api/v1/models'),
-        api.get('/api/v1/nodes'),
-        api.get('/api/v1/tools'),
+      final results = await Future.wait<_ProbeResult>([
+        _probe(api.get('/health')),
+        _probe(api.get('/api/v1/models')),
+        _probe(api.get('/api/v1/nodes')),
+        _probe(api.get('/api/v1/tools')),
       ]);
       if (!mounted) return;
-      final models = asMap(results[0]);
-      final nodes = asMap(results[1]);
-      final tools = asMap(results[2]);
-      final nextNodes = asList(
-        nodes['nodes'],
-      ).map(asMap).where((node) => node.isNotEmpty).toList(growable: false);
-      final nextTools = asList(
-        tools['data'],
-      ).map(asMap).where((tool) => tool.isNotEmpty).toList(growable: false);
+      final models = asMap(results[1].value);
+      final nodes = asMap(results[2].value);
+      final tools = asMap(results[3].value);
+      final nextNodes = results[2].ok
+          ? asList(nodes['nodes'])
+                .map(asMap)
+                .where((node) => node.isNotEmpty)
+                .toList(growable: false)
+          : _nodes;
+      final nextTools = results[3].ok
+          ? asList(tools['data'])
+                .map(asMap)
+                .where((tool) => tool.isNotEmpty)
+                .toList(growable: false)
+          : _tools;
+      final selfCheckTool = results[3].ok
+          ? _findSelfCheckTool(nextTools)
+          : null;
+      final selfCheck = selfCheckTool == null
+          ? null
+          : await _probeToolCall(api, selfCheckTool['name'] as String);
+      if (!mounted) return;
+      final failures = results.where((result) => !result.ok).toList();
+      if (selfCheck != null && !selfCheck.ok) failures.add(selfCheck);
       setState(() {
-        _modelCount = asList(models['models']).length;
-        _nodeCount = nextNodes.length;
-        _nodes = nextNodes;
-        _tools = nextTools;
+        _healthOk = results[0].ok;
+        _toolsOk = results[3].ok;
+        _toolCallOk = selfCheck?.ok;
+        if (results[1].ok) _modelCount = asList(models['models']).length;
+        if (results[2].ok) {
+          _nodeCount = nextNodes.length;
+          _nodes = nextNodes;
+        }
+        if (results[3].ok) _tools = nextTools;
+        _error = failures.isEmpty ? null : failures.first.error.toString();
       });
-    } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<_ProbeResult> _probe(Future<dynamic> request) async {
+    try {
+      return _ProbeResult(await request);
+    } catch (error) {
+      return _ProbeResult(null, error);
+    }
+  }
+
+  Future<_ProbeResult> _probeToolCall(ApiClient api, String toolName) async {
+    final result = await _probe(
+      api.post('/api/v1/tools/${Uri.encodeComponent(toolName)}/calls', {
+        'arguments': <String, dynamic>{},
+      }),
+    );
+    if (result.ok && result.value is Map && result.value['ok'] == false) {
+      return _ProbeResult(
+        result.value,
+        StateError('Tool call returned ok=false'),
+      );
+    }
+    return result;
+  }
+
+  Map<String, dynamic>? _findSelfCheckTool(List<Map<String, dynamic>> tools) {
+    for (final tool in tools) {
+      if (tool['exposure'] != 'read') continue;
+      if (tool['remoteAllowed'] == false ||
+          tool['sideEffect'] == true ||
+          tool['destructive'] == true) {
+        continue;
+      }
+      final schema = asMap(tool['arguments']);
+      if (asList(schema['required']).isEmpty &&
+          tool['name'] is String &&
+          (tool['name'] as String).isNotEmpty) {
+        return tool;
+      }
+    }
+    return null;
   }
 
   @override
@@ -71,15 +137,20 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
       listenable: runtime,
       builder: (context, _) {
         final state = runtime.state;
+        final readiness = EdgeReadiness.evaluate(
+          runtime: state,
+          healthOk: _healthOk,
+          toolsOk: _toolsOk,
+          toolCount: _tools.length,
+          toolCallOk: _toolCallOk,
+          android: Theme.of(context).platform == TargetPlatform.android,
+        );
         final loopback = state?.url.isNotEmpty == true
             ? state!.url
             : 'http://127.0.0.1:${state?.port ?? 11434}';
         final lan = state?.lanUrl.isNotEmpty == true ? state!.lanUrl : loopback;
         return RefreshIndicator(
-          onRefresh: () async {
-            await runtime.refresh();
-            await _refresh();
-          },
+          onRefresh: _refreshAll,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
@@ -95,6 +166,11 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
                         title: l10n.edgeOverviewTitle,
                         subtitle: l10n.edgeOverviewSubtitle,
                         onRefresh: _loading ? null : _refresh,
+                      ),
+                      const SizedBox(height: 12),
+                      _ReadinessPanel(
+                        readiness: readiness,
+                        onRefresh: _loading ? null : _refreshAll,
                       ),
                       const SizedBox(height: 12),
                       _StatsStrip(
@@ -176,6 +252,11 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
 
   void _openTab(int index) => homeShellKey.currentState?.switchTo(index);
 
+  Future<void> _refreshAll() async {
+    await AppScope.of(context).runtime.refresh();
+    await _refresh();
+  }
+
   Future<void> _copy(String value) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
@@ -183,6 +264,237 @@ class _EdgeOverviewScreenState extends State<EdgeOverviewScreen> {
       SnackBar(content: Text(AppLocalizations.of(context)!.toastCopied)),
     );
   }
+}
+
+class _ProbeResult {
+  const _ProbeResult(this.value, [this.error]);
+
+  final dynamic value;
+  final Object? error;
+
+  bool get ok => error == null;
+}
+
+class _ReadinessPanel extends StatelessWidget {
+  const _ReadinessPanel({required this.readiness, required this.onRefresh});
+
+  final EdgeReadiness readiness;
+  final VoidCallback? onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final color = _readinessStatusColor(context, readiness.overall);
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.fact_check_outlined, color: color, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.readinessTitle,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        l10n.readinessSubtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.readinessRefresh,
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _ReadinessBadge(
+                  text: _statusText(l10n, readiness.overall),
+                  status: readiness.overall,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  l10n.readinessSummary(
+                    readiness.readyCount,
+                    readiness.requiredCount,
+                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (var index = 0; index < readiness.checks.length; index++) ...[
+              if (index > 0)
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.45,
+                  ),
+                ),
+              _ReadinessRow(check: readiness.checks[index]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadinessRow extends StatelessWidget {
+  const _ReadinessRow({required this.check});
+
+  final EdgeReadinessCheck check;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        children: [
+          Icon(
+            _kindIcon(check.kind),
+            size: 18,
+            color: _readinessStatusColor(context, check.status),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _kindTitle(l10n, check.kind),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _kindHint(l10n, check.kind),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _ReadinessBadge(
+            text: _statusText(l10n, check.status),
+            status: check.status,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadinessBadge extends StatelessWidget {
+  const _ReadinessBadge({required this.text, required this.status});
+
+  final String text;
+  final EdgeReadinessStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _readinessStatusColor(context, status);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+IconData _kindIcon(EdgeReadinessKind kind) {
+  return switch (kind) {
+    EdgeReadinessKind.runtime => Icons.power_settings_new_outlined,
+    EdgeReadinessKind.connection => Icons.wifi_outlined,
+    EdgeReadinessKind.tools => Icons.build_outlined,
+    EdgeReadinessKind.permissions => Icons.verified_user_outlined,
+    EdgeReadinessKind.security => Icons.lock_outline,
+    EdgeReadinessKind.model => Icons.memory_outlined,
+  };
+}
+
+String _kindTitle(AppLocalizations l10n, EdgeReadinessKind kind) {
+  return switch (kind) {
+    EdgeReadinessKind.runtime => l10n.readinessRuntime,
+    EdgeReadinessKind.connection => l10n.readinessConnection,
+    EdgeReadinessKind.tools => l10n.readinessTools,
+    EdgeReadinessKind.permissions => l10n.readinessPermissions,
+    EdgeReadinessKind.security => l10n.readinessSecurity,
+    EdgeReadinessKind.model => l10n.readinessModel,
+  };
+}
+
+String _kindHint(AppLocalizations l10n, EdgeReadinessKind kind) {
+  return switch (kind) {
+    EdgeReadinessKind.runtime => l10n.readinessRuntimeHint,
+    EdgeReadinessKind.connection => l10n.readinessConnectionHint,
+    EdgeReadinessKind.tools => l10n.readinessToolsHint,
+    EdgeReadinessKind.permissions => l10n.readinessPermissionsHint,
+    EdgeReadinessKind.security => l10n.readinessSecurityHint,
+    EdgeReadinessKind.model => l10n.readinessModelHint,
+  };
+}
+
+String _statusText(AppLocalizations l10n, EdgeReadinessStatus status) {
+  return switch (status) {
+    EdgeReadinessStatus.checking => l10n.readinessChecking,
+    EdgeReadinessStatus.ready => l10n.readinessReady,
+    EdgeReadinessStatus.attention => l10n.readinessAttention,
+    EdgeReadinessStatus.blocked => l10n.readinessBlocked,
+    EdgeReadinessStatus.optional => l10n.readinessOptional,
+  };
+}
+
+Color _readinessStatusColor(BuildContext context, EdgeReadinessStatus status) {
+  final theme = Theme.of(context);
+  return switch (status) {
+    EdgeReadinessStatus.ready => context.status.success,
+    EdgeReadinessStatus.attention ||
+    EdgeReadinessStatus.optional => context.status.warning,
+    EdgeReadinessStatus.blocked => context.status.danger,
+    EdgeReadinessStatus.checking => theme.colorScheme.primary,
+  };
 }
 
 class _RuntimePanel extends StatelessWidget {

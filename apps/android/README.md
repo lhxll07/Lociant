@@ -24,8 +24,12 @@ not depend on `:data`; persistence is owned by the application composition root.
 ## Runtime Ownership
 
 `LociantRuntimeService` owns the foreground service lifecycle and spawns the
-Rust server subprocess (`RustServerProcess`). `MainActivity` may request the
-service lifecycle through explicit Android intents.
+Rust server subprocess (`RustServerProcess`). The subprocess has an exit
+watcher; unexpected exits are retried with bounded exponential backoff while
+an explicit stop cancels recovery. If Android recreates a sticky service, it
+only restores the runtime when the persisted `autoStart` setting is enabled.
+`MainActivity` may request the service lifecycle through explicit Android
+intents.
 
 `LociantRuntime` is the process-level composition root. It creates one immutable set of long-lived dependencies:
 

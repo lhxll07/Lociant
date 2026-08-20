@@ -6,7 +6,7 @@ import '../core/models.dart';
 import '../l10n/app_localizations.dart';
 import '../state/runtime_controller.dart';
 
-const _appVersion = '2.0.1';
+const _appVersion = '2.0.2';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});

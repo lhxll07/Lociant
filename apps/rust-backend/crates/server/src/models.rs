@@ -154,7 +154,7 @@ pub fn collect_local_models(state: &AppState) -> Vec<Value> {
                 "name": id,
                 "runtime": "llama",
                 "type": "chat",
-                "ready": true,
+                "ready": llama.is_ready(),
                 "installed": true,
                 "missingFiles": [],
             }));

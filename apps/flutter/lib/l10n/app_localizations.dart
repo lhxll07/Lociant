@@ -458,6 +458,132 @@ abstract class AppLocalizations {
   /// **'No tools are available at the current exposure level'**
   String get edgeToolsEmpty;
 
+  /// No description provided for @readinessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Node readiness'**
+  String get readinessTitle;
+
+  /// No description provided for @readinessSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the runtime before connecting a desktop or cloud client.'**
+  String get readinessSubtitle;
+
+  /// No description provided for @readinessRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Run checks'**
+  String get readinessRefresh;
+
+  /// No description provided for @readinessSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{ready} of {total} required checks ready'**
+  String readinessSummary(Object ready, Object total);
+
+  /// No description provided for @readinessReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get readinessReady;
+
+  /// No description provided for @readinessAttention.
+  ///
+  /// In en, this message translates to:
+  /// **'Attention'**
+  String get readinessAttention;
+
+  /// No description provided for @readinessBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked'**
+  String get readinessBlocked;
+
+  /// No description provided for @readinessChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking'**
+  String get readinessChecking;
+
+  /// No description provided for @readinessOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get readinessOptional;
+
+  /// No description provided for @readinessRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime'**
+  String get readinessRuntime;
+
+  /// No description provided for @readinessRuntimeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Foreground service and Rust backend'**
+  String get readinessRuntimeHint;
+
+  /// No description provided for @readinessConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get readinessConnection;
+
+  /// No description provided for @readinessConnectionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Health endpoint and local control plane'**
+  String get readinessConnectionHint;
+
+  /// No description provided for @readinessTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Device tools'**
+  String get readinessTools;
+
+  /// No description provided for @readinessToolsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A safe read-only capability responds'**
+  String get readinessToolsHint;
+
+  /// No description provided for @readinessPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get readinessPermissions;
+
+  /// No description provided for @readinessPermissionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Background operation and device access'**
+  String get readinessPermissionsHint;
+
+  /// No description provided for @readinessSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Network security'**
+  String get readinessSecurity;
+
+  /// No description provided for @readinessSecurityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'API token protects remote calls'**
+  String get readinessSecurityHint;
+
+  /// No description provided for @readinessModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Local model'**
+  String get readinessModel;
+
+  /// No description provided for @readinessModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional local inference'**
+  String get readinessModelHint;
+
   /// No description provided for @toolDescriptionGeneric.
   ///
   /// In en, this message translates to:

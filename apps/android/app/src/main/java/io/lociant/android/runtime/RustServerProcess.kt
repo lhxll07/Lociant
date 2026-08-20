@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 
 /**
@@ -18,55 +19,90 @@ object RustServerProcess {
     private const val TAG = "LociantRustServer"
     private const val PORT = 11434
 
+    private val lock = Any()
     @Volatile private var process: Process? = null
+    @Volatile private var intentionalStop = false
+
+    fun isRunning(): Boolean = process?.isAlive == true
 
     fun start(
         context: Context,
         deviceToken: String? = null,
         devicePort: Int = DeviceAdapterServer.DEVICE_PORT,
-    ) {
-        if (process?.isAlive == true) return
-        try {
-            // 优先用 nativeLibraryDir 里的库（legacy packaging 会落地到那里，
-            // 文件上下文是 apk_data_file，untrusted_app 域允许执行）。
-            val binary = resolveExecutable(context) ?: run {
-                Log.w(TAG, "bundled rust server missing or unreadable in APK")
-                return
-            }
-            binary.setExecutable(true, false)
+        onExit: ((Int) -> Unit)? = null,
+    ): Boolean {
+        return synchronized(lock) {
+            if (process?.isAlive == true) return true
+            intentionalStop = false
+            try {
+                // 优先用 nativeLibraryDir 里的库（legacy packaging 会落地到那里，
+                // 文件上下文是 apk_data_file，untrusted_app 域允许执行）。
+                val binary = resolveExecutable(context) ?: run {
+                    Log.w(TAG, "bundled rust server missing or unreadable in APK")
+                    return false
+                }
+                binary.setExecutable(true, false)
 
-            val dataDir = File(context.filesDir, "lociant/rust-data").apply { mkdirs() }
-            val builder = ProcessBuilder(binary.absolutePath)
-            builder.environment()["LOCIANT_DATA_DIR"] = dataDir.absolutePath
-            builder.environment()["LOCIANT_HOST"] = "0.0.0.0"
-            builder.environment()["LOCIANT_PORT"] = PORT.toString()
-            builder.environment()["LOCIANT_MODELS_DIR"] =
-                File(context.getExternalFilesDir(null), "models").absolutePath
-            if (deviceToken != null) {
-                builder.environment()[DeviceAdapterServer.TOKEN_ENV] = deviceToken
-                builder.environment()[DeviceAdapterServer.PORT_ENV] = devicePort.toString()
+                val dataDir = File(context.filesDir, "lociant/rust-data").apply { mkdirs() }
+                val builder = ProcessBuilder(binary.absolutePath)
+                builder.environment()["LOCIANT_DATA_DIR"] = dataDir.absolutePath
+                builder.environment()["LOCIANT_HOST"] = "0.0.0.0"
+                builder.environment()["LOCIANT_PORT"] = PORT.toString()
+                builder.environment()["LOCIANT_MODELS_DIR"] =
+                    File(context.getExternalFilesDir(null), "models").absolutePath
+                if (deviceToken != null) {
+                    builder.environment()[DeviceAdapterServer.TOKEN_ENV] = deviceToken
+                    builder.environment()[DeviceAdapterServer.PORT_ENV] = devicePort.toString()
+                }
+                LlamaServerProcess.configure(context, builder)
+                builder.redirectErrorStream(true)
+                val proc = builder.start()
+                process = proc
+                Thread {
+                    proc.inputStream.bufferedReader().forEachLine { line -> Log.i(TAG, line) }
+                }.apply {
+                    name = "lociant-rust-log"
+                    isDaemon = true
+                    start()
+                }
+                Thread {
+                    val exitCode = runCatching { proc.waitFor() }.getOrDefault(-1)
+                    val notify = synchronized(lock) {
+                        if (process !== proc) {
+                            false
+                        } else {
+                            process = null
+                            !intentionalStop
+                        }
+                    }
+                    if (notify) {
+                        Log.w(TAG, "rust server exited code=$exitCode")
+                        runCatching { onExit?.invoke(exitCode) }
+                    }
+                }.apply {
+                    name = "lociant-rust-watchdog"
+                    isDaemon = true
+                    start()
+                }
+                Log.i(TAG, "started data=$dataDir port=$PORT device=${deviceToken != null}")
+                true
+            } catch (error: Throwable) {
+                process = null
+                Log.e(TAG, "start failed", error)
+                false
             }
-            LlamaServerProcess.configure(context, builder)
-            builder.redirectErrorStream(true)
-            val proc = builder.start()
-            process = proc
-            Thread {
-                proc.inputStream.bufferedReader().forEachLine { line -> Log.i(TAG, line) }
-            }.apply {
-                isDaemon = true
-                start()
-            }
-            Log.i(TAG, "started data=$dataDir port=$PORT device=${deviceToken != null}")
-        } catch (error: Throwable) {
-            Log.e(TAG, "start failed", error)
         }
     }
 
     fun stop() {
-        process?.let { proc ->
-            runCatching { proc.destroy() }
-            process = null
+        val proc = synchronized(lock) {
+            intentionalStop = true
+            process.also { process = null }
         }
+        proc ?: return
+        runCatching { proc.destroy() }
+        if (runCatching { proc.waitFor(2, TimeUnit.SECONDS) }.getOrDefault(false)) return
+        runCatching { proc.destroyForcibly() }
     }
 
     private fun resolveExecutable(context: Context): File? {

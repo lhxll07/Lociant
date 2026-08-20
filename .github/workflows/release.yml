@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v2.0.2"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        required: true
+        default: "v2.0.2"
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.44.9"
+  JAVA_VERSION: "21"
+
+jobs:
+  build:
+    name: Build release artifacts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          if [[ "$tag" != "v2.0.2" ]]; then
+            echo "This workflow is for v2.0.2, received: $tag" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=2.0.2" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
+            libstdc++-12-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            dpkg-dev xz-utils
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/rust-backend
+
+      - name: Install AppImage tool
+        shell: bash
+        run: |
+          curl -fsSL \
+            -o "$RUNNER_TEMP/appimagetool-x86_64.AppImage" \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod 0755 "$RUNNER_TEMP/appimagetool-x86_64.AppImage"
+
+      - name: Install Flutter dependencies
+        working-directory: apps/flutter
+        run: flutter pub get
+
+      - name: Verify Flutter
+        working-directory: apps/flutter
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Verify Rust workspace
+        working-directory: apps/rust-backend
+        run: cargo test --workspace --locked
+
+      - name: Build Rust Linux binaries
+        working-directory: apps/rust-backend
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: |
+          cargo build --release --locked
+          cargo build --release --locked \
+            --target aarch64-unknown-linux-gnu \
+            -p lociant-server -p lociant-tui
+
+      - name: Build Flutter Linux bundle
+        working-directory: apps/flutter
+        run: flutter build linux --release
+
+      - name: Build signed Android APK
+        working-directory: apps/android
+        env:
+          LOCIANT_KEYSTORE: ${{ runner.temp }}/lociant-release.jks
+          LOCIANT_KEYSTORE_PASSWORD: ${{ secrets.LOCIANT_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -z "$LOCIANT_KEYSTORE_PASSWORD" ]]; then
+            echo "LOCIANT_KEYSTORE_PASSWORD secret is required" >&2
+            exit 1
+          fi
+          echo "${{ secrets.LOCIANT_KEYSTORE_BASE64 }}" | base64 --decode > "$LOCIANT_KEYSTORE"
+          test -s "$LOCIANT_KEYSTORE"
+          bash gradlew :app:assembleRelease --console=plain
+
+      - name: Package release artifacts
+        env:
+          APPIMAGETOOL: ${{ runner.temp }}/appimagetool-x86_64.AppImage
+        run: |
+          bash scripts/package-release.sh "${{ steps.version.outputs.version }}"
+          bash scripts/package-appimage.sh "${{ steps.version.outputs.version }}"
+          rm -f dist/SHA256SUMS
+          (cd dist && sha256sum $(find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort)) > dist/SHA256SUMS
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lociant-${{ steps.version.outputs.version }}-artifacts
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Lociant ${{ steps.version.outputs.tag }}
+          body_path: docs/releases/v2.0.2.md
+          files: dist/*
+          fail_on_unmatched_files: true

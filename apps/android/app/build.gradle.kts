@@ -16,8 +16,8 @@ android {
             if (System.getenv("LOCIANT_CLONE") == "1") ".clone" else ""
         minSdk = 26
         targetSdk = 36
-        versionCode = 20001
-        versionName = "2.0.1"
+        versionCode = 20002
+        versionName = "2.0.2"
     }
 
     signingConfigs {

@@ -193,6 +193,71 @@ class AppLocalizationsZh extends AppLocalizations {
   String get edgeToolsEmpty => '当前暴露级别下没有可用工具';
 
   @override
+  String get readinessTitle => '节点就绪检查';
+
+  @override
+  String get readinessSubtitle => '连接桌面或云端客户端前，先检查这台节点。';
+
+  @override
+  String get readinessRefresh => '重新检查';
+
+  @override
+  String readinessSummary(Object ready, Object total) {
+    return '$ready/$total 项必需检查已就绪';
+  }
+
+  @override
+  String get readinessReady => '已就绪';
+
+  @override
+  String get readinessAttention => '需注意';
+
+  @override
+  String get readinessBlocked => '未就绪';
+
+  @override
+  String get readinessChecking => '检查中';
+
+  @override
+  String get readinessOptional => '可选';
+
+  @override
+  String get readinessRuntime => '运行时';
+
+  @override
+  String get readinessRuntimeHint => '前台服务和 Rust 后端';
+
+  @override
+  String get readinessConnection => '连接';
+
+  @override
+  String get readinessConnectionHint => '健康检查和本地控制平面';
+
+  @override
+  String get readinessTools => '设备工具';
+
+  @override
+  String get readinessToolsHint => '至少有一个只读能力可以正常调用';
+
+  @override
+  String get readinessPermissions => '权限';
+
+  @override
+  String get readinessPermissionsHint => '后台运行和设备访问权限';
+
+  @override
+  String get readinessSecurity => '网络安全';
+
+  @override
+  String get readinessSecurityHint => 'API 令牌保护远程调用';
+
+  @override
+  String get readinessModel => '本地模型';
+
+  @override
+  String get readinessModelHint => '可选的本地推理能力';
+
+  @override
   String get toolDescriptionGeneric => '可由控制端调用的设备能力。';
 
   @override

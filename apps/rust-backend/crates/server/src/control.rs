@@ -43,7 +43,9 @@ pub async fn runtime(
         String::new()
     };
     runtime.model_id = model_id;
-    runtime.model_loaded = device_has_model || state.rkllm.is_some() || state.llama.is_some();
+    let llama_status = state.llama.as_ref().map(|llama| llama.status());
+    runtime.model_loaded =
+        device_has_model || state.rkllm.is_some() || llama_status == Some("ready");
     runtime.tool_exposure = settings
         .get("toolExposure")
         .and_then(Value::as_str)
@@ -53,7 +55,11 @@ pub async fn runtime(
         .get("autoStart")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    runtime.message = "edge runtime running".to_owned();
+    runtime.message = match llama_status {
+        Some("restarting") => "edge runtime running; llama.cpp is recovering".to_owned(),
+        Some("offline") => "edge runtime running; llama.cpp is unavailable".to_owned(),
+        _ => "edge runtime running".to_owned(),
+    };
     runtime.device = json!({
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,

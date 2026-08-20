@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-2.0.1}"
+VERSION="${1:-2.0.2}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 ANDROID_APK="$ROOT/apps/android/app/build/outputs/apk/release/app-release.apk"
@@ -10,6 +10,18 @@ RUST_TARGET="$ROOT/apps/rust-backend/target"
 X64_SERVER="$RUST_TARGET/x86_64-unknown-linux-gnu/release/lociant-server"
 ARM64_SERVER="$RUST_TARGET/aarch64-unknown-linux-gnu/release/lociant-server"
 ARM64_TUI="$RUST_TARGET/aarch64-unknown-linux-gnu/release/lociant-tui"
+
+# Native Linux builds use Cargo's default target directory. Keep the explicit
+# target path for reproducible CI/cross builds, but accept the native path too.
+if [[ ! -f "$X64_SERVER" ]]; then
+    X64_SERVER="$RUST_TARGET/release/lociant-server"
+fi
+if [[ ! -f "$ARM64_SERVER" ]]; then
+    ARM64_SERVER="$RUST_TARGET/aarch64-unknown-linux-gnu/release/lociant-server"
+fi
+if [[ ! -f "$ARM64_TUI" ]]; then
+    ARM64_TUI="$RUST_TARGET/aarch64-unknown-linux-gnu/release/lociant-tui"
+fi
 
 for path in "$ANDROID_APK" "$FLUTTER_BUNDLE/lociant_flutter" \
     "$X64_SERVER" "$ARM64_SERVER" "$ARM64_TUI"; do

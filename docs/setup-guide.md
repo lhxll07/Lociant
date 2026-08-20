@@ -21,7 +21,7 @@ Lociant 是面向低算力、常驻、靠近物理世界设备的边缘运行时
 
 下载并安装 arm64-v8a APK（Android 8.0+）：
 
-[下载 Lociant v2.0.1 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
+[下载 Lociant v2.0.2 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-arm64-v8a-release.apk)
 
 源码构建：
 
@@ -68,16 +68,23 @@ MCP 地址为 `http://手机IP:11434/mcp`，控制 API 为
 Debian / Ubuntu：
 
 ```bash
-sudo apt install ./lociant_2.0.1_amd64.deb
+sudo apt install ./lociant_2.0.2_amd64.deb
 lociant
 ```
 
 其他发行版：
 
 ```bash
-tar -xzf lociant-2.0.1-linux-x86_64.tar.gz
-cd lociant-2.0.1-linux-x86_64
+tar -xzf lociant-2.0.2-linux-x86_64.tar.gz
+cd lociant-2.0.2-linux-x86_64
 ./lociant_flutter
+```
+
+AppImage：
+
+```bash
+chmod +x lociant-2.0.2-linux-x86_64.AppImage
+./lociant-2.0.2-linux-x86_64.AppImage
 ```
 
 源码运行：
@@ -96,7 +103,7 @@ Flutter 会把 Rust 后端作为 sidecar 启动。Linux 默认工具包括文件
 
 下载 aarch64 发布包：
 
-[下载 Lociant v2.0.1 Linux aarch64](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
+[下载 Lociant v2.0.2 Linux aarch64](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-aarch64.tar.gz)
 
 包内包含 `lociant-server`、`lociant-tui` 和部署文件。源码交叉编译：
 

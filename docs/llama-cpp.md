@@ -22,8 +22,11 @@ Configure `LOCIANT_CONFIG` or the settings API:
 ```
 
 `llamaPort=0` chooses a free loopback port. Lociant waits for the child
-process health endpoint and terminates the child when the runtime stops. The
-model appears in `GET /api/v1/models` with `runtime: llama`.
+process health endpoint and terminates the child when the runtime stops. After
+startup, a small supervisor checks both the child process and its health
+endpoint; an unexpected exit or unhealthy process is restarted with bounded
+exponential backoff. The model appears in `GET /api/v1/models` with
+`runtime: llama` and is marked unavailable while it recovers.
 
 The underlying `llama-server` remains private to the local runtime. External
 clients should use Lociant's control API and MCP surfaces rather than relying
@@ -50,7 +53,9 @@ llama.cpp process private to the device runtime.
 The current scaffold is:
 
 - `LlamaServerProcess.kt` prepares `LOCIANT_LLAMA_*` environment variables;
-- `RustServerProcess` starts the Rust backend with that configuration;
+- `RustServerProcess` starts and watches the Rust backend subprocess;
+- `LociantRuntimeService` keeps the Android device adapter alive across an
+  unexpected Rust exit and restores the process with bounded backoff;
 - Gradle can copy an optional binary from
   `tools/llama-android/arm64-v8a/llama-server`.
 

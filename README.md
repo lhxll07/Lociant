@@ -69,7 +69,7 @@ surface.
 
 ### Android phone (first edge target)
 
-1. Download and install the [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk).
+1. Download and install the [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-arm64-v8a-release.apk).
 2. Open Lociant and complete the short setup flow. On Android 13+, allow
    notifications so the foreground runtime can start.
 3. Grant only the capabilities you need under **Settings > Security**:
@@ -83,13 +83,14 @@ surface.
 For Linux, headless boards, model formats, peer networking, and the complete
 permission matrix, see the **[setup guide](docs/setup-guide.md)**.
 
-Current v2.0.1 packages:
+Current v2.0.2 packages:
 
-- [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-arm64-v8a-release.apk)
-- [Linux desktop (x86_64 tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-x86_64.tar.gz)
-- [Linux board (aarch64 tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-2.0.1-linux-aarch64.tar.gz)
-- [Debian desktop package (amd64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant_2.0.1_amd64.deb)
-- [Debian headless node package (arm64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.1/lociant-node_2.0.1_arm64.deb)
+- [Android APK (arm64-v8a)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-arm64-v8a-release.apk)
+- [Linux desktop (x86_64 tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-x86_64.tar.gz)
+- [Linux desktop (AppImage)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-x86_64.AppImage)
+- [Linux board (aarch64 tar.gz)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-linux-aarch64.tar.gz)
+- [Debian desktop package (amd64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant_2.0.2_amd64.deb)
+- [Debian headless node package (arm64)](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-node_2.0.2_arm64.deb)
 
 ## Connect to an edge node
 

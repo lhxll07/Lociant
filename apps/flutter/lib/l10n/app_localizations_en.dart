@@ -202,6 +202,74 @@ class AppLocalizationsEn extends AppLocalizations {
       'No tools are available at the current exposure level';
 
   @override
+  String get readinessTitle => 'Node readiness';
+
+  @override
+  String get readinessSubtitle =>
+      'Check the runtime before connecting a desktop or cloud client.';
+
+  @override
+  String get readinessRefresh => 'Run checks';
+
+  @override
+  String readinessSummary(Object ready, Object total) {
+    return '$ready of $total required checks ready';
+  }
+
+  @override
+  String get readinessReady => 'Ready';
+
+  @override
+  String get readinessAttention => 'Attention';
+
+  @override
+  String get readinessBlocked => 'Blocked';
+
+  @override
+  String get readinessChecking => 'Checking';
+
+  @override
+  String get readinessOptional => 'Optional';
+
+  @override
+  String get readinessRuntime => 'Runtime';
+
+  @override
+  String get readinessRuntimeHint => 'Foreground service and Rust backend';
+
+  @override
+  String get readinessConnection => 'Connection';
+
+  @override
+  String get readinessConnectionHint =>
+      'Health endpoint and local control plane';
+
+  @override
+  String get readinessTools => 'Device tools';
+
+  @override
+  String get readinessToolsHint => 'A safe read-only capability responds';
+
+  @override
+  String get readinessPermissions => 'Permissions';
+
+  @override
+  String get readinessPermissionsHint =>
+      'Background operation and device access';
+
+  @override
+  String get readinessSecurity => 'Network security';
+
+  @override
+  String get readinessSecurityHint => 'API token protects remote calls';
+
+  @override
+  String get readinessModel => 'Local model';
+
+  @override
+  String get readinessModelHint => 'Optional local inference';
+
+  @override
   String get toolDescriptionGeneric =>
       'Device capability available to controllers.';
 
