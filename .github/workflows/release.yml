@@ -70,6 +70,17 @@ jobs:
         with:
           targets: aarch64-unknown-linux-gnu
 
+      - name: Set up Android native toolchain
+        shell: bash
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+          yes | sdkmanager \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
