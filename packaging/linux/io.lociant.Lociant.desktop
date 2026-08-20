@@ -3,6 +3,7 @@ Type=Application
 Name=Lociant
 Comment=Local edge runtime and device control
 Exec=lociant
+Icon=lociant
 Terminal=false
 Categories=Utility;
 StartupNotify=true

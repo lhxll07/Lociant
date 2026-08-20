@@ -43,7 +43,10 @@ exec "$HERE/lib/lociant/lociant_flutter" "$@"
 EOF
 chmod 0755 "$APPDIR/usr/bin/lociant"
 
-cp "$ROOT/packaging/linux/io.lociant.Lociant.desktop" \
+DESKTOP_FILE="$ROOT/packaging/linux/io.lociant.Lociant.desktop"
+cp "$ROOT/packaging/linux/lociant.svg" "$APPDIR/lociant.svg"
+cp "$DESKTOP_FILE" "$APPDIR/io.lociant.Lociant.desktop"
+cp "$DESKTOP_FILE" \
     "$APPDIR/usr/share/applications/io.lociant.Lociant.desktop"
 
 mkdir -p "$DIST"
