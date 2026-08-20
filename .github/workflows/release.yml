@@ -142,6 +142,15 @@ jobs:
         working-directory: apps/flutter
         run: flutter build linux --release
 
+      - name: Configure Android local properties
+        working-directory: apps/android
+        shell: bash
+        run: |
+          androidSdkRoot="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$androidSdkRoot"
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' \
+            "$androidSdkRoot" "$FLUTTER_ROOT" > local.properties
+
       - name: Build signed Android APK
         working-directory: apps/android
         env:
