@@ -4,7 +4,8 @@ set -euo pipefail
 VERSION="${1:-2.0.2}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
-ANDROID_APK="$ROOT/apps/android/app/build/outputs/apk/release/app-release.apk"
+ANDROID_BUILD="$ROOT/apps/android/app/build"
+ANDROID_APK="$ANDROID_BUILD/outputs/apk/release/app-release.apk"
 FLUTTER_BUNDLE="$ROOT/apps/flutter/build/linux/x64/release/bundle"
 RUST_TARGET="$ROOT/apps/rust-backend/target"
 X64_SERVER="$RUST_TARGET/x86_64-unknown-linux-gnu/release/lociant-server"
@@ -21,6 +22,22 @@ if [[ ! -f "$ARM64_SERVER" ]]; then
 fi
 if [[ ! -f "$ARM64_TUI" ]]; then
     ARM64_TUI="$RUST_TARGET/aarch64-unknown-linux-gnu/release/lociant-tui"
+fi
+
+# Recent Android Gradle Plugin versions may keep the packaged APK under
+# intermediates instead of copying it to the legacy outputs directory.
+if [[ ! -f "$ANDROID_APK" ]]; then
+    mapfile -t release_apks < <(
+        find "$ANDROID_BUILD" -type f \
+            -path '*/apk/release/*.apk' \
+            -name '*.apk' -print | sort
+    )
+    if [[ "${#release_apks[@]}" -ne 1 ]]; then
+        echo "expected exactly one Android release APK under $ANDROID_BUILD" >&2
+        printf '%s\n' "${release_apks[@]}" >&2
+        exit 1
+    fi
+    ANDROID_APK="${release_apks[0]}"
 fi
 
 for path in "$ANDROID_APK" "$FLUTTER_BUNDLE/lociant_flutter" \
