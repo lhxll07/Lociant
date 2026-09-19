@@ -212,6 +212,18 @@ abstract class AppLocalizations {
   /// **'Open models'**
   String get nodesOpenModels;
 
+  /// No description provided for @nodesHomepage.
+  ///
+  /// In en, this message translates to:
+  /// **'Homepage'**
+  String get nodesHomepage;
+
+  /// No description provided for @nodesOpenHomepage.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {title}'**
+  String nodesOpenHomepage(Object title);
+
   /// No description provided for @nodesSelfHint.
   ///
   /// In en, this message translates to:

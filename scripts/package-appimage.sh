@@ -5,6 +5,7 @@ VERSION="${1:-2.0.2}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="${DIST_DIR:-$ROOT/dist}"
 BUNDLE="${FLUTTER_BUNDLE:-$ROOT/apps/flutter/build/linux/x64/release/bundle}"
+SERVER="${LOCIANT_SERVER:-$ROOT/apps/rust-backend/target/release/lociant-server}"
 APPIMAGETOOL="${APPIMAGETOOL:-}"
 
 if [[ -z "$APPIMAGETOOL" ]]; then
@@ -19,13 +20,18 @@ if [[ ! -f "$BUNDLE/lociant_flutter" || ! -d "$BUNDLE/data" || ! -d "$BUNDLE/lib
     echo "missing Flutter Linux release bundle: $BUNDLE" >&2
     exit 1
 fi
+if [[ ! -x "$SERVER" ]]; then
+    echo "missing release Rust server: $SERVER" >&2
+    exit 1
+fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 APPDIR="$WORK/Lociant.AppDir"
-mkdir -p "$APPDIR/usr/lib/lociant" "$APPDIR/usr/bin" \
+mkdir -p "$APPDIR/usr/lib/lociant/bin" "$APPDIR/usr/bin" \
     "$APPDIR/usr/share/applications"
 cp -a "$BUNDLE/." "$APPDIR/usr/lib/lociant/"
+install -m 0755 "$SERVER" "$APPDIR/usr/lib/lociant/bin/lociant-server"
 
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash

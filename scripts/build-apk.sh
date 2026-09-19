@@ -12,25 +12,37 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/apps/android"
 
-# The current Android/Flutter toolchain supports JDK 17 or 21. Use JAVA_HOME
-# if already set, otherwise prefer an installed compatible JDK.
+# The Android/Flutter build runs on JDK 25. Android modules still emit JVM 17
+# bytecode for device compatibility; that target is configured in Gradle.
 if [[ -z "${JAVA_HOME:-}" ]]; then
-  for candidate in /usr/lib/jvm/java-17-openjdk /usr/lib/jvm/java-21-openjdk; do
+  for candidate in /usr/lib/jvm/java-25-openjdk /usr/lib/jvm/java-25-openjdk-amd64 \
+    /usr/lib/jvm/jdk-25-openjdk /usr/lib/jvm/jdk-25 /usr/lib/jvm/default; do
     if [[ -x "$candidate/bin/java" ]]; then
       export JAVA_HOME="$candidate"
       break
     fi
   done
 fi
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  JAVA_BIN=$(command -v java 2>/dev/null || true)
+  if [[ -n "$JAVA_BIN" ]]; then
+    JAVA_BIN=$(readlink -f "$JAVA_BIN" 2>/dev/null || printf '%s' "$JAVA_BIN")
+    JAVA_CANDIDATE=$(cd "$(dirname "$JAVA_BIN")/.." && pwd -P)
+    if [[ -x "$JAVA_CANDIDATE/bin/java" ]]; then
+      export JAVA_HOME="$JAVA_CANDIDATE"
+    fi
+  fi
+fi
 if [[ -z "${JAVA_HOME:-}" || ! -x "$JAVA_HOME/bin/java" ]]; then
-  echo "JDK 17 or 21 is required; set JAVA_HOME to a compatible JDK" >&2
+  echo "JDK 25 is required; set JAVA_HOME to a JDK 25 installation" >&2
   exit 1
 fi
 JAVA_MAJOR=$("$JAVA_HOME/bin/java" -version 2>&1 | sed -n 's/.*version "\([0-9][0-9]*\).*/\1/p' | head -n 1)
-if [[ "$JAVA_MAJOR" != "17" && "$JAVA_MAJOR" != "21" ]]; then
-  echo "JDK 17 or 21 is required; found Java ${JAVA_MAJOR:-unknown} at $JAVA_HOME" >&2
+if [[ "$JAVA_MAJOR" != "25" ]]; then
+  echo "JDK 25 is required; found Java ${JAVA_MAJOR:-unknown} at $JAVA_HOME" >&2
   exit 1
 fi
+export PATH="$JAVA_HOME/bin:$PATH"
 
 # Keep the generated Flutter Gradle configuration tied to the SDK that is
 # actually being used. Do not copy a second SDK into /tmp: that leaves stale
@@ -115,17 +127,26 @@ done
 
 mkdir -p "$GRADLE_USER_HOME" "$CARGO_HOME" "$PUB_CACHE"
 
-# Gradle's Flutter included build needs org.gradle.kotlin.kotlin-dsl:5.2.0.
+# Gradle 9.1's Flutter included build needs org.gradle.kotlin.kotlin-dsl:6.2.0.
 # If the selected GRADLE_USER_HOME does not have it yet, copy it from the
 # user's existing Gradle cache (if present).
-KDS_MARKER="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0"
-if [[ ! -d "$KDS_MARKER" && -d "$HOME/.gradle/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0" ]]; then
-  echo "Seeding Gradle cache with gradle-kotlin-dsl-plugins 5.2.0"
-  mkdir -p     "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.2.0"     "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0"     "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.2.0"     "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0"
-  cp -a "$HOME/.gradle/caches/modules-2/files-2.1/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.2.0/." "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.2.0/"
-  cp -a "$HOME/.gradle/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0/." "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0/"
-  cp -a "$HOME/.gradle/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.2.0/." "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/5.2.0/"
-  cp -a "$HOME/.gradle/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0/." "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin/gradle-kotlin-dsl-plugins/5.2.0/"
+KDS_VERSION="6.2.0"
+KDS_MARKER="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/$KDS_VERSION"
+KDS_SOURCE="$HOME/.gradle/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/$KDS_VERSION"
+if [[ ! -d "$KDS_MARKER" && -d "$KDS_SOURCE" ]]; then
+  echo "Seeding Gradle cache with gradle-kotlin-dsl-plugins $KDS_VERSION"
+  mkdir -p \
+    "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/$KDS_VERSION" \
+    "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin/gradle-kotlin-dsl-plugins/$KDS_VERSION" \
+    "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/$KDS_VERSION" \
+    "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin/gradle-kotlin-dsl-plugins/$KDS_VERSION"
+  cp -a "$HOME/.gradle/caches/modules-2/files-2.1/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/$KDS_VERSION/." \
+    "$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/$KDS_VERSION/"
+  cp -a "$KDS_SOURCE/." "$KDS_MARKER/"
+  cp -a "$HOME/.gradle/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/$KDS_VERSION/." \
+    "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin.kotlin-dsl/org.gradle.kotlin.kotlin-dsl.gradle.plugin/$KDS_VERSION/"
+  cp -a "$HOME/.gradle/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin/gradle-kotlin-dsl-plugins/$KDS_VERSION/." \
+    "$GRADLE_USER_HOME/caches/modules-2/metadata-2.107/descriptors/org.gradle.kotlin/gradle-kotlin-dsl-plugins/$KDS_VERSION/"
 fi
 
 echo "JAVA_HOME=$JAVA_HOME"

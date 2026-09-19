@@ -102,6 +102,10 @@ lifecycle; everything data-plane goes over HTTP/MCP.
 
 ## Build And Test
 
+The build host requires JDK 25 and uses Gradle 9.1.0, Android Gradle Plugin
+9.0.1, and Kotlin 2.3.20. Android modules deliberately keep Java and Kotlin
+bytecode at JVM 17 so API 26+ devices remain compatible.
+
 Building the APK now requires the Rust Android toolchain because the app
 bundles the Rust backend server (`apps/rust-backend`):
 
@@ -120,7 +124,8 @@ files on this device).
 bash gradlew testDebugUnitTest :app:assembleDebug :app:lintDebug
 ```
 
-`testDebugUnitTest` requires JDK 21 (Robolectric needs it for SDK 36).
+Run Gradle with JDK 25. `scripts/build-apk.sh` selects a common JDK 25 install
+when `JAVA_HOME` is unset and rejects older build JVMs.
 
 After installation, start Runtime from the UI and probe it:
 

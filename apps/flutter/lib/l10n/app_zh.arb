@@ -19,6 +19,15 @@
   "nodesNameOptional": "名称（可选）",
   "nodesAvailableActions": "可用操作",
   "nodesOpenModels": "查看模型",
+  "nodesHomepage": "首页",
+  "nodesOpenHomepage": "打开{title}",
+  "@nodesOpenHomepage": {
+    "placeholders": {
+      "title": {
+        "type": "Object"
+      }
+    }
+  },
   "nodesSelfHint": "这是当前设备，提供本地运行时能力。",
   "nodesDevicePhone": "手机",
   "nodesDeviceComputer": "电脑",

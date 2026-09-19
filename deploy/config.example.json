@@ -4,5 +4,10 @@
   "port": 11434,
   "peerToken": "",
   "peerDiscovery": true,
-  "toolExposure": "action"
+  "toolExposure": "action",
+  "homepage": {
+    "title": "Node homepage",
+    "port": 11436,
+    "path": "/"
+  }
 }

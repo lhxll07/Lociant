@@ -67,6 +67,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodesOpenModels => 'Open models';
 
   @override
+  String get nodesHomepage => 'Homepage';
+
+  @override
+  String nodesOpenHomepage(Object title) {
+    return 'Open $title';
+  }
+
+  @override
   String get nodesSelfHint =>
       'This is the current device and its local runtime.';
 

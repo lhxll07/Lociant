@@ -27,9 +27,9 @@ plugins {
     // Flutter add-to-app：让插件子项目能解析 flutter.compileSdkVersion 等扩展
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     // 按 Flutter 模板惯例，AGP/Kotlin 版本在 settings 声明，所有子项目共享
-    id("com.android.application") version "8.13.0" apply false
-    id("com.android.library") version "8.13.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("com.android.application") version "9.0.1" apply false
+    id("com.android.library") version "9.0.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 
 dependencyResolutionManagement {

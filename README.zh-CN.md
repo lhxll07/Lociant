@@ -152,7 +152,8 @@ bash scripts/dev-install.sh
 ```
 
 Android 构建会把 Rust 后端一起打包，需要 Rust Android target 和
-`cargo-ndk`。完整工具链与测试命令见 [Android 开发说明](apps/android/README.md)。
+`cargo-ndk`，构建环境使用 JDK 25；Android 字节码仍保持 JVM 17，以兼容现有
+设备。完整工具链与测试命令见 [Android 开发说明](apps/android/README.md)。
 
 ## 范围
 

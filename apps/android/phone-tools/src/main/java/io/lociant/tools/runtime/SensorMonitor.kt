@@ -111,12 +111,17 @@ object SensorMonitor {
     fun stop(): JSONObject {
         val manager = sensorManager ?: return error("sensor_unavailable", "SensorManager is unavailable")
         val stopped = ArrayList<String>()
-        synchronized(active) {
-            active.keys.forEach { code ->
-                manager.unregisterListener(active.remove(code))
-                activeIntervalMs.remove(code)
-                stopped.add(sensorName(code))
+        val subscriptions = synchronized(active) {
+            active.entries.map { (code, buffer) ->
+                code to buffer
+            }.also {
+                active.clear()
+                activeIntervalMs.clear()
             }
+        }
+        subscriptions.forEach { (code, buffer) ->
+            manager.unregisterListener(buffer)
+            stopped.add(sensorName(code))
         }
         return JSONObject()
             .put("ok", true)
@@ -139,12 +144,13 @@ object SensorMonitor {
                     .put("summary", summarize(sensor, buffer.snapshot())))
             }
         }
+        val activeNow = synchronized(active) { active.isNotEmpty() }
         return JSONObject()
             .put("ok", true)
             .put("count", sensors.length())
             .put("sensors", sensors)
             .put("monitoring", JSONObject()
-                .put("active", active.isNotEmpty())
+                .put("active", activeNow)
                 .put("sensors", monitoring))
     }
 

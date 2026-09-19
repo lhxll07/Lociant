@@ -11,10 +11,10 @@ if ($env:GRADLE_HOME) {
     }
 }
 
-$distRoot = Join-Path $env:USERPROFILE ".gradle/wrapper/dists/gradle-8.9-bin"
+$distRoot = Join-Path $env:USERPROFILE ".gradle/wrapper/dists/gradle-9.1.0-bin"
 if (Test-Path $distRoot) {
     $cached = Get-ChildItem $distRoot -Directory -ErrorAction SilentlyContinue |
-        ForEach-Object { Join-Path $_.FullName "gradle-8.9/bin/gradle.bat" } |
+        ForEach-Object { Join-Path $_.FullName "gradle-9.1.0/bin/gradle.bat" } |
         Where-Object { Test-Path $_ } |
         Select-Object -First 1
     if ($cached) {

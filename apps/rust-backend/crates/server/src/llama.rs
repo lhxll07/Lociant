@@ -158,13 +158,12 @@ pub async fn start(settings: &Value) -> Result<Option<Arc<LlamaServer>>> {
     let port = match settings
         .get("llamaPort")
         .and_then(Value::as_u64)
-        .map(|v| v as u16)
-        .filter(|port| *port != 0)
+        .and_then(valid_port)
         .or_else(|| {
             std::env::var("LOCIANT_LLAMA_PORT")
                 .ok()
-                .and_then(|v| v.parse().ok())
-                .filter(|port| *port != 0)
+                .and_then(|v| v.parse::<u64>().ok())
+                .and_then(valid_port)
         }) {
         Some(port) => port,
         None => free_port()?,
@@ -208,6 +207,10 @@ pub async fn start(settings: &Value) -> Result<Option<Arc<LlamaServer>>> {
     tracing::info!("llama-server ready on port {port}");
     spawn_supervisor(&server);
     Ok(Some(server))
+}
+
+fn valid_port(value: u64) -> Option<u16> {
+    u16::try_from(value).ok().filter(|port| *port != 0)
 }
 
 fn spawn_command(launch: &LaunchConfig) -> Result<Child> {

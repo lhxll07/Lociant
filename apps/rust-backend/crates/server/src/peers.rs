@@ -30,6 +30,7 @@ pub struct PeerNode {
     pub platform: String,
     pub host: IpAddr,
     pub port: u16,
+    pub homepage: Option<Value>,
     pub last_seen: Instant,
 }
 
@@ -39,6 +40,7 @@ type ToolsCache = Arc<Mutex<Option<(Instant, Vec<ToolDescriptor>)>>>;
 pub struct PeerManager {
     pub self_id: String,
     pub self_name: String,
+    homepage: Option<Value>,
     port: u16,
     token: String,
     nodes: RwLock<HashMap<String, PeerNode>>,
@@ -52,6 +54,7 @@ impl PeerManager {
         registry: Arc<ToolRegistry>,
         self_id: String,
         self_name: String,
+        homepage: Option<Value>,
         token: String,
         port: u16,
     ) -> Self {
@@ -73,6 +76,7 @@ impl PeerManager {
         PeerManager {
             self_id,
             self_name,
+            homepage,
             port,
             token,
             nodes: RwLock::new(HashMap::new()),
@@ -103,6 +107,7 @@ impl PeerManager {
                     "name": peers.self_name,
                     "platform": std::env::consts::OS,
                     "port": peers.port,
+                    "homepage": peers.homepage.clone(),
                 });
                 if !peers.token.is_empty() {
                     let hmac = discovery_hmac(&peers.token, &payload.to_string());
@@ -194,6 +199,15 @@ impl PeerManager {
         if id.is_empty() || id == self.self_id {
             return;
         }
+        let port = payload
+            .get("port")
+            .and_then(Value::as_u64)
+            .map(|value| u16::try_from(value).ok().filter(|port| *port != 0))
+            .unwrap_or(Some(11434));
+        let Some(port) = port else {
+            tracing::debug!(%addr, "ignoring peer discovery packet with invalid port");
+            return;
+        };
         let node = PeerNode {
             id: id.to_owned(),
             name: payload
@@ -207,7 +221,8 @@ impl PeerManager {
                 .unwrap_or_default()
                 .to_owned(),
             host: addr.ip(),
-            port: payload.get("port").and_then(Value::as_u64).unwrap_or(11434) as u16,
+            port,
+            homepage: payload.get("homepage").cloned(),
             last_seen: Instant::now(),
         };
         self.upsert_peer(node);
@@ -332,6 +347,7 @@ impl PeerManager {
             platform: "manual".to_owned(),
             host: host_ip,
             port,
+            homepage: None,
             last_seen: Instant::now(),
         };
         self.upsert_peer(node);
@@ -537,6 +553,7 @@ mod tests {
             registry,
             id.to_owned(),
             "Test node".to_owned(),
+            None,
             String::new(),
             11434,
         )

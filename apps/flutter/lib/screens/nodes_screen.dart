@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -253,6 +255,7 @@ class _NodesScreenState extends State<NodesScreen> {
 
   Future<void> _showNodeDetails(Map<String, dynamic> node) async {
     final isSelf = boolOf(node, 'self');
+    final homepage = _homepageOf(node);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -263,6 +266,15 @@ class _NodesScreenState extends State<NodesScreen> {
           Navigator.of(sheetContext).pop();
           homeShellKey.currentState?.switchTo(1);
         },
+        onOpenHomepage: homepage == null
+            ? null
+            : () {
+                Navigator.of(sheetContext).pop();
+                unawaited(
+                  AppScope.of(context).runtime.openExternalUrl(homepage.url),
+                );
+              },
+        homepageTitle: homepage?.title,
         onDelete: isSelf
             ? null
             : () {
@@ -410,11 +422,15 @@ class _NodeDetailsSheet extends StatelessWidget {
   const _NodeDetailsSheet({
     required this.node,
     required this.onOpenModels,
+    this.onOpenHomepage,
+    this.homepageTitle,
     this.onDelete,
   });
 
   final Map<String, dynamic> node;
   final VoidCallback onOpenModels;
+  final VoidCallback? onOpenHomepage;
+  final String? homepageTitle;
   final VoidCallback? onDelete;
 
   @override
@@ -496,6 +512,23 @@ class _NodeDetailsSheet extends StatelessWidget {
                 label: Text(l10n.nodesOpenModels),
               ),
             ),
+            if (onOpenHomepage != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onOpenHomepage,
+                  icon: const Icon(Icons.open_in_new_outlined),
+                  label: Text(
+                    l10n.nodesOpenHomepage(
+                      homepageTitle?.trim().isNotEmpty == true
+                          ? homepageTitle!
+                          : l10n.nodesHomepage,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             if (onDelete != null) ...[
               const SizedBox(height: 8),
               TextButton.icon(
@@ -519,6 +552,27 @@ class _NodeDetailsSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Homepage {
+  const _Homepage({required this.title, required this.url});
+
+  final String title;
+  final String url;
+}
+
+_Homepage? _homepageOf(Map<String, dynamic> node) {
+  final raw = node['homepage'];
+  final homepage = raw is String ? <String, dynamic>{'url': raw} : asMap(raw);
+  final url = str(homepage, 'url').trim();
+  final uri = Uri.tryParse(url);
+  if (uri == null ||
+      uri.host.isEmpty ||
+      !{'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+    return null;
+  }
+  final title = str(homepage, 'title').trim();
+  return _Homepage(title: title == 'Homepage' ? '' : title, url: url);
 }
 
 class _InfoRow extends StatelessWidget {

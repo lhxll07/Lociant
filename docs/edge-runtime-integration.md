@@ -194,6 +194,13 @@ Peer networking is disabled until every node has a shared `peerToken`. UDP
 discovery is controlled by `peerDiscovery`; manually added peers remain
 available when discovery is disabled.
 
+An optional `homepage` is advertised as node metadata. For example,
+`{"title":"Node homepage","port":11436,"path":"/"}` becomes
+`http://NODE_IP:11436/` on the receiving node. An absolute `http://` or
+`https://` `url` may be used when the page is hosted elsewhere.
+`GET /api/v1/nodes` returns the resolved shape as `homepage: {title, url}` when it
+is valid; Lociant does not proxy or interpret the page.
+
 ## Authentication and Network
 
 `/health` is public. If `authToken` is empty, control and MCP routes are open

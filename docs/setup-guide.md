@@ -23,7 +23,8 @@ Lociant 是面向低算力、常驻、靠近物理世界设备的边缘运行时
 
 [下载 Lociant v2.0.2 APK](https://github.com/lhxll07/Lociant/releases/download/v2.0.2/lociant-2.0.2-arm64-v8a-release.apk)
 
-源码构建：
+源码构建需要 JDK 25、Flutter 3.44，以及 Rust Android target 和
+`cargo-ndk`。Android 安装包仍使用 JVM 17 字节码，以兼容 Android 8.0+：
 
 ```bash
 bash scripts/dev-install.sh
@@ -126,6 +127,11 @@ cargo build --release --target aarch64-unknown-linux-gnu
   "peerName": "RK3576-Board",
   "host": "0.0.0.0",
   "port": 11434,
+  "homepage": {
+    "title": "Node homepage",
+    "port": 11436,
+    "path": "/"
+  },
   "rkllmModelPath": "/opt/models/qwen.rkllm",
   "rkllmModelName": "qwen-local"
 }
@@ -139,6 +145,7 @@ cargo build --release --target aarch64-unknown-linux-gnu
 - `rkllmModelPath`：RKLLM 模型文件路径。
 - `rkllmLibPath`：`librkllmrt.so` 路径，可留空使用系统搜索。
 - `peerDiscovery`：设为 `false` 可关闭 UDP 自动发现。
+- `homepage`：可选的通用首页入口。`port` 和 `path` 会按每个节点的局域网地址解析；也可以用 `{"title":"...","url":"https://..."}` 指定绝对 HTTP(S) 地址。Lociant 不读取或渲染首页内容。
 
 也可以运行初始化向导：
 

@@ -29,20 +29,22 @@ pub async fn runtime(
         false
     };
 
-    let mut runtime = lociant_core::RuntimeState::default();
-    runtime.running = true;
-    runtime.port = state.port;
-    runtime.url = format!("http://127.0.0.1:{}", state.port);
-    runtime.lan_url = state
-        .lan_ip()
-        .map(|ip| format!("http://{ip}:{}", state.port))
-        .unwrap_or_default();
-    runtime.auth_token = if address.ip().is_loopback() {
-        state.auth_token()
-    } else {
-        String::new()
+    let mut runtime = lociant_core::RuntimeState {
+        running: true,
+        port: state.port,
+        url: format!("http://127.0.0.1:{}", state.port),
+        lan_url: state
+            .lan_ip()
+            .map(|ip| format!("http://{ip}:{}", state.port))
+            .unwrap_or_default(),
+        auth_token: if address.ip().is_loopback() {
+            state.auth_token()
+        } else {
+            String::new()
+        },
+        model_id,
+        ..Default::default()
     };
-    runtime.model_id = model_id;
     let llama_status = state.llama.as_ref().map(|llama| llama.status());
     runtime.model_loaded =
         device_has_model || state.rkllm.is_some() || llama_status == Some("ready");

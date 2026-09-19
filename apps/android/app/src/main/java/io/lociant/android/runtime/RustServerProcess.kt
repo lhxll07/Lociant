@@ -48,8 +48,10 @@ object RustServerProcess {
                 builder.environment()["LOCIANT_DATA_DIR"] = dataDir.absolutePath
                 builder.environment()["LOCIANT_HOST"] = "0.0.0.0"
                 builder.environment()["LOCIANT_PORT"] = PORT.toString()
-                builder.environment()["LOCIANT_MODELS_DIR"] =
-                    File(context.getExternalFilesDir(null), "models").absolutePath
+                val modelsDir = context.getExternalFilesDir(null)?.let { File(it, "models") }
+                    ?: File(context.filesDir, "models")
+                modelsDir.mkdirs()
+                builder.environment()["LOCIANT_MODELS_DIR"] = modelsDir.absolutePath
                 if (deviceToken != null) {
                     builder.environment()[DeviceAdapterServer.TOKEN_ENV] = deviceToken
                     builder.environment()[DeviceAdapterServer.PORT_ENV] = devicePort.toString()
@@ -107,10 +109,10 @@ object RustServerProcess {
 
     private fun resolveExecutable(context: Context): File? {
         val inNativeLibDir = File(context.applicationInfo.nativeLibraryDir, "liblociant_server.so")
-        if (inNativeLibDir.exists()) return inNativeLibDir
+        if (inNativeLibDir.isFile && inNativeLibDir.canRead()) return inNativeLibDir
         val binDir = File(context.filesDir, "lociant/rust").apply { mkdirs() }
         val extracted = File(binDir, "lociant-server")
-        return if (extractBundledBinary(context, extracted)) extracted else null
+        return if (extractBundledBinary(context, extracted) && extracted.isFile) extracted else null
     }
 
     /**

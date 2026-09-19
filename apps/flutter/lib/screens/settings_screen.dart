@@ -310,12 +310,31 @@ class _SecuritySettingsPageState extends State<_SecuritySettingsPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    FilledButton.tonalIcon(
-                      onPressed: () => runtime.updateSettings({
-                        'peerToken': _peerToken.text.trim(),
-                      }),
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(l10n.settingsPeerTokenSave),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: () {
+                            final token = _peerToken.text.trim();
+                            // The backend redacts the existing peer token from
+                            // state, so an untouched field must not overwrite it.
+                            if (token.isNotEmpty) {
+                              runtime.updateSettings({'peerToken': token});
+                            }
+                          },
+                          icon: const Icon(Icons.save_outlined),
+                          label: Text(l10n.settingsPeerTokenSave),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            _peerToken.clear();
+                            runtime.updateSettings({'peerToken': ''});
+                          },
+                          icon: const Icon(Icons.clear_outlined),
+                          label: Text(l10n.settingsClear),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -734,7 +753,6 @@ class _LocalModelSettingsPageState extends State<_LocalModelSettingsPage> {
       },
     );
   }
-
 }
 
 class _AboutSettingsPage extends StatelessWidget {

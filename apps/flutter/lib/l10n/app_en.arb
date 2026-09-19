@@ -19,6 +19,15 @@
   "nodesNameOptional": "Name (optional)",
   "nodesAvailableActions": "Available actions",
   "nodesOpenModels": "Open models",
+  "nodesHomepage": "Homepage",
+  "nodesOpenHomepage": "Open {title}",
+  "@nodesOpenHomepage": {
+    "placeholders": {
+      "title": {
+        "type": "Object"
+      }
+    }
+  },
   "nodesSelfHint": "This is the current device and its local runtime.",
   "nodesDevicePhone": "Phone",
   "nodesDeviceComputer": "Computer",

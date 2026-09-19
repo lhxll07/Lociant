@@ -66,6 +66,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nodesOpenModels => '查看模型';
 
   @override
+  String get nodesHomepage => '首页';
+
+  @override
+  String nodesOpenHomepage(Object title) {
+    return '打开$title';
+  }
+
+  @override
   String get nodesSelfHint => '这是当前设备，提供本地运行时能力。';
 
   @override

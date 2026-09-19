@@ -90,27 +90,31 @@ async fn main() -> anyhow::Result<()> {
     // Headless bootstrap: a config file (`LOCIANT_CONFIG`) overrides stored
     // settings on every start, so a board can be configured without a UI.
     let settings = load_headless_config(settings);
-    let port = settings
-        .get("port")
-        .and_then(Value::as_u64)
-        .map(|v| v as u16)
+    // Deployment environment variables are intentionally the final override:
+    // systemd and the Android host set them to the interface/port they own.
+    // A JSON value must also fit the wire type instead of being truncated.
+    let port = std::env::var("LOCIANT_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .and_then(valid_port)
         .or_else(|| {
-            std::env::var("LOCIANT_PORT")
-                .ok()
-                .and_then(|v| v.parse().ok())
+            settings
+                .get("port")
+                .and_then(Value::as_u64)
+                .and_then(valid_port)
         })
         .unwrap_or(DEFAULT_PORT);
     let models_dir = std::env::var("LOCIANT_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| data_dir().join("models"));
     std::fs::create_dir_all(&models_dir)?;
-    let host = settings
-        .get("host")
-        .and_then(Value::as_str)
+    let host = std::env::var("LOCIANT_HOST")
+        .ok()
         .and_then(|value| value.parse::<IpAddr>().ok())
         .or_else(|| {
-            std::env::var("LOCIANT_HOST")
-                .ok()
+            settings
+                .get("host")
+                .and_then(Value::as_str)
                 .and_then(|value| value.parse::<IpAddr>().ok())
         })
         .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
@@ -199,6 +203,7 @@ async fn main() -> anyhow::Result<()> {
                 tools.clone(),
                 self_id,
                 self_name,
+                settings.get("homepage").cloned(),
                 peer_token,
                 port,
             )))
@@ -251,7 +256,11 @@ async fn main() -> anyhow::Result<()> {
                     continue;
                 };
                 let name = item.get("name").and_then(Value::as_str).map(str::to_owned);
-                if let Err(error) = peers.add_manual_peer(host.to_owned(), port as u16, name) {
+                let Some(port) = valid_port(port) else {
+                    tracing::warn!("ignoring persisted manual peer with invalid port: {port}");
+                    continue;
+                };
+                if let Err(error) = peers.add_manual_peer(host.to_owned(), port, name) {
                     tracing::warn!(%error, "ignoring invalid persisted manual peer");
                 }
             }
@@ -336,6 +345,10 @@ fn peer_discovery_enabled(settings: &Value) -> bool {
         .unwrap_or(true)
 }
 
+fn valid_port(value: u64) -> Option<u16> {
+    u16::try_from(value).ok().filter(|port| *port != 0)
+}
+
 async fn health() -> axum::Json<Value> {
     axum::Json(serde_json::json!({
         "status": "ok",
@@ -346,7 +359,7 @@ async fn health() -> axum::Json<Value> {
 
 #[cfg(test)]
 mod tests {
-    use super::peer_discovery_enabled;
+    use super::{peer_discovery_enabled, valid_port};
     use serde_json::json;
 
     #[test]
@@ -359,5 +372,12 @@ mod tests {
         ] {
             assert_eq!(peer_discovery_enabled(&settings), expected);
         }
+    }
+
+    #[test]
+    fn invalid_ports_are_not_truncated() {
+        assert_eq!(valid_port(11434), Some(11434));
+        assert_eq!(valid_port(0), None);
+        assert_eq!(valid_port(65_536), None);
     }
 }

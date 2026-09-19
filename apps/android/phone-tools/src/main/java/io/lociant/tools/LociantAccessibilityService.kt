@@ -234,29 +234,34 @@ class LociantAccessibilityService : AccessibilityService() {
     private fun findPasteTarget(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         val inputFocus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         if (inputFocus != null) {
-            try {
-                if (editableTarget(inputFocus) != null) return inputFocus
-            } finally {
-                inputFocus.recycle()
+            val editable = editableTarget(inputFocus)
+            if (editable != null) {
+                editable.recycle()
+                return inputFocus
             }
+            inputFocus.recycle()
         }
         val accessibilityFocus = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
         if (accessibilityFocus != null) {
-            try {
-                if (editableTarget(accessibilityFocus) != null) return accessibilityFocus
-            } finally {
-                accessibilityFocus.recycle()
+            val editable = editableTarget(accessibilityFocus)
+            if (editable != null) {
+                editable.recycle()
+                return accessibilityFocus
             }
+            accessibilityFocus.recycle()
         }
         return findFocusedEditableNode(root)
     }
 
     private fun findFocusedEditableNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         val queue = ArrayDeque<AccessibilityNodeInfo>()
-        queue.add(root)
+        // Keep the caller-owned root untouched; every queued node is our own
+        // obtain() and must be recycled exactly once.
+        queue.add(AccessibilityNodeInfo.obtain(root))
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
             if (current.isEnabled && current.isVisibleToUser && current.isEditable && current.isFocused) {
+                while (queue.isNotEmpty()) queue.removeFirst().recycle()
                 return current
             }
             var index = 0

@@ -49,14 +49,16 @@ object LlamaServerProcess {
         }
     }
 
-    fun modelFile(context: Context): File? = cachedModel ?: findGgufModel(context)
+    fun modelFile(context: Context): File? = cachedModel
+        ?.takeIf { it.isFile && it.canRead() }
+        ?: findGgufModel(context)
 
     private fun resolveExecutable(context: Context): File? {
         val inNativeLibDir = File(context.applicationInfo.nativeLibraryDir, "libllama_server.so")
-        if (inNativeLibDir.exists()) return inNativeLibDir
+        if (inNativeLibDir.isFile && inNativeLibDir.canRead()) return inNativeLibDir
         val binDir = File(context.filesDir, "lociant/llama").apply { mkdirs() }
         val extracted = File(binDir, "llama-server")
-        return if (extractBundledBinary(context, extracted)) extracted else null
+        return if (extractBundledBinary(context, extracted) && extracted.isFile) extracted else null
     }
 
     private fun extractBundledBinary(context: Context, target: File): Boolean {
@@ -84,7 +86,7 @@ object LlamaServerProcess {
 
         fun search(dir: File, depth: Int): File? {
             if (depth > 4) return null
-            val files = dir.listFiles() ?: return null
+            val files = dir.listFiles()?.sortedBy { it.name.lowercase() } ?: return null
             for (file in files) {
                 if (file.isFile && file.extension.equals("gguf", ignoreCase = true)) {
                     return file

@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import '../core/api_client.dart';
+import 'external_url_stub.dart'
+    if (dart.library.io) 'external_url_io.dart'
+    as external_url;
 
 /// The native surface available to the UI. On Android this is implemented by
 /// [LociantPlatformChannel]; on desktop it is [HttpPlatformService] talking to
@@ -52,9 +55,11 @@ class HttpPlatformService implements PlatformService {
       case 'requestAccessibilityPermission':
       case 'openAppSettings':
       case 'openPermissionSettings':
-      case 'openExternalUrl':
       case 'installModelPackage':
         return _map(await api.get('/api/v1/runtime'));
+      case 'openExternalUrl':
+        final url = payload?['url'];
+        return {'ok': url is String && await external_url.openExternalUrl(url)};
       default:
         return const {};
     }

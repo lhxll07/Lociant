@@ -172,8 +172,10 @@ bash scripts/dev-install.sh
 ```
 
 The Android build includes the Rust backend and requires the Rust Android
-target plus `cargo-ndk`. See [Android development](apps/android/README.md) for
-the full toolchain and test commands.
+target, `cargo-ndk`, and JDK 25. Gradle runs on JDK 25 while Android bytecode
+remains at JVM 17 for device compatibility. See
+[Android development](apps/android/README.md) for the full toolchain and test
+commands.
 
 ## Scope
 

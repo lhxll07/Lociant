@@ -166,7 +166,8 @@ class MainActivity : FlutterFragmentActivity() {
 
     fun openExternalUrl(url: String): String {
         val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return ok("external_url_rejected")
-        if (!uri.scheme.equals("https", ignoreCase = true)) return ok("external_url_rejected")
+        if (!uri.scheme.equals("http", ignoreCase = true) &&
+            !uri.scheme.equals("https", ignoreCase = true)) return ok("external_url_rejected")
         runOnUiThread {
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
         }

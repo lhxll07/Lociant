@@ -13,12 +13,12 @@ if defined GRADLE_HOME (
   )
 )
 
-set "DIST_ROOT=%USERPROFILE%\.gradle\wrapper\dists\gradle-8.9-bin"
+set "DIST_ROOT=%USERPROFILE%\.gradle\wrapper\dists\gradle-9.1.0-bin"
 if exist "%DIST_ROOT%" (
   for /d %%D in ("%DIST_ROOT%\*") do (
-    if exist "%%~fD\gradle-8.9\bin\gradle.bat" (
-      echo Using cached Gradle: %%~fD\gradle-8.9
-      call "%%~fD\gradle-8.9\bin\gradle.bat" %TASK_ARGS%
+    if exist "%%~fD\gradle-9.1.0\bin\gradle.bat" (
+      echo Using cached Gradle: %%~fD\gradle-9.1.0
+      call "%%~fD\gradle-9.1.0\bin\gradle.bat" %TASK_ARGS%
       exit /b %ERRORLEVEL%
     )
   )
