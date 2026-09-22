@@ -81,6 +81,9 @@ class RuntimeController extends ChangeNotifier {
   };
 
   Future<void> _adoptLocalToken(String token) async {
+    // A remote runtime hides its token from runtimeState for security. Keep
+    // the locally configured token so the next request remains authenticated.
+    if (token.isEmpty && !api.isLocalEndpoint) return;
     if (token == api.authToken) return;
     api.authToken = token;
     if (token.isEmpty) {

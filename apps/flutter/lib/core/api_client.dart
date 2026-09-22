@@ -33,6 +33,15 @@ class ApiClient {
   String baseUrl;
   String authToken = '';
 
+  /// Whether the control plane is addressed through the local loopback
+  /// interface. Remote runtimes intentionally redact their token from
+  /// `runtimeState`, so callers must not treat an empty response as a token
+  /// deletion when this endpoint is remote.
+  bool get isLocalEndpoint {
+    final host = Uri.tryParse(baseUrl)?.host;
+    return host == '127.0.0.1' || host == 'localhost' || host == '::1';
+  }
+
   /// Keeps an explicitly configured remote host while following a runtime
   /// port change reported by the backend.
   void syncPort(int port) {
