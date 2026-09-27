@@ -228,6 +228,28 @@ class AndroidTools(
                 require(percent in 0..100) { "percent must be between 0 and 100." }
                 val target = Math.round(max * percent / 100f).coerceIn(0, max)
                 manager.setStreamVolume(stream, target, flags)
+
+                // setStreamVolume silently does nothing in some states on the
+                // test device: measured, it works right after the runtime
+                // starts and then stops taking effect, while adjustStreamVolume
+                // keeps working throughout (that is the path the volume keys
+                // use, so it is treated as user intent). Verify, then walk to
+                // the target with the primitive that does work, so "set the
+                // volume to 70%" cannot quietly become a no-op.
+                if (manager.getStreamVolume(stream) != target) {
+                    var steps = 0
+                    while (steps <= max) {
+                        val now = manager.getStreamVolume(stream)
+                        if (now == target) break
+                        manager.adjustStreamVolume(
+                            stream,
+                            if (now < target) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
+                            0,
+                        )
+                        if (manager.getStreamVolume(stream) == now) break
+                        steps += 1
+                    }
+                }
             }
             else -> throw IllegalArgumentException("Unsupported action: $action (use up, down or set).")
         }
