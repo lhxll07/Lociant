@@ -153,6 +153,29 @@ class AndroidTools(
                 .put("stream", stringParam("music (default) | ring | alarm | call | notification | system.")),
             policy = actionPolicy,
         ) { args -> audioSetVolume(args) },
+        // A curated set, not a generic writer. "Set any system setting" would be
+        // a tool that can switch off security settings and brick the phone, and
+        // an elder-facing agent must not hold one. These are the settings an
+        // elder actually asks for, each reversible, each validated and clamped.
+        tool(
+            name = "settings_list",
+            description = "List the system settings this device allows changing, with their " +
+                "current values. Call this before changing one so the reply can state the " +
+                "old value and so an unavailable setting is discovered rather than assumed.",
+        ) { settingsList() },
+        tool(
+            name = "settings_set",
+            description = "Change one of the elder-relevant system settings in a single call: " +
+                "font_scale (value = percent of the default size, 100 is default), " +
+                "screen_off_timeout (value = seconds before the screen sleeps), " +
+                "auto_rotate (value = 1 to let the screen rotate, 0 to keep it fixed). " +
+                "Screen brightness has its own tool because its scale differs per device. " +
+                "Returns the value actually applied.",
+            properties = JSONObject()
+                .put("name", stringParam("font_scale | screen_off_timeout | auto_rotate"))
+                .put("value", numberParam("New value; the unit depends on the setting, see the description.")),
+            policy = actionPolicy,
+        ) { args -> settingsSet(args) },
         tool(
             name = "display_get_brightness",
             description = "Read screen brightness, whether it is on automatic, and whether this " +
@@ -280,6 +303,120 @@ class AndroidTools(
             .put("level", level)
             .put("automatic", mode == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
             .put("canWrite", Settings.System.canWrite(context))
+    }
+
+    // ------------------------------------------------------- system settings
+
+    private enum class SettingUnit { PERCENT_OF_DEFAULT, SECONDS, SWITCH }
+
+    private data class NamedSetting(
+        val name: String,
+        val key: String,
+        val unit: SettingUnit,
+        val minimum: Double,
+        val maximum: Double,
+        val label: String,
+    )
+
+    private val namedSettings = listOf(
+        NamedSetting(
+            "font_scale", Settings.System.FONT_SCALE, SettingUnit.PERCENT_OF_DEFAULT,
+            85.0, 200.0, "字体大小（相对默认的百分比，100 为默认）",
+        ),
+        NamedSetting(
+            "screen_off_timeout", Settings.System.SCREEN_OFF_TIMEOUT, SettingUnit.SECONDS,
+            15.0, 1800.0, "自动息屏时间（秒）",
+        ),
+        NamedSetting(
+            "auto_rotate", Settings.System.ACCELEROMETER_ROTATION, SettingUnit.SWITCH,
+            0.0, 1.0, "屏幕是否随手机转动（1 允许，0 固定）",
+        ),
+    )
+
+    private fun settingByName(raw: String?): NamedSetting? =
+        namedSettings.firstOrNull { it.name == raw?.trim()?.lowercase() }
+
+    private fun readSetting(setting: NamedSetting): JSONObject {
+        val resolver = context.contentResolver
+        return when (setting.unit) {
+            SettingUnit.PERCENT_OF_DEFAULT -> {
+                val scale = Settings.System.getFloat(resolver, setting.key, 1.0f)
+                JSONObject()
+                    .put("name", setting.name)
+                    .put("label", setting.label)
+                    .put("value", Math.round(scale * 100))
+                    .put("unit", "percent")
+                    .put("raw", scale.toDouble())
+            }
+
+            SettingUnit.SECONDS -> {
+                val ms = Settings.System.getInt(resolver, setting.key, 30_000)
+                JSONObject()
+                    .put("name", setting.name)
+                    .put("label", setting.label)
+                    .put("value", ms / 1000)
+                    .put("unit", "seconds")
+                    .put("raw", ms)
+            }
+
+            SettingUnit.SWITCH -> JSONObject()
+                .put("name", setting.name)
+                .put("label", setting.label)
+                .put("value", Settings.System.getInt(resolver, setting.key, 1))
+                .put("unit", "1/0")
+        }
+    }
+
+    private fun settingsList(): JSONObject {
+        val items = org.json.JSONArray()
+        namedSettings.forEach { items.put(readSetting(it)) }
+        return JSONObject()
+            .put("ok", true)
+            .put("canWrite", Settings.System.canWrite(context))
+            .put("settings", items)
+    }
+
+    private fun settingsSet(args: JSONObject): JSONObject {
+        if (!Settings.System.canWrite(context)) {
+            throw IllegalStateException(
+                "Not allowed to change system settings yet. Grant it once by hand: " +
+                    "Settings > Apps > Lociant > Special access > Modify system settings."
+            )
+        }
+        val setting = settingByName(args.optString("name"))
+            ?: throw IllegalArgumentException(
+                "Unknown setting. Allowed: " + namedSettings.joinToString(", ") { it.name }
+            )
+        require(args.has("value")) { "value is required." }
+        val requested = args.optDouble("value", Double.NaN)
+        require(!requested.isNaN()) { "value must be a number." }
+        require(requested in setting.minimum..setting.maximum) {
+            "value must be between ${setting.minimum.toInt()} and ${setting.maximum.toInt()} " +
+                "for ${setting.name}."
+        }
+
+        val before = readSetting(setting)
+        val resolver = context.contentResolver
+        when (setting.unit) {
+            SettingUnit.PERCENT_OF_DEFAULT ->
+                Settings.System.putFloat(resolver, setting.key, (requested / 100.0).toFloat())
+
+            SettingUnit.SECONDS ->
+                Settings.System.putInt(resolver, setting.key, (requested * 1000).toInt())
+
+            SettingUnit.SWITCH ->
+                Settings.System.putInt(resolver, setting.key, if (requested >= 0.5) 1 else 0)
+        }
+
+        val after = readSetting(setting)
+        return JSONObject()
+            .put("ok", true)
+            .put("name", setting.name)
+            .put("label", setting.label)
+            .put("before", before.opt("value"))
+            .put("value", after.opt("value"))
+            .put("unit", after.opt("unit"))
+            .put("changed", before.opt("value") != after.opt("value"))
     }
 
     private fun displaySetBrightness(args: JSONObject): JSONObject {
