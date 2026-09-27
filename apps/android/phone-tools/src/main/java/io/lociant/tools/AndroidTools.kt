@@ -2,6 +2,7 @@ package io.lociant.tools
 
 import android.Manifest
 import android.app.KeyguardManager
+import android.media.AudioManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -128,7 +129,172 @@ class AndroidTools(
         globalActionTool("ui_recent_apps", "Open the Android recent apps overview.", "recent_apps") { it.pressRecentApps() },
         globalActionTool("ui_notifications", "Open the Android notification shade.", "notifications") { it.openNotifications() },
         globalActionTool("ui_quick_settings", "Open Android quick settings.", "quick_settings") { it.openQuickSettings() },
+
+        // Volume and brightness are not key events. Android exposes them as
+        // APIs, and the accessibility global actions above cannot express them
+        // (that fixed set is back / home / recents / notifications / quick
+        // settings). Without these, "the sound is too quiet" costs the agent a
+        // walk through Settings: measured at six steps, fifteen seconds, and
+        // one failure in three. One call replaces that walk.
+        tool(
+            name = "audio_get_volume",
+            description = "Read the current volume of an audio stream, with its maximum and " +
+                "percentage. Use before changing it so the change can be reported accurately.",
+        ) { audioGetVolume(it) },
+        tool(
+            name = "audio_set_volume",
+            description = "Change the media volume without navigating Settings. Prefer " +
+                "action=set with a sensible percent when the user says the sound is too " +
+                "quiet or too loud (70 is a comfortable level; 0 mutes). Use up/down for " +
+                "'a bit louder'. Returns the resulting level so the reply can state it.",
+            properties = JSONObject()
+                .put("action", stringParam("up | down | set. Default up."))
+                .put("percent", intParam("Target volume 0-100. Required when action=set."))
+                .put("stream", stringParam("music (default) | ring | alarm | call | notification | system.")),
+            policy = actionPolicy,
+        ) { args -> audioSetVolume(args) },
+        tool(
+            name = "display_get_brightness",
+            description = "Read screen brightness, whether it is on automatic, and whether this " +
+                "app is allowed to change it.",
+        ) { displayGetBrightness() },
+        tool(
+            name = "display_set_brightness",
+            description = "Make the screen darker or brighter in one call, switching off automatic " +
+                "brightness first (automatic mode silently discards a manual value, which is why " +
+                "doing this by hand takes several steps). Relative on purpose: brightness scales " +
+                "differ between devices — measured on the test phone, the same setting reads 400 " +
+                "to the system and 25 to an app — so an absolute percentage would risk a black " +
+                "screen wherever the range differs.",
+            properties = JSONObject()
+                .put("action", stringParam("darker | brighter. Default darker."))
+                .put("step", intParam("How far to move, as a percentage of the current level. Default 30.")),
+            policy = actionPolicy,
+        ) { args -> displaySetBrightness(args) },
     )
+
+    // ---------------------------------------------------------------- volume
+
+    private fun streamOf(requested: String?): Triple<Int, String, String?> {
+        val name = requested?.trim()?.lowercase().orEmpty()
+        return when (name) {
+            "", "music", "media" -> Triple(AudioManager.STREAM_MUSIC, "music", null)
+            "ring", "ringtone" -> Triple(AudioManager.STREAM_RING, "ring", null)
+            "alarm" -> Triple(AudioManager.STREAM_ALARM, "alarm", null)
+            "call", "voice" -> Triple(AudioManager.STREAM_VOICE_CALL, "call", null)
+            "notification" -> Triple(AudioManager.STREAM_NOTIFICATION, "notification", null)
+            "system" -> Triple(AudioManager.STREAM_SYSTEM, "system", null)
+            else -> Triple(-1, name, "Unknown audio stream: $name")
+        }
+    }
+
+    private fun percentOf(level: Int, max: Int): Int = if (max > 0) level * 100 / max else 0
+
+    private fun audioGetVolume(args: JSONObject): JSONObject {
+        val manager = context.getSystemService(AudioManager::class.java)
+            ?: throw IllegalStateException("AudioManager unavailable on this device.")
+        val (stream, label, problem) = streamOf(args.optString("stream").ifBlank { null })
+        problem?.let { throw IllegalArgumentException(it) }
+        val max = manager.getStreamMaxVolume(stream)
+        val level = manager.getStreamVolume(stream)
+        return JSONObject()
+            .put("ok", true)
+            .put("stream", label)
+            .put("level", level)
+            .put("max", max)
+            .put("percent", percentOf(level, max))
+            .put("muted", level == 0)
+    }
+
+    private fun audioSetVolume(args: JSONObject): JSONObject {
+        val manager = context.getSystemService(AudioManager::class.java)
+            ?: throw IllegalStateException("AudioManager unavailable on this device.")
+        val (stream, label, problem) = streamOf(args.optString("stream").ifBlank { null })
+        problem?.let { throw IllegalArgumentException(it) }
+
+        val action = args.optString("action").trim().lowercase().ifBlank { "up" }
+        val max = manager.getStreamMaxVolume(stream)
+        val before = manager.getStreamVolume(stream)
+        val flags = AudioManager.FLAG_SHOW_UI
+
+        when (action) {
+            "up", "raise", "louder" ->
+                manager.adjustStreamVolume(stream, AudioManager.ADJUST_RAISE, flags)
+            "down", "lower", "quieter" ->
+                manager.adjustStreamVolume(stream, AudioManager.ADJUST_LOWER, flags)
+            "set" -> {
+                require(args.has("percent")) { "action=set requires percent (0-100)." }
+                val percent = args.optInt("percent", -1)
+                require(percent in 0..100) { "percent must be between 0 and 100." }
+                val target = Math.round(max * percent / 100f).coerceIn(0, max)
+                manager.setStreamVolume(stream, target, flags)
+            }
+            else -> throw IllegalArgumentException("Unsupported action: $action (use up, down or set).")
+        }
+
+        val after = manager.getStreamVolume(stream)
+        return JSONObject()
+            .put("ok", true)
+            .put("stream", label)
+            .put("action", action)
+            .put("level", after)
+            .put("max", max)
+            .put("percent", percentOf(after, max))
+            .put("changed", after != before)
+    }
+
+    // ------------------------------------------------------------ brightness
+
+    private fun displayGetBrightness(): JSONObject {
+        val resolver = context.contentResolver
+        val mode = Settings.System.getInt(
+            resolver,
+            Settings.System.SCREEN_BRIGHTNESS_MODE,
+            Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
+        )
+        val level = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 0)
+        return JSONObject()
+            .put("ok", true)
+            .put("level", level)
+            .put("automatic", mode == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC)
+            .put("canWrite", Settings.System.canWrite(context))
+    }
+
+    private fun displaySetBrightness(args: JSONObject): JSONObject {
+        if (!Settings.System.canWrite(context)) {
+            throw IllegalStateException(
+                "Not allowed to change system settings yet. Grant it once by hand: " +
+                    "Settings > Apps > Lociant > Special access > Modify system settings. " +
+                    "(adb cannot do it on this build: appops rejects a shell UID.)"
+            )
+        }
+        val action = args.optString("action").trim().lowercase().ifBlank { "darker" }
+        val step = args.optInt("step", 30).coerceIn(5, 90)
+        val resolver = context.contentResolver
+        val current = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 128)
+
+        // Relative to what this device reports, so the write is right whatever
+        // the underlying range is. The scale is never guessed.
+        val factor = if (action == "brighter") 1 + step / 100.0 else 1 - step / 100.0
+        val target = (current * factor).toInt().coerceIn(1, maxOf(1, current * 2))
+
+        // Automatic brightness would silently discard the write, so leaving it
+        // on is not an option: turning it off is part of the one action asked for.
+        Settings.System.putInt(
+            resolver,
+            Settings.System.SCREEN_BRIGHTNESS_MODE,
+            Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL,
+        )
+        val written = Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, target)
+        val after = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, target)
+        return JSONObject()
+            .put("ok", written)
+            .put("action", action)
+            .put("before", current)
+            .put("level", after)
+            .put("moved", after != current)
+            .put("automatic", false)
+    }
 
     private fun globalActionTool(
         name: String,
