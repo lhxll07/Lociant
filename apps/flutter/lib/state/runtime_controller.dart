@@ -27,6 +27,7 @@ class RuntimeController extends ChangeNotifier {
   Timer? _pollTimer;
   StreamSubscription<Map<String, dynamic>>? _subscription;
   bool _refreshing = false;
+  bool _disposed = false;
   final _modelInstallEvents =
       StreamController<Map<String, dynamic>>.broadcast();
 
@@ -39,26 +40,43 @@ class RuntimeController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    if (_refreshing) return;
+    if (_refreshing || _disposed) return;
     _refreshing = true;
     try {
       final next = await platform.call('runtimeState');
-      if (next.isEmpty) return;
+      if (_disposed || next.isEmpty) return;
       final parsed = RuntimeUiState.fromJson(next);
       await _adoptLocalToken(parsed.authToken);
+      if (_disposed) return;
       if (state == null || _changed(state!, parsed)) {
         state = parsed;
         api.syncPort(parsed.port);
         notifyListeners();
       }
     } catch (error) {
+      if (_disposed) return;
       debugPrint('runtime refresh failed: $error');
+      // Keep the last configuration available for recovery, but never leave
+      // the UI reporting an unreachable runtime or model as ready.
+      final offline = RuntimeUiState.fromJson({
+        ...?state?.raw,
+        'running': false,
+        'starting': false,
+        'modelLoaded': false,
+        'modelLoading': false,
+        'lastError': error.toString(),
+      });
+      if (state == null || _changed(state!, offline)) {
+        state = offline;
+        notifyListeners();
+      }
     } finally {
       _refreshing = false;
     }
   }
 
   void _onEvent(Map<String, dynamic> envelope) {
+    if (_disposed) return;
     final type = envelope['type'];
     final payload = envelope['payload'];
     if (payload is! Map) return;
@@ -159,6 +177,7 @@ class RuntimeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _pollTimer?.cancel();
     _subscription?.cancel();
     _modelInstallEvents.close();
