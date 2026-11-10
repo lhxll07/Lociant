@@ -181,7 +181,8 @@ fn request_host_name(value: &str) -> Option<String> {
     if value.is_empty() {
         return None;
     }
-    if let Some(end) = value.strip_prefix('[').and_then(|value| value.find(']')) {
+    if value.starts_with('[') {
+        let end = value.find(']')?;
         return Some(value[..=end].to_owned());
     }
     if let Some((host, port)) = value.rsplit_once(':') {
@@ -275,6 +276,58 @@ fn persist_manual_peers(state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn request_host_preserves_ipv6_brackets() {
+        for (header, expected) in [
+            ("[::1]", "[::1]"),
+            ("[::1]:11434", "[::1]"),
+            ("[2001:db8::2]:11434", "[2001:db8::2]"),
+        ] {
+            assert_eq!(
+                request_host_name(header).as_deref(),
+                Some(expected),
+                "Host: {header}"
+            );
+        }
+    }
+
+    #[test]
+    fn incomplete_ipv6_request_host_uses_loopback_fallback() {
+        assert_eq!(request_host_name("[::1:11434"), None);
+        assert_eq!(
+            local_display_host(&json!({ "host": "::" }), Some("[::1:11434")),
+            "[::1]"
+        );
+    }
+
+    #[test]
+    fn resolves_homepage_using_ipv6_request_host() {
+        let settings = json!({ "host": "::" });
+        let host = local_display_host(&settings, Some("[2001:db8::2]:11434"));
+        assert_eq!(
+            homepage_for_node(
+                Some(&json!({ "port": 11436, "path": "/dashboard" })),
+                &host,
+                11434,
+            ),
+            Some(json!({
+                "title": "Homepage",
+                "url": "http://[2001:db8::2]:11436/dashboard"
+            }))
+        );
+    }
+
+    #[test]
+    fn request_host_strips_ipv4_and_hostname_ports() {
+        for (header, expected) in [
+            ("192.168.10.103:11434", "192.168.10.103"),
+            ("board.local:11434", "board.local"),
+            ("board.local", "board.local"),
+        ] {
+            assert_eq!(request_host_name(header).as_deref(), Some(expected));
+        }
+    }
 
     #[test]
     fn resolves_generic_homepage_against_discovered_host() {
