@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -36,6 +37,60 @@ void main() {
     );
     await server.close(force: true);
   });
+
+  for (final stallDuringBody in [false, true]) {
+    final phase = stallDuringBody ? 'response body' : 'response headers';
+    test('ApiClient times out stalled $phase and remains usable', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      var receivedRequest = false;
+      var flushedPartialBody = false;
+      server.listen((request) async {
+        if (request.uri.path == '/stalled') {
+          receivedRequest = true;
+          if (stallDuringBody) {
+            request.response
+              ..headers.contentType = ContentType.json
+              ..write('{"running":');
+            await request.response.flush();
+            flushedPartialBody = true;
+          }
+          return;
+        }
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({'running': true, 'deviceName': '边缘设备'}));
+        await request.response.close();
+      });
+
+      const requestTimeout = Duration(milliseconds: 250);
+      // A timed-out request must release the only connection slot before the
+      // next request can complete. Merely timing out its Future is not enough.
+      final transport = HttpClient()..maxConnectionsPerHost = 1;
+      final api = HttpOverrides.runZoned(
+        () => ApiClient(
+          baseUrl: 'http://127.0.0.1:${server.port}',
+          requestTimeout: requestTimeout,
+        ),
+        createHttpClient: (_) => transport,
+      );
+      addTearDown(api.client.close);
+
+      await expectLater(
+        api.get('/stalled').timeout(const Duration(seconds: 3)),
+        throwsA(
+          isA<TimeoutException>().having(
+            (error) => error.duration,
+            'duration',
+            requestTimeout,
+          ),
+        ),
+      );
+      expect(receivedRequest, isTrue);
+      expect(flushedPartialBody, stallDuringBody);
+      expect(await api.get('/ready'), {'running': true, 'deviceName': '边缘设备'});
+    });
+  }
 
   test('HttpPlatformService maps methods to control-plane resources', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

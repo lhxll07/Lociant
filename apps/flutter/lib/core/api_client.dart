@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -19,7 +20,10 @@ class ApiException implements Exception {
 /// is running and when it is
 /// not.
 class ApiClient {
-  ApiClient({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
+  ApiClient({
+    String? baseUrl,
+    this.requestTimeout = const Duration(seconds: 30),
+  }) : baseUrl = baseUrl ?? defaultBaseUrl;
 
   /// Local server by default; override with
   /// `--dart-define=LOCIANT_BASE_URL=http://host:port` to point the UI at a
@@ -30,6 +34,9 @@ class ApiClient {
   );
 
   final http.Client client = http.Client();
+
+  /// Time allowed for sending the request and reading its entire response.
+  final Duration requestTimeout;
   String baseUrl;
   String authToken = '';
 
@@ -72,13 +79,30 @@ class ApiClient {
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
   Future<dynamic> _send(String method, String path, [Object? body]) async {
-    final request = http.Request(method, _uri(path));
+    final abort = Completer<void>();
+    final request = http.AbortableRequest(
+      method,
+      _uri(path),
+      abortTrigger: abort.future,
+    );
     request.headers.addAll(_headers(json: body != null));
     if (body != null) request.body = jsonEncode(body);
+    // Headers alone do not complete the request. Cancel a stalled transfer so
+    // runtime polling can recover without keeping abandoned streams alive.
     final response = await client
         .send(request)
-        .timeout(const Duration(seconds: 30));
-    final text = await response.stream.bytesToString();
+        .then(http.Response.fromStream)
+        .timeout(
+          requestTimeout,
+          onTimeout: () {
+            abort.complete();
+            throw TimeoutException(
+              '$path: API request timed out',
+              requestTimeout,
+            );
+          },
+        );
+    final text = utf8.decode(response.bodyBytes);
     dynamic json;
     if (text.isNotEmpty) {
       try {
