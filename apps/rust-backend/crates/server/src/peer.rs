@@ -11,7 +11,10 @@ use crate::error::{Problem, RequireAuth, RequirePeerAuth};
 use crate::models::collect_local_models;
 use crate::state::AppState;
 
-pub async fn list_peer_tools(State(state): State<AppState>, _: RequirePeerAuth) -> Json<Value> {
+pub async fn list_peer_tools(
+    State(state): State<AppState>,
+    _: RequirePeerAuth,
+) -> Result<Json<Value>, Problem> {
     let exposure = state
         .settings_snapshot()
         .get("toolExposure")
@@ -20,7 +23,12 @@ pub async fn list_peer_tools(State(state): State<AppState>, _: RequirePeerAuth) 
         .to_owned();
     // The peer plane serves this node's own tools only; aggregating peer
     // adapters here would make sibling nodes recurse into each other.
-    Json(json!({ "data": state.tools.local_visible(&exposure) }))
+    // Local adapters can wait on device IPC, just like the control plane.
+    let registry = state.tools.clone();
+    let tools = tokio::task::spawn_blocking(move || registry.local_visible(&exposure))
+        .await
+        .map_err(|error| Problem::internal(error.to_string()))?;
+    Ok(Json(json!({ "data": tools })))
 }
 
 pub async fn call_peer_tool(
@@ -36,10 +44,13 @@ pub async fn call_peer_tool(
         .and_then(Value::as_str)
         .unwrap_or("action")
         .to_owned();
-    match state
-        .tools
-        .call_remote_local(&tool_name, arguments, &exposure)
-    {
+    let registry = state.tools.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        registry.call_remote_local(&tool_name, arguments, &exposure)
+    })
+    .await
+    .map_err(|error| Problem::internal(error.to_string()))?;
+    match result {
         Ok(result) => Ok(Json(json!({ "data": result }))),
         Err(error) => Err(Problem::bad_request(
             error.to_string(),
@@ -48,8 +59,14 @@ pub async fn call_peer_tool(
     }
 }
 
-pub async fn list_peer_models(State(state): State<AppState>, _: RequirePeerAuth) -> Json<Value> {
-    Json(json!({ "models": collect_local_models(&state) }))
+pub async fn list_peer_models(
+    State(state): State<AppState>,
+    _: RequirePeerAuth,
+) -> Result<Json<Value>, Problem> {
+    let models = tokio::task::spawn_blocking(move || collect_local_models(&state))
+        .await
+        .map_err(|error| Problem::internal(error.to_string()))?;
+    Ok(Json(json!({ "models": models })))
 }
 
 /// `/api/v1/nodes` — this node plus every discovered peer, for the UI.
@@ -276,6 +293,149 @@ fn persist_manual_peers(state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::Duration;
+
+    use axum::response::IntoResponse;
+    use lociant_store::Store;
+    use lociant_tools::ToolRegistry;
+
+    use crate::device::IpcDeviceAdapter;
+
+    async fn assert_peer_device_request_yields(method: &'static str) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (started, observed) = tokio::sync::oneshot::channel();
+        let (resume, released) = mpsc::channel();
+        let device_thread = std::thread::spawn(move || {
+            let mut started = Some(started);
+            let mut responsive = false;
+            let requests = if method == "tools.call" { 2 } else { 1 };
+            for _ in 0..requests {
+                let (stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                let request: Value = serde_json::from_str(&line).unwrap();
+                if request["method"] == method {
+                    started.take().unwrap().send(()).unwrap();
+                    // The async task below must run while the device waits.
+                    // A bounded wait makes the old blocking handler fail
+                    // without deadlocking the test runtime.
+                    responsive = released.recv_timeout(Duration::from_secs(2)).is_ok();
+                }
+                let response = match request["method"].as_str().unwrap() {
+                    "tools.list" => json!({
+                        "ok": true,
+                        "tools": [{
+                            "function": { "name": "runtime_status" },
+                            "x_policy": { "remoteAllowed": true }
+                        }]
+                    }),
+                    "tools.call" => json!({
+                        "ok": true,
+                        "result": { "content": "device ready", "arguments": request["arguments"] }
+                    }),
+                    "models.list" => json!({
+                        "ok": true,
+                        "models": [{ "id": "device-model", "runtime": "llama" }]
+                    }),
+                    unexpected => panic!("unexpected IPC method: {unexpected}"),
+                };
+                writeln!(reader.get_mut(), "{response}").unwrap();
+            }
+            responsive
+        });
+
+        let data_dir =
+            std::env::temp_dir().join(format!("lociant-peer-test-{}-{port}", std::process::id()));
+        let device = Arc::new(IpcDeviceAdapter {
+            port,
+            token: String::new(),
+        });
+        let state = AppState {
+            store: Store::open(&data_dir).unwrap(),
+            settings: Arc::new(Mutex::new(json!({ "toolExposure": "read" }))),
+            port: 11434,
+            download_http: reqwest::Client::new(),
+            tools: Arc::new(ToolRegistry::new(Box::new(IpcDeviceAdapter {
+                port,
+                token: String::new(),
+            }))),
+            device: Some(device),
+            catalog: Arc::new(Vec::new()),
+            models_dir: data_dir.clone(),
+            installs: Arc::new(Mutex::new(HashMap::new())),
+            rkllm: None,
+            llama: None,
+            peers: None,
+            tools_cache: Arc::new(Mutex::new(HashMap::new())),
+        };
+        let request = async {
+            match method {
+                "tools.list" => list_peer_tools(State(state.clone()), RequirePeerAuth)
+                    .await
+                    .into_response(),
+                "tools.call" => call_peer_tool(
+                    State(state.clone()),
+                    RequirePeerAuth,
+                    Path("runtime_status".to_owned()),
+                    Json(json!({ "arguments": { "value": 7 } })),
+                )
+                .await
+                .into_response(),
+                "models.list" => list_peer_models(State(state.clone()), RequirePeerAuth)
+                    .await
+                    .into_response(),
+                _ => unreachable!(),
+            }
+        };
+        let async_progress = async {
+            observed.await.unwrap();
+            let _ = resume.send(());
+        };
+        let (response, ()) = tokio::join!(request, async_progress);
+        let responsive = device_thread.join().unwrap();
+        drop(state);
+        std::fs::remove_dir_all(data_dir).unwrap();
+
+        assert!(responsive, "{method} blocked unrelated async work");
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        match method {
+            "tools.list" => assert_eq!(body["data"][0]["name"], "runtime_status"),
+            "tools.call" => {
+                assert_eq!(body["data"]["ok"], true);
+                assert_eq!(body["data"]["structured"]["arguments"]["value"], 7);
+            }
+            "models.list" => assert_eq!(body["models"][0]["id"], "device-model"),
+            _ => unreachable!(),
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn peer_tool_listing_yields_while_device_waits() {
+        assert_peer_device_request_yields("tools.list").await;
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn peer_tool_call_yields_while_device_waits() {
+        assert_peer_device_request_yields("tools.call").await;
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn peer_model_listing_yields_while_device_waits() {
+        assert_peer_device_request_yields("models.list").await;
+    }
 
     #[test]
     fn request_host_preserves_ipv6_brackets() {
