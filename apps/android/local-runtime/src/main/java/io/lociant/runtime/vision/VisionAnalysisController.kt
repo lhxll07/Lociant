@@ -43,7 +43,6 @@ class VisionAnalysisController(
     private var fps = 0.0
     private var lastSampleFrame = 0L
     private var lastSampleMs = 0L
-    private var lastPublishMs = 0L
     private var lastInferMs = 0L
     private var lastPreviewMs = 0L
     private var lastPreviewBase64: String? = null
@@ -55,14 +54,13 @@ class VisionAnalysisController(
     private var lastPreviewSourceWidth = 0
     private var lastPreviewSourceHeight = 0
     private var onState: (JSONObject) -> Unit = {}
-    private var onFrame: (JSONObject) -> Unit = {}
 
-    fun setCallbacks(onState: (JSONObject) -> Unit, onFrame: (JSONObject) -> Unit) {
-        this.onState = onState; this.onFrame = onFrame
+    fun setCallbacks(onState: (JSONObject) -> Unit) {
+        this.onState = onState
     }
 
     private fun copyInferenceFrame(image: ImageProxy) {
-        if (!modelState.optBoolean("ok", false)) return
+        if (!modelState.optBoolean("ok", false) || inferenceFrame.get() != null) return
         val model = modelSpec
         val threshold = config.confidenceThreshold
         val yPlane = image.planes[0]; val uPlane = image.planes[1]; val vPlane = image.planes[2]
@@ -161,7 +159,7 @@ class VisionAnalysisController(
                     .build()
                     .apply {
                         setAnalyzer(analyzerExecutor) { image ->
-                            handleImage(image, onFrame)
+                            handleImage(image)
                         }
                     }
 
@@ -227,7 +225,7 @@ class VisionAnalysisController(
         }
     }
 
-    private fun handleImage(image: ImageProxy, onFrame: (JSONObject) -> Unit) {
+    private fun handleImage(image: ImageProxy) {
         try {
             val nowMs = SystemClock.elapsedRealtime()
             frameCount += 1
@@ -241,46 +239,20 @@ class VisionAnalysisController(
                 lastSampleMs = nowMs
             }
 
-            if (nowMs - lastPublishMs >= publishIntervalMs()) {
-                lastPublishMs = nowMs
-
-                if (nowMs - lastPreviewMs >= config.previewIntervalMs) {
-                    lastPreviewMs = nowMs
-                    lastPreviewBytes = runCatching { YuvPreviewEncoder.encodeJpegBytes(image) }.getOrNull()
-                    lastPreviewBase64 = lastPreviewBytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
-                    if (lastPreviewBytes != null) {
-                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                        BitmapFactory.decodeByteArray(lastPreviewBytes, 0, lastPreviewBytes?.size ?: 0, bounds)
-                        lastPreviewWidth = bounds.outWidth.takeIf { it > 0 } ?: image.width
-                        lastPreviewHeight = bounds.outHeight.takeIf { it > 0 } ?: image.height
-                        lastPreviewSourceWidth = image.width
-                        lastPreviewSourceHeight = image.height
-                        lastPreviewRotation = image.imageInfo.rotationDegrees
-                        lastPreviewTimestamp = image.imageInfo.timestamp
-                    }
+            if (nowMs - lastPreviewMs >= config.previewIntervalMs) {
+                lastPreviewMs = nowMs
+                lastPreviewBytes = runCatching { YuvPreviewEncoder.encodeJpegBytes(image) }.getOrNull()
+                lastPreviewBase64 = lastPreviewBytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+                if (lastPreviewBytes != null) {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(lastPreviewBytes, 0, lastPreviewBytes?.size ?: 0, bounds)
+                    lastPreviewWidth = bounds.outWidth.takeIf { it > 0 } ?: image.width
+                    lastPreviewHeight = bounds.outHeight.takeIf { it > 0 } ?: image.height
+                    lastPreviewSourceWidth = image.width
+                    lastPreviewSourceHeight = image.height
+                    lastPreviewRotation = image.imageInfo.rotationDegrees
+                    lastPreviewTimestamp = image.imageInfo.timestamp
                 }
-
-                onFrame(
-                    JSONObject()
-                        .put("state", state.value)
-                        .put("frameCount", frameCount)
-                        .put("width", image.width)
-                        .put("height", image.height)
-                        .put("rotation", image.imageInfo.rotationDegrees)
-                        .put("timestamp", image.imageInfo.timestamp)
-                        .put("fps", fps)
-                        .put("modelId", config.modelId)
-                        .put("backend", modelState.optString("actualBackend", config.backend.id))
-                        .put("inferenceIntervalMs", config.inferenceIntervalMs)
-                        .put("previewIntervalMs", config.previewIntervalMs)
-                        .put("confidenceThreshold", config.confidenceThreshold)
-                        .put("modelLoaded", modelState.optBoolean("ok", false))
-                        .put("inference", lastDetection)
-                        .put("detections", lastDetection.optJSONArray("detections") ?: JSONArray())
-                        .apply {
-                            lastPreviewBase64?.let { put("preview", "data:image/jpeg;base64,$it") }
-                        }
-                )
             }
         } finally {
             image.close()
@@ -289,11 +261,11 @@ class VisionAnalysisController(
 
     private fun resetStats() {
         val nowMs = SystemClock.elapsedRealtime()
+        inferenceFrame.set(null)
         frameCount = 0L
         fps = 0.0
         lastSampleFrame = 0L
         lastSampleMs = nowMs
-        lastPublishMs = nowMs
         lastInferMs = nowMs
         lastPreviewMs = nowMs
         lastPreviewBase64 = null
@@ -305,10 +277,6 @@ class VisionAnalysisController(
         lastPreviewRotation = 0
         lastPreviewTimestamp = 0L
         lastDetection = JSONObject().put("ok", false).put("detections", JSONArray())
-    }
-
-    private fun publishIntervalMs(): Long {
-        return minOf(config.inferenceIntervalMs, config.previewIntervalMs).coerceIn(16L, 2000L)
     }
 
     companion object {

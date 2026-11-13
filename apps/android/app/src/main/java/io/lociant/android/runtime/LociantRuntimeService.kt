@@ -189,7 +189,6 @@ class LociantRuntimeService : Service(), LifecycleOwner {
                     recordRuntimeEvent("vision.state", payload = state)
                     runtimeWindow().refresh()
                 },
-                onFrame = { runtimeWindow().refresh() },
             )
         }
         visionController?.let { VisionRuntime.attach(it) }
