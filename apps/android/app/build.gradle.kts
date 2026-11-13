@@ -104,7 +104,6 @@ dependencies {
     implementation(project(":local-runtime"))
     implementation(project(":phone-tools"))
     implementation("androidx.activity:activity-ktx:1.10.1")
-    implementation("androidx.webkit:webkit:1.12.1")
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.0")
 }
 
@@ -139,7 +138,10 @@ tasks.register<Exec>("rustServerBinary") {
     inputs.dir(rustBackendDir.resolve("crates"))
     outputs.file(rustServerBinaryOutput)
     // -P 26: bionic getifaddrs 需要 API 24+（mdns/if-addrs 依赖）
-    commandLine("cargo", "ndk", "-t", "arm64-v8a", "-P", "26", "build", "--release")
+    commandLine(
+        "cargo", "ndk", "-t", "arm64-v8a", "-P", "26",
+        "build", "--release", "--locked", "-p", "lociant-server",
+    )
 }
 
 tasks.register<Copy>("rustServerJniLib") {

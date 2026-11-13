@@ -128,7 +128,7 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 endif()
 
 # Bundle the Rust backend as a sidecar so the desktop app is self-contained.
-# Build it first from the repo root: cargo build --release
+# Build it first: (cd apps/rust-backend && cargo build --release -p lociant-server)
 set(LOCIANT_SERVER_BIN "${CMAKE_CURRENT_SOURCE_DIR}/../../rust-backend/target/release/lociant-server")
 if(EXISTS "${LOCIANT_SERVER_BIN}")
   install(PROGRAMS "${LOCIANT_SERVER_BIN}"

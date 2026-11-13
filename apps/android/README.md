@@ -136,7 +136,7 @@ python ../../scripts/lociant_test.py quick \
   --expect-auth
 ```
 
-Native changes additionally require both ABI load tests and 16 KB alignment verification:
+Native changes require an `arm64-v8a` load test and 16 KB alignment verification.
 
 ```bash
 $ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign -c -P 16 4 \
