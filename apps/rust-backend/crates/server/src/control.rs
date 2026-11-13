@@ -77,9 +77,12 @@ pub async fn put_settings(
     State(state): State<AppState>,
     _: RequireAuth,
     Json(patch): Json<Value>,
-) -> Json<Value> {
-    state.merge_settings(&patch);
-    Json(state.public_settings_snapshot())
+) -> Result<Json<Value>, Problem> {
+    let state_for_blocking = state.clone();
+    tokio::task::spawn_blocking(move || state_for_blocking.merge_settings(&patch))
+        .await
+        .map_err(|error| Problem::internal(error.to_string()))?;
+    Ok(Json(state.public_settings_snapshot()))
 }
 
 pub async fn list_tools(State(state): State<AppState>, _: RequireAuth) -> Json<Value> {
@@ -132,5 +135,92 @@ pub async fn call_tool(
         Err(ToolError::Unavailable(message)) => Err(Problem::not_found(message, &instance)),
         Err(ToolError::NotAllowed(message)) => Err(Problem::forbidden(message, &instance)),
         Err(ToolError::Adapter(message)) => Err(Problem::bad_request(message, &instance)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::Duration;
+
+    use crate::device::IpcDeviceAdapter;
+    use lociant_store::Store;
+    use lociant_tools::{NoopDevice, ToolRegistry};
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn settings_update_keeps_executor_responsive_during_device_sync() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (started, observed) = tokio::sync::oneshot::channel();
+        let (resume, released) = mpsc::channel();
+        let device_thread = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            let request: Value = serde_json::from_str(&line).unwrap();
+            started.send(()).unwrap();
+            let responsive = released.recv_timeout(Duration::from_secs(1)).is_ok();
+            writeln!(reader.get_mut(), "{{\"ok\":true}}").unwrap();
+            (responsive, request)
+        });
+
+        let data_dir = std::env::temp_dir().join(format!(
+            "lociant-settings-test-{}-{port}",
+            std::process::id()
+        ));
+        let state = AppState {
+            store: Store::open(&data_dir).unwrap(),
+            settings: Arc::new(Mutex::new(json!({
+                "toolExposure": "action",
+                "authToken": "old-token"
+            }))),
+            port: 11434,
+            download_http: reqwest::Client::new(),
+            tools: Arc::new(ToolRegistry::new(Box::new(NoopDevice))),
+            device: Some(Arc::new(IpcDeviceAdapter {
+                port,
+                token: "device-token".to_owned(),
+            })),
+            catalog: Arc::new(Vec::new()),
+            models_dir: data_dir.clone(),
+            installs: Arc::new(Mutex::new(HashMap::new())),
+            rkllm: None,
+            llama: None,
+            peers: None,
+            tools_cache: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let update = put_settings(
+            State(state.clone()),
+            RequireAuth,
+            Json(json!({
+                "toolExposure": "read",
+                "authToken": "new-token"
+            })),
+        );
+        let unrelated_async_work = async {
+            observed.await.unwrap();
+            let _ = resume.send(());
+        };
+        let (response, ()) = tokio::join!(update, unrelated_async_work);
+        let (responsive, request) = device_thread.join().unwrap();
+        let response = response.unwrap().0;
+        drop(state);
+        std::fs::remove_dir_all(data_dir).unwrap();
+
+        assert!(responsive, "device settings IPC blocked the async executor");
+        assert_eq!(request["method"], "settings.sync");
+        assert_eq!(request["settings"]["toolExposure"], "read");
+        assert_eq!(request["settings"]["authToken"], "new-token");
+        assert_eq!(response["toolExposure"], "read");
+        assert_eq!(response["authToken"], "");
     }
 }
